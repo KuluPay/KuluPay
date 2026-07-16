@@ -1,0 +1,84 @@
+{
+  "name": "@kulupay/kulupay",
+  "version": "0.0.1",
+  "description": "Unified Payment SDK",
+  "author": "YonaniCodes",
+  "license": "MIT",
+  "keywords": ["payment", "stripe", "paypal", "chapa", "crypto", "sdk", "kulupay"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YonaniCodes/kulupay.git",
+    "directory": "packages/kulupay"
+  },
+  "homepage": "https://github.com/YonaniCodes/kulupay#readme",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "dev-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.mjs"
+    },
+    "./api": {
+      "dev-source": "./src/api/index.ts",
+      "types": "./dist/api/index.d.ts",
+      "import": "./dist/api/index.mjs",
+      "require": "./dist/api/index.js",
+      "default": "./dist/api/index.mjs"
+    },
+    "./client": {
+      "dev-source": "./src/client/index.ts",
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.mjs",
+      "require": "./dist/client/index.js",
+      "default": "./dist/client/index.mjs"
+    },
+    "./next-js": {
+      "dev-source": "./src/integrations/next-js.ts",
+      "types": "./dist/integrations/next-js.d.ts",
+      "import": "./dist/integrations/next-js.mjs",
+      "require": "./dist/integrations/next-js.js",
+      "default": "./dist/integrations/next-js.mjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "*": ["./dist/index.d.ts"],
+      "api": ["./dist/api/index.d.ts"],
+      "client": ["./dist/client/index.d.ts"],
+      "next-js": ["./dist/integrations/next-js.d.ts"]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "biome lint src",
+    "test": "vitest run",
+    "prepublishOnly": "tsup"
+  },
+  "dependencies": {
+    "@kulupay/core": "workspace:*",
+    "@stripe/stripe-js": "^3.0.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "@types/react": "^18.0.0 || ^19.0.0"
+  }
+}

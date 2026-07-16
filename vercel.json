@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "pnpm --filter kulupay-next-demo build",
+  "installCommand": "pnpm install",
+  "outputDirectory": "demo/next/.next"
+}

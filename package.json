@@ -1,0 +1,23 @@
+{
+  "name": "kulupay-root",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Unified Payment SDK Monorepo",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "format": "biome format . --write",
+    "release": "turbo build --filter=./packages/* && pnpm -r publish --access public --no-git-checks"
+  },
+  "devDependencies": {
+    "turbo": "latest",
+    "typescript": "^5.0.0",
+    "vitest": "latest",
+    "@biomejs/biome": "latest",
+    "better-call": "latest",
+    "tsx": "latest"
+  },
+  "packageManager": "pnpm@10.28.1"
+}
