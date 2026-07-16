@@ -42,6 +42,13 @@
       "import": "./dist/integrations/next-js.mjs",
       "require": "./dist/integrations/next-js.js",
       "default": "./dist/integrations/next-js.mjs"
+    },
+    "./providers": {
+      "dev-source": "./src/payment-providers/index.ts",
+      "types": "./dist/payment-providers/index.d.ts",
+      "import": "./dist/payment-providers/index.mjs",
+      "require": "./dist/payment-providers/index.js",
+      "default": "./dist/payment-providers/index.mjs"
     }
   },
   "typesVersions": {
@@ -49,7 +56,8 @@
       "*": ["./dist/index.d.ts"],
       "api": ["./dist/api/index.d.ts"],
       "client": ["./dist/client/index.d.ts"],
-      "next-js": ["./dist/integrations/next-js.d.ts"]
+      "next-js": ["./dist/integrations/next-js.d.ts"],
+      "providers": ["./dist/payment-providers/index.d.ts"]
     }
   },
   "files": [
