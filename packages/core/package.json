@@ -1,6 +1,6 @@
 {
   "name": "@kulupay/core",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Core logic for KuluPay SDK",
   "author": "YonaniCodes",
   "license": "MIT",
