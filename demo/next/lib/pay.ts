@@ -28,6 +28,6 @@ const mockProvider: PaymentProvider = {
 export const pay = kuluPay({
   database: process.env.DATABASE_URL || "postgresql://user:pass@localhost:5432/kulupay",
   providers: [mockProvider],
-  baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000/api/pay",
+  baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
   debug: true,
 });

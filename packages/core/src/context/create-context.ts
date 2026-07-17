@@ -13,7 +13,7 @@ export const createKuluPayContext = async (
         }
     }
 
-    const baseURL = typeof options.baseURL === "string" ? options.baseURL : "http://localhost:3000/api/pay";
+    const baseURL = typeof options.baseURL === "string" ? options.baseURL : "http://localhost:3000";
 
     const logger = {
         debug: (message: string, ...args: any[]) => {
