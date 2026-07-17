@@ -1,6 +1,6 @@
 import { KuluPayContext, KuluPayOptions, PaymentProvider, KuluPayORM } from "../types";
 import { createOrm } from "@farming-labs/orm";
-import { kuluPaySchema } from "../db/schema";
+import { getKuluPayTables } from "../db/get-tables";
 
 export const createKuluPayContext = async (
     options: KuluPayOptions
@@ -25,8 +25,9 @@ export const createKuluPayContext = async (
         },
     };
 
+    const schema = getKuluPayTables(options);
     const orm = createOrm({
-        schema: kuluPaySchema,
+        schema,
         driver: options.database,
     }) as KuluPayORM;
 

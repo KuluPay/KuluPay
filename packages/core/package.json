@@ -1,6 +1,6 @@
 {
   "name": "@kulupay/core",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Core logic for KuluPay SDK",
   "author": "YonaniCodes",
   "license": "MIT",
@@ -85,7 +85,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "publishConfig": {
     "access": "public"
@@ -95,6 +97,7 @@
     "dev": "tsup --watch",
     "lint": "biome lint src",
     "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "tsup"
   },
   "dependencies": {

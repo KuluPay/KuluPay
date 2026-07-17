@@ -1,11 +1,70 @@
+/**
+ * The base URL configuration for the KuluPay server.
+ * Can be a static string or a dynamic configuration for multi-tenant setups.
+ */
 export type BaseURLConfig = string | DynamicBaseURLConfig;
 
+/**
+ * Configuration for dynamic base URL resolution (e.g. wildcard subdomains).
+ */
 export interface DynamicBaseURLConfig {
     allowedHosts: string[];
     fallback?: string;
     protocol?: "http" | "https" | "auto";
 }
 
+/**
+ * Supported field types for additional custom fields.
+ */
+export type FieldType = "string" | "number" | "boolean" | "datetime" | "json";
+
+/**
+ * Defines a custom additional field to be merged into a KuluPay table schema.
+ * @example
+ * ```ts
+ * kuluPay({
+ *   payment: {
+ *     additionalFields: {
+ *       description: { type: "string", required: false }
+ *     }
+ *   }
+ * })
+ * ```
+ */
+export interface AdditionalField {
+    type: FieldType;
+    required?: boolean;
+    unique?: boolean;
+    defaultValue?: any;
+    input?: boolean;
+}
+
+/**
+ * Database options for a KuluPay table.
+ * Allows renaming the table, renaming individual columns, and adding custom fields.
+ * @template Keys - The known field names of the table.
+ */
+export type KuluPayDBOptions<Keys extends string = string> = {
+    modelName?: string;
+    fields?: Partial<Record<Exclude<Keys, "id">, string>>;
+    additionalFields?: Record<string, AdditionalField>;
+};
+
+/**
+ * The main configuration options for the KuluPay SDK.
+ * @example
+ * ```ts
+ * const pay = kuluPay({
+ *   database: prisma,
+ *   providers: [stripe({ apiKey: "sk_..." })],
+ *   payment: {
+ *     additionalFields: {
+ *       description: { type: "string", required: false }
+ *     }
+ *   }
+ * });
+ * ```
+ */
 export interface KuluPayOptions {
     database: any; // Farming ORM driver
     providers?: PaymentProvider[];
@@ -13,6 +72,9 @@ export interface KuluPayOptions {
     basePath?: string;
     debug?: boolean;
     plugins?: any[];
+    payment?: KuluPayDBOptions<"id" | "userId" | "amount" | "currency" | "status" | "providerId" | "metadata" | "createdAt" | "updatedAt">;
+    customer?: KuluPayDBOptions<"id" | "userId" | "providerId" | "providerCustomerId" | "createdAt" | "updatedAt">;
+    subscription?: KuluPayDBOptions<"id" | "userId" | "planId" | "status" | "providerSubscriptionId" | "currentPeriodEnd" | "cancelAtPeriodEnd" | "createdAt" | "updatedAt">;
     databaseHooks?: {
         payment?: {
             create?: DatabaseHook<any>;
@@ -25,6 +87,10 @@ export interface KuluPayOptions {
     };
 }
 
+/**
+ * Internal runtime context for KuluPay, created during initialization.
+ * Not intended to be constructed directly by users.
+ */
 export interface KuluPayContext {
     options: KuluPayOptions;
     providers: Map<string, PaymentProvider>;
@@ -38,6 +104,10 @@ export interface KuluPayContext {
     trustedOrigins: string[];
 }
 
+/**
+ * Defines a payment provider integration (e.g. Stripe, PayPal, Chapa).
+ * Implement this interface to add a new payment provider.
+ */
 export interface PaymentProvider {
     id: string;
     createIntent: (data: CreateIntentData) => Promise<PaymentIntent>;
@@ -58,8 +128,14 @@ export interface PaymentProvider {
     };
 }
 
+/**
+ * The status of a payment intent.
+ */
 export type PaymentStatus = "pending" | "processing" | "succeeded" | "failed" | "canceled";
 
+/**
+ * Represents a payment intent created by a provider.
+ */
 export interface PaymentIntent {
     id: string;
     amount: number;
@@ -74,6 +150,9 @@ export interface PaymentIntent {
     raw?: any;
 }
 
+/**
+ * Data required to create a payment intent.
+ */
 export interface CreateIntentData {
     amount: number;
     currency: string;
@@ -85,6 +164,9 @@ export interface CreateIntentData {
     metadata?: Record<string, any>;
 }
 
+/**
+ * Data required to create a customer in a provider.
+ */
 export interface CreateCustomerData {
     userId: string;
     providerId: string;
@@ -93,6 +175,9 @@ export interface CreateCustomerData {
     metadata?: Record<string, any>;
 }
 
+/**
+ * Data required to create a subscription.
+ */
 export interface CreateSubscriptionData {
     userId: string;
     providerId: string;
@@ -102,6 +187,9 @@ export interface CreateSubscriptionData {
     metadata?: Record<string, any>;
 }
 
+/**
+ * A normalized webhook event from a payment provider.
+ */
 export interface WebhookEvent {
     type: string;
     providerId: string;
@@ -110,11 +198,17 @@ export interface WebhookEvent {
     timestamp: Date;
 }
 
+/**
+ * A hook that runs before or after a database operation.
+ */
 export type DatabaseHook<T> = {
     before?: (data: T, ctx: KuluPayContext) => Promise<T | void>;
     after?: (data: T, ctx: KuluPayContext) => Promise<void>;
 };
 
+/**
+ * Represents a customer record.
+ */
 export interface Customer {
     id: string;
     userId: string;
@@ -124,6 +218,9 @@ export interface Customer {
     updatedAt: Date;
 }
 
+/**
+ * Represents a subscription record.
+ */
 export interface Subscription {
     id: string;
     userId: string;
@@ -136,8 +233,15 @@ export interface Subscription {
     updatedAt: Date;
 }
 
+/**
+ * The status of a subscription.
+ */
 export type SubscriptionStatus = "active" | "trialing" | "past_due" | "canceled" | "unpaid" | "incomplete" | "incomplete_expired" | "paused";
 
+/**
+ * The ORM interface used internally by KuluPay for database operations.
+ * Generated from the schema via Farming ORM.
+ */
 export type KuluPayORM = {
     payment: {
         create: (args: { data: any }) => Promise<any>;

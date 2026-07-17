@@ -1,4 +1,3 @@
-import { loadStripe, Stripe } from '@stripe/stripe-js';
 import type { CreateIntentData, PaymentIntent } from "@kulupay/core";
 import { KuluPayError } from "./error";
 
@@ -7,25 +6,44 @@ export interface StripeClientOptions {
     baseURL?: string;
 }
 
+type StripeSDK = Awaited<ReturnType<typeof import('@stripe/stripe-js').loadStripe>>;
+
+let stripeModulePromise: Promise<typeof import('@stripe/stripe-js')> | null = null;
+
+const getStripeModule = async () => {
+    if (!stripeModulePromise) {
+        stripeModulePromise = import('@stripe/stripe-js').catch(() => {
+            throw new KuluPayError(
+                "@stripe/stripe-js not found. Install it with: npm install @stripe/stripe-js",
+                "stripe_sdk_missing"
+            );
+        });
+    }
+    return stripeModulePromise;
+};
+
 /**
  * Stripe React Client using @stripe/stripe-js SDK
  * This provides direct Stripe SDK integration for React applications
  */
 export class StripeReactClient {
-    private stripePromise: Promise<Stripe | null>;
+    private stripePromise: Promise<StripeSDK> | null = null;
     private publishableKey: string;
     private baseURL?: string;
 
     constructor(options: StripeClientOptions) {
         this.publishableKey = options.publishableKey;
         this.baseURL = options.baseURL;
-        this.stripePromise = loadStripe(this.publishableKey);
     }
 
     /**
      * Get the Stripe instance
      */
-    async getStripe(): Promise<Stripe | null> {
+    async getStripe(): Promise<StripeSDK> {
+        if (!this.stripePromise) {
+            const mod = await getStripeModule();
+            this.stripePromise = mod.loadStripe(this.publishableKey);
+        }
         return await this.stripePromise;
     }
 

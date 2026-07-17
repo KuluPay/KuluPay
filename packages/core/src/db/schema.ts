@@ -1,5 +1,10 @@
 import { defineSchema, model, id, string, decimal, datetime, boolean, json } from "@farming-labs/orm";
 
+/**
+ * The static base schema for KuluPay.
+ * Contains the default fields for payment, customer, and subscription tables.
+ * For dynamic schema generation with custom fields, use `getKuluPayTables()` instead.
+ */
 export const kuluPaySchema = defineSchema({
     payment: model({
         table: "payment",
