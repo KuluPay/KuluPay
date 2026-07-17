@@ -5,10 +5,10 @@
   "type": "module",
   "license": "MIT",
   "author": "YonaniCodes",
-  "homepage": "https://github.com/YonaniCodes/kulupay#readme",
+  "homepage": "https://github.com/KuluPay/KuluPay#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YonaniCodes/kulupay.git",
+    "url": "git+https://github.com/KuluPay/KuluPay.git",
     "directory": "packages/cli"
   },
   "keywords": [

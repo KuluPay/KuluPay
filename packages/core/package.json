@@ -7,10 +7,10 @@
   "keywords": ["payment", "stripe", "paypal", "chapa", "crypto", "sdk", "kulupay"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YonaniCodes/kulupay.git",
+    "url": "git+https://github.com/KuluPay/KuluPay.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/YonaniCodes/kulupay#readme",
+  "homepage": "https://github.com/KuluPay/KuluPay#readme",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
