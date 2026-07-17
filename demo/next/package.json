@@ -11,14 +11,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@kulupay/kulupay": "workspace:*",
     "@farming-labs/orm": "latest",
+    "@farming-labs/orm-sql": "^0.0.62",
+    "@kulupay/kulupay": "workspace:*",
     "next": "16.2.0",
+    "pg": "^8.22.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "typescript": "^5.9.3"

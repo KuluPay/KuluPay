@@ -1,6 +1,6 @@
 {
   "name": "@kulupay/core",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Core logic for KuluPay SDK",
   "author": "YonaniCodes",
   "license": "MIT",
@@ -110,6 +110,14 @@
     "stripe": "^20.0.0",
     "@paypal/paypal-js": "^7.0.0",
     "viem": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@farming-labs/orm-sql": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "tsup": "^8.0.0"

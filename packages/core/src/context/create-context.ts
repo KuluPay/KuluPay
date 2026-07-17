@@ -1,6 +1,7 @@
 import { KuluPayContext, KuluPayOptions, PaymentProvider, KuluPayORM } from "../types";
 import { createOrm } from "@farming-labs/orm";
 import { getKuluPayTables } from "../db/get-tables";
+import { resolveDatabaseDriver } from "../db/resolve-database";
 
 export const createKuluPayContext = async (
     options: KuluPayOptions
@@ -26,9 +27,10 @@ export const createKuluPayContext = async (
     };
 
     const schema = getKuluPayTables(options);
+    const driver = await resolveDatabaseDriver(options.database);
     const orm = createOrm({
         schema,
-        driver: options.database,
+        driver,
     }) as KuluPayORM;
 
     const plugins = options.plugins || [];

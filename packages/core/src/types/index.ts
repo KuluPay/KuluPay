@@ -54,19 +54,35 @@ export type KuluPayDBOptions<Keys extends string = string> = {
  * The main configuration options for the KuluPay SDK.
  * @example
  * ```ts
+ * // Connection string (auto-detects, requires @farming-labs/orm-sql + pg)
  * const pay = kuluPay({
- *   database: prisma,
+ *   database: process.env.DATABASE_URL,
  *   providers: [stripe({ apiKey: "sk_..." })],
- *   payment: {
- *     additionalFields: {
- *       description: { type: "string", required: false }
- *     }
- *   }
+ * });
+ *
+ * // pg Pool instance (requires @farming-labs/orm-sql)
+ * const pay = kuluPay({
+ *   database: new Pool({ connectionString: process.env.DATABASE_URL }),
+ *   providers: [stripe({ apiKey: "sk_..." })],
+ * });
+ *
+ * // Farming ORM driver (full control)
+ * const pay = kuluPay({
+ *   database: createPgPoolDriver(new Pool({ connectionString: process.env.DATABASE_URL })),
+ *   providers: [stripe({ apiKey: "sk_..." })],
  * });
  * ```
  */
 export interface KuluPayOptions {
-    database: any; // Farming ORM driver
+    /**
+     * Database configuration. Accepts:
+     * - A Postgres/MySQL connection string (e.g. `"postgresql://user:pass@host/db"`)
+     * - A `pg.Pool` instance
+     * - A Farming ORM driver (e.g. from `createMemoryDriver()` or `createPgPoolDriver()`)
+     *
+     * For connection strings or pg Pool, install `@farming-labs/orm-sql` and `pg`.
+     */
+    database: any;
     providers?: PaymentProvider[];
     baseURL?: BaseURLConfig;
     basePath?: string;

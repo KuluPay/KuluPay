@@ -1,6 +1,6 @@
 {
   "name": "@kulupay/cli",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "The CLI for KuluPay - generate schemas and migrate your database",
   "type": "module",
   "license": "MIT",

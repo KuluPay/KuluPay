@@ -1,5 +1,4 @@
 import { kuluPay, PaymentProvider, PaymentIntent } from "@kulupay/kulupay";
-import { createMemoryDriver } from "@farming-labs/orm";
 
 const mockProvider: PaymentProvider = {
   id: "mock",
@@ -27,7 +26,7 @@ const mockProvider: PaymentProvider = {
 };
 
 export const pay = kuluPay({
-  database: createMemoryDriver(),
+  database: process.env.DATABASE_URL || "postgresql://user:pass@localhost:5432/kulupay",
   providers: [mockProvider],
   baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000/api/pay",
   debug: true,
