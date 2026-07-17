@@ -6,6 +6,7 @@ import prompts from "prompts";
 import yoctoSpinner from "yocto-spinner";
 import { createOrm, renderSafeSql, detectDatabaseRuntime } from "@farming-labs/orm";
 import { getKuluPayTables } from "@kulupay/core/db";
+import { resolveDatabaseDriver } from "@kulupay/core/db";
 import { getConfig } from "../utils/get-config";
 
 /**
@@ -46,7 +47,8 @@ export async function migrateAction(opts: any) {
 
     const schema = getKuluPayTables(kuluPayOptions);
 
-    const runtime = detectDatabaseRuntime(kuluPayOptions.database);
+    const driver = await resolveDatabaseDriver(kuluPayOptions.database);
+    const runtime = detectDatabaseRuntime(driver);
     if (!runtime) {
         spinner.stop();
         console.error(
@@ -90,7 +92,7 @@ export async function migrateAction(opts: any) {
     try {
         const orm = createOrm({
             schema,
-            driver: kuluPayOptions.database,
+            driver,
         });
 
         for (const modelName of Object.keys((schema as any).models || schema)) {
@@ -111,7 +113,7 @@ export async function migrateAction(opts: any) {
             }
         }
 
-        await executeMigration(kuluPayOptions.database, sql, runtime);
+        await executeMigration(driver, sql, runtime);
         spinner.stop();
         console.log("🚀 Migration completed successfully!");
     } catch (e: any) {

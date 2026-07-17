@@ -117,9 +117,16 @@
     },
     "pg": {
       "optional": true
+    },
+    "@neondatabase/serverless": {
+      "optional": true
     }
   },
   "devDependencies": {
-    "tsup": "^8.0.0"
+    "tsup": "^8.0.0",
+    "@farming-labs/orm-sql": "latest",
+    "pg": "^8.22.0",
+    "@types/pg": "^8.20.0",
+    "@neondatabase/serverless": "^1.1.0"
   }
 }

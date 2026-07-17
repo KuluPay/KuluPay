@@ -76,6 +76,24 @@ async function createDriverFromConnectionString(connectionString: string): Promi
         );
     }
 
+    const cleanConnectionString = connectionString
+        .replace("&channel_binding=require", "")
+        .replace("channel_binding=require&", "")
+        .replace("channel_binding=require", "");
+
+    const isNeon = cleanConnectionString.includes("neon.tech");
+
+    if (isNeon) {
+        try {
+            const { Pool: NeonPool } = await import("@neondatabase/serverless");
+            return createPgPoolDriver(new NeonPool({ connectionString: cleanConnectionString }));
+        } catch {
+            throw new Error(
+                "KuluPay: For Neon databases, install the serverless driver:\n  pnpm add @neondatabase/serverless",
+            );
+        }
+    }
+
     let Pool: any;
     try {
         ({ Pool } = await import("pg"));
@@ -85,7 +103,7 @@ async function createDriverFromConnectionString(connectionString: string): Promi
         );
     }
 
-    return createPgPoolDriver(new Pool({ connectionString }));
+    return createPgPoolDriver(new Pool({ connectionString: cleanConnectionString }));
 }
 
 async function wrapPgPool(pool: any): Promise<any> {

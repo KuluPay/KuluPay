@@ -1,12 +1,9 @@
 "use client";
 
-import { usePayment } from "@kulupay/kulupay/client";
+import { payClient } from "@/lib/pay-client";
 
 export default function Home() {
-  const { createIntent, loading, error } = usePayment({
-    baseURL: "/api/pay",
-    providerId: "mock",
-  });
+  const { createIntent, loading, error } = payClient.usePayment({ providerId: "mock" });
 
   const handlePay = async () => {
     try {
@@ -14,7 +11,7 @@ export default function Home() {
         amount: 1000,
         currency: "USD",
         userId: "user_demo",
-        providerId: "mock",
+        providerId: "",
         metadata: { orderId: "demo-1" },
       });
       alert(JSON.stringify(intent, null, 2));

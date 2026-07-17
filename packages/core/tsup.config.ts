@@ -16,4 +16,5 @@ export default defineConfig({
   splitting: true,
   sourcemap: true,
   clean: true,
+  external: ["pg", "@farming-labs/orm-sql", "@neondatabase/serverless"],
 });
