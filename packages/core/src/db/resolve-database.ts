@@ -1,134 +1,38 @@
-import { createMemoryDriver } from "@farming-labs/orm";
-
 /**
- * Resolves a database configuration into a Farming ORM driver.
+ * Resolves the database option into a Farming ORM driver.
  *
- * Accepts multiple input formats for convenience:
- * - A connection string (e.g. `"postgresql://user:pass@host/db"`)
- * - A `pg.Pool` instance (detected via `.query` and `.connect` methods)
- * - A `pg.Client` instance (detected via `.query` without `.connect`)
- * - A Farming ORM driver (passed through as-is)
+ * Following the Farming ORM pattern, the user creates the driver themselves
+ * and passes it to the `database` option. This keeps KuluPay agnostic of
+ * the underlying database engine (Postgres, MySQL, SQLite, Neon, Supabase, etc.).
  *
- * For connection strings and pg instances, the corresponding driver package
- * (`@farming-labs/orm-sql`) must be installed. If it's not installed, a helpful
- * error message is thrown.
+ * @example
+ * ```ts
+ * import { createPgPoolDriver } from "@farming-labs/orm-sql";
+ * import { Pool } from "pg";
  *
- * @param database - The database configuration value from `KuluPayOptions.database`.
- * @returns A Farming ORM driver instance.
+ * const pay = kuluPay({
+ *   database: createPgPoolDriver(new Pool({ connectionString: process.env.DATABASE_URL })),
+ *   providers: [myProvider],
+ * });
+ * ```
+ *
+ * For Neon:
+ * ```ts
+ * import { createPgPoolDriver } from "@farming-labs/orm-sql";
+ * import { Pool } from "@neondatabase/serverless";
+ *
+ * const pay = kuluPay({
+ *   database: createPgPoolDriver(new Pool({ connectionString: process.env.DATABASE_URL })),
+ *   providers: [myProvider],
+ * });
+ * ```
  */
 export async function resolveDatabaseDriver(database: any): Promise<any> {
     if (!database) {
         throw new Error(
-            "KuluPay: No database configured. Pass a connection string, pg Pool, or Farming ORM driver to the `database` option.",
+            "KuluPay: No database configured. Pass a Farming ORM driver to the `database` option.\n\nExample:\n  import { createPgPoolDriver } from \"@farming-labs/orm-sql\";\n  import { Pool } from \"pg\";\n\n  kuluPay({ database: createPgPoolDriver(new Pool({ connectionString })), ... });",
         );
     }
 
-    // Already a Farming ORM driver — pass through
-    if (typeof database === "object" && !isPgPool(database) && !isPgClient(database)) {
-        return database;
-    }
-
-    // Connection string
-    if (typeof database === "string") {
-        return await createDriverFromConnectionString(database);
-    }
-
-    // pg Pool instance
-    if (isPgPool(database)) {
-        return await wrapPgPool(database);
-    }
-
-    // pg Client instance
-    if (isPgClient(database)) {
-        return await wrapPgClient(database);
-    }
-
-    // Unknown — pass through and let Farming ORM handle it
     return database;
-}
-
-function isPgPool(obj: any): boolean {
-    return (
-        obj &&
-        typeof obj.query === "function" &&
-        typeof obj.connect === "function" &&
-        typeof obj.on === "function" &&
-        typeof obj.end === "function"
-    );
-}
-
-function isPgClient(obj: any): boolean {
-    return (
-        obj &&
-        typeof obj.query === "function" &&
-        typeof obj.connect === "function" &&
-        typeof obj.on !== "function"
-    );
-}
-
-async function createDriverFromConnectionString(connectionString: string): Promise<any> {
-    let createPgPoolDriver: any;
-    try {
-        ({ createPgPoolDriver } = await import("@farming-labs/orm-sql"));
-    } catch {
-        throw new Error(
-            "KuluPay: To use a connection string, install the database driver package:\n  pnpm add @farming-labs/orm-sql pg\n\nThen pass the connection string to the `database` option.",
-        );
-    }
-
-    const cleanConnectionString = connectionString
-        .replace("&channel_binding=require", "")
-        .replace("channel_binding=require&", "")
-        .replace("channel_binding=require", "");
-
-    const isNeon = cleanConnectionString.includes("neon.tech");
-
-    if (isNeon) {
-        try {
-            const { Pool: NeonPool } = await import("@neondatabase/serverless");
-            return createPgPoolDriver(new NeonPool({ connectionString: cleanConnectionString }));
-        } catch {
-            throw new Error(
-                "KuluPay: For Neon databases, install the serverless driver:\n  pnpm add @neondatabase/serverless",
-            );
-        }
-    }
-
-    let Pool: any;
-    try {
-        ({ Pool } = await import("pg"));
-    } catch {
-        throw new Error(
-            "KuluPay: The `pg` package is required for Postgres connections. Install it with:\n  pnpm add pg",
-        );
-    }
-
-    return createPgPoolDriver(new Pool({ connectionString: cleanConnectionString }));
-}
-
-async function wrapPgPool(pool: any): Promise<any> {
-    let createPgPoolDriver: any;
-    try {
-        ({ createPgPoolDriver } = await import("@farming-labs/orm-sql"));
-    } catch {
-        throw new Error(
-            "KuluPay: To use a pg Pool, install the driver adapter:\n  pnpm add @farming-labs/orm-sql",
-        );
-    }
-
-    return createPgPoolDriver(pool);
-}
-
-async function wrapPgClient(client: any): Promise<any> {
-    let createPgClientDriver: any;
-    try {
-        const mod = await import("@farming-labs/orm-sql");
-        createPgClientDriver = mod.createPgClientDriver || mod.createPgPoolDriver;
-    } catch {
-        throw new Error(
-            "KuluPay: To use a pg Client, install the driver adapter:\n  pnpm add @farming-labs/orm-sql",
-        );
-    }
-
-    return createPgClientDriver(client);
 }

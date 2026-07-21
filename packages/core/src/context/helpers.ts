@@ -14,7 +14,12 @@ export const getTrustedOrigins = async (
 		}
 	}
 
-	// In the future, we can add more logic here to handle 
-    // wildcards or dynamic trusted origins, similar to better-auth
-	return trustedOrigins;
+	if (Array.isArray(options.trustedOrigins)) {
+		trustedOrigins.push(...options.trustedOrigins);
+	} else if (typeof options.trustedOrigins === "function" && request) {
+		const dynamic = await options.trustedOrigins(request).catch(() => []);
+		trustedOrigins.push(...dynamic.filter((v): v is string => Boolean(v)));
+	}
+
+	return [...new Set(trustedOrigins)];
 };

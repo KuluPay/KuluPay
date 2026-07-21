@@ -1,4 +1,6 @@
 import { kuluPay, PaymentProvider, PaymentIntent } from "@kulupay/kulupay";
+import { createPgPoolDriver } from "@farming-labs/orm-sql";
+import { Pool } from "@neondatabase/serverless";
 
 const mockProvider: PaymentProvider = {
   id: "mock",
@@ -25,8 +27,10 @@ const mockProvider: PaymentProvider = {
   }),
 };
 
+const connectionString = process.env.DATABASE_URL!;
+
 export const pay = kuluPay({
-  database: process.env.DATABASE_URL || "postgresql://user:pass@localhost:5432/kulupay",
+  database: createPgPoolDriver(new Pool({ connectionString })),
   providers: [mockProvider],
   baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
   debug: true,

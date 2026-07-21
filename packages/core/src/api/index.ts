@@ -140,4 +140,6 @@ export function toKuluPayEndpoints<const E extends Record<string, Endpoint>>(
 
 	return api as E;
 }
+
+export * from "./middleware";
  

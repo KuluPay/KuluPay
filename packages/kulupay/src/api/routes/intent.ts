@@ -1,154 +1,184 @@
-import { KuluPayError } from "@kulupay/core/error";
+import { KuluPayAPIError, KULUPAY_ERROR_CODES, ProviderError } from "@kulupay/core/error";
 import { createKuluPayEndpoint } from "@kulupay/core/api";
+import { sessionMiddleware, originCheckMiddleware, ownershipMiddleware } from "@kulupay/core/api";
+import type { CreateIntentData } from "@kulupay/core";
+import { validateCurrency, normalizeCurrency } from "@kulupay/core/utils";
 
 /**
  * Endpoint to create a payment intent.
- * Matches the POST /create-intent pattern.
+ * Requires authentication. userId is taken from the session, not the request body.
  */
 export const createIntent = createKuluPayEndpoint(
     "/create-intent",
     {
         method: "POST",
+        use: [sessionMiddleware, originCheckMiddleware] as any,
     },
     async (ctx) => {
-        try {
-            const { providers, logger, orm, options } = ctx.context;
-            const body = ctx.body as any;
-            
-            // Use the provided providerId or fall back to the first configured provider from the runtime map
-            const providerId = body.providerId || Array.from(providers.keys())[0];
-            
-            const provider = providers.get(providerId);
-            if (!provider) {
-                return {
-                    error: `Provider "${providerId}" not found.`,
-                    code: "PROVIDER_NOT_FOUND"
-                };
-            }
-
-            logger.debug(`Creating intent for provider: ${providerId}`, body);
-            
-            // Call the provider-specific implementation
-            const intent = await provider.createIntent(body);
-
-            // If database is configured, save the intent using Farming ORM
-            if (orm) {
-                const paymentData = {
-                    id: intent.id,
-                    userId: body.userId || "anonymous",
-                    amount: intent.amount,
-                    currency: intent.currency,
-                    status: intent.status,
-                    providerId,
-                    metadata: intent.metadata,
-                };
-
-                // TREND: Trigger 'before' create hook
-                let finalPaymentData = paymentData;
-                if (options.databaseHooks?.payment?.create?.before) {
-                    const result = await options.databaseHooks.payment.create.before(paymentData as any, ctx.context);
-                    if (result) finalPaymentData = result as any;
-                }
-
-                await orm.payment.create({
-                    data: finalPaymentData
-                });
-
-                // TREND: Trigger 'after' create hook
-                if (options.databaseHooks?.payment?.create?.after) {
-                    await options.databaseHooks.payment.create.after(finalPaymentData as any, ctx.context);
-                }
-            }
-
-            // Run plugin hooks (Legacy/Plugin style)
-            if (options.plugins) {
-                for (const plugin of options.plugins) {
-                    if (plugin.hooks?.["intent:created"]) {
-                        await plugin.hooks["intent:created"](intent);
-                    }
-                }
-            }
-
-            // Return the intent and its provider's redirect config
-            return {
-                ...intent,
-                redirects: (provider as any).options?.redirects || {
-                    success: "/success",
-                }
-            };
-        } catch (error: any) {
-            // Return error as a proper response object
-            if (error instanceof KuluPayError) {
-                return {
-                    error: error.message,
-                    code: error.code || "PAYMENT_ERROR"
-                };
-            }
-            
-            // Wrap other errors
-            return {
-                error: error.message || "Failed to create payment intent",
-                code: "INTERNAL_ERROR"
-            };
+        const { providers, logger, orm, options } = ctx.context;
+        const body = ctx.body as any;
+        const session = ctx.context.session;
+        if (!session?.user) {
+            throw KuluPayAPIError.fromCode("UNAUTHORIZED");
         }
+
+        const providerId = body.providerId || Array.from(providers.keys())[0];
+        const provider = providers.get(providerId);
+        if (!provider) {
+            throw KuluPayAPIError.fromCode("PROVIDER_NOT_FOUND");
+        }
+
+        logger.debug(`Creating intent for provider: ${providerId}`, body);
+
+        const intentData: CreateIntentData = {
+            ...body,
+            userId: session.user.id,
+            providerId,
+        };
+
+        // If pricing.resolvePrice is configured, override amount/currency
+        // with server-side resolved values — prevents client-side price manipulation
+        if (options.pricing?.resolvePrice) {
+            try {
+                const resolved = await options.pricing.resolvePrice(intentData, ctx.context);
+                if (!resolved.amount || resolved.amount <= 0) {
+                    throw KuluPayAPIError.fromCode("PRICING_AMOUNT_MUST_BE_POSITIVE");
+                }
+                if (!resolved.currency || typeof resolved.currency !== "string") {
+                    throw KuluPayAPIError.fromCode("PRICING_CURRENCY_REQUIRED");
+                }
+                intentData.amount = resolved.amount;
+                intentData.currency = resolved.currency;
+            } catch (error: any) {
+                if (error instanceof KuluPayAPIError) throw error;
+                throw KuluPayAPIError.fromCode("PRICING_RESOLVE_FAILED", 500, { cause: error.message });
+            }
+        }
+
+        // Validate currency (ISO 4217 — 3 lowercase letters)
+        if (!validateCurrency(intentData.currency)) {
+            throw KuluPayAPIError.fromCode("INVALID_CURRENCY");
+        }
+        intentData.currency = normalizeCurrency(intentData.currency);
+
+        const intent = await provider.createIntent(intentData).catch((error: any) => {
+            if (error instanceof ProviderError) {
+                throw KuluPayAPIError.from(502, {
+                    code: error.code || "PROVIDER_ERROR",
+                    message: error.message,
+                }, error.raw);
+            }
+            throw KuluPayAPIError.fromCode("INTERNAL_ERROR");
+        });
+
+        if (orm) {
+            const now = new Date();
+            const paymentData = {
+                id: intent.id,
+                userId: session!.user.id,
+                amount: intent.amount,
+                currency: intent.currency,
+                status: intent.status,
+                providerId,
+                metadata: intent.metadata,
+                type: intent.type || body.type || "one_time",
+                description: intent.description || body.description || null,
+                customerId: body.customerId || null,
+                providerPaymentId: intent.providerPaymentId || intent.id,
+                clientSecret: intent.clientSecret || null,
+                createdAt: now,
+                updatedAt: now,
+            };
+
+            let finalPaymentData = paymentData;
+            if (options.databaseHooks?.payment?.create?.before) {
+                const result = await options.databaseHooks.payment.create.before(paymentData as any, ctx.context);
+                if (result) finalPaymentData = result as any;
+            }
+
+            await orm.payment.create({ data: finalPaymentData });
+
+            if (options.databaseHooks?.payment?.create?.after) {
+                await options.databaseHooks.payment.create.after(finalPaymentData as any, ctx.context);
+            }
+        }
+
+        if (options.plugins) {
+            for (const plugin of options.plugins) {
+                if (plugin.hooks?.["intent:created"]) {
+                    await plugin.hooks["intent:created"](intent);
+                }
+            }
+        }
+
+        return {
+            ...intent,
+            redirects: (provider as any).options?.redirects || {
+                success: "/success",
+            }
+        };
     }
 );
 
 /**
  * Endpoint to retrieve a payment intent by ID.
- * Matches the GET /get-intent pattern.
+ * Requires authentication + ownership check.
  */
 export const getIntent = createKuluPayEndpoint(
     "/get-intent",
     {
         method: "GET",
+        use: [
+            sessionMiddleware,
+            ownershipMiddleware(async (ctx: any) => {
+                const id = ctx.query?.id as string;
+                if (!id) return null;
+                const payment = await ctx.context.orm.payment.findFirst({ where: { id } });
+                return payment?.userId || null;
+            }),
+        ] as any,
     },
     async (ctx) => {
         const { providers, logger, orm, options } = ctx.context;
         const id = ctx.query?.id as string;
         const providerId = (ctx.query?.providerId as string) || Array.from(providers.keys())[0];
 
-        if (!id) throw new KuluPayError("Missing id");
+        if (!id) {
+            throw KuluPayAPIError.fromCode("MISSING_FIELD");
+        }
 
         const provider = providers.get(providerId);
         if (!provider) {
-            throw new KuluPayError(`Provider "${providerId}" not found.`);
+            throw KuluPayAPIError.fromCode("PROVIDER_NOT_FOUND");
         }
 
-        // Fetch the intent from the provider
-        const intent = await provider.getIntent(id);
+        const intent = await provider.getIntent(id).catch((error: any) => {
+            if (error instanceof ProviderError) {
+                throw KuluPayAPIError.from(502, {
+                    code: error.code || "PROVIDER_ERROR",
+                    message: error.message,
+                }, error.raw);
+            }
+            throw KuluPayAPIError.fromCode("INTERNAL_ERROR");
+        });
 
-        // Update the status in our database if it has changed
         if (orm) {
-            const stored = await orm.payment.findFirst({
-                where: { id }
-            });
+            const stored = await orm.payment.findFirst({ where: { id } });
             if (stored && stored.status !== intent.status) {
-                const updateData = { status: intent.status };
+                const updateData = { status: intent.status, updatedAt: new Date() };
 
-                // TREND: Trigger 'before' update hook
                 let finalUpdateData = { ...updateData };
                 if (options.databaseHooks?.payment?.update?.before) {
                     const result = await options.databaseHooks.payment.update.before(updateData as any, ctx.context);
                     if (result) {
-                        finalUpdateData = {
-                            ...finalUpdateData,
-                            ...result as any,
-                        };
+                        finalUpdateData = { ...finalUpdateData, ...result as any };
                     }
                 }
 
-                await orm.payment.update({
-                    where: { id },
-                    data: finalUpdateData
-                });
+                await orm.payment.update({ where: { id }, data: finalUpdateData });
 
-                // TREND: Trigger 'after' update hook
                 if (options.databaseHooks?.payment?.update?.after) {
-                    // Fetch full payment for the 'after' hook
-                    const updatedPayment = await orm.payment.findFirst({
-                        where: { id }
-                    });
+                    const updatedPayment = await orm.payment.findFirst({ where: { id } });
                     await options.databaseHooks.payment.update.after(updatedPayment as any, ctx.context);
                 }
             }

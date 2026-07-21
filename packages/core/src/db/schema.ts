@@ -16,6 +16,11 @@ export const kuluPaySchema = defineSchema({
             status: string(), // pending, succeeded, failed, etc.
             providerId: string(),
             metadata: json(),
+            type: string(), // one_time, subscription_initial, topup, refund
+            description: string().nullable(),
+            customerId: string().nullable(),
+            providerPaymentId: string().nullable(),
+            clientSecret: string().nullable(),
             createdAt: datetime(),
             updatedAt: datetime(),
         }

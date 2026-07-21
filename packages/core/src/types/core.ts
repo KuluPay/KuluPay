@@ -1,4 +1,5 @@
 import { PaymentProvider } from "./payment-providers";
+import type { KuluPaySession, CreateIntentData } from "./index";
 
 export interface KuluPayOptions {
     database: any; // Farming ORM driver
@@ -7,6 +8,17 @@ export interface KuluPayOptions {
     basePath?: string;
     debug?: boolean;
     plugins?: any[];
+    auth?: {
+        getSession?: (request: Request) => Promise<KuluPaySession | null>;
+        authorize?: (action: string, ctx: KuluPayContext, session: KuluPaySession) => Promise<boolean>;
+    };
+    trustedOrigins?: string[] | ((request: Request) => Promise<string[]>);
+    pricing?: {
+        resolvePrice?: (
+            data: CreateIntentData,
+            ctx: KuluPayContext,
+        ) => Promise<{ amount: number; currency: string }>;
+    };
     databaseHooks?: {
         payment?: {
             create?: DatabaseHook<any>;
@@ -30,6 +42,7 @@ export interface KuluPayContext {
     };
     plugins: any[];
     trustedOrigins: string[];
+    session?: KuluPaySession | null;
 }
 
 export type DatabaseHook<T> = {

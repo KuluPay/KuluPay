@@ -14,8 +14,9 @@ const getStripeModule = async () => {
     if (!stripeModulePromise) {
         stripeModulePromise = import('@stripe/stripe-js').catch(() => {
             throw new KuluPayError(
+                "stripe_sdk_missing",
                 "@stripe/stripe-js not found. Install it with: npm install @stripe/stripe-js",
-                "stripe_sdk_missing"
+                500,
             );
         });
     }
@@ -53,7 +54,7 @@ export class StripeReactClient {
     async confirmPayment(clientSecret: string, elements?: any, options?: any): Promise<{ paymentIntent?: any; error?: any }> {
         const stripe = await this.getStripe();
         if (!stripe) {
-            throw new KuluPayError("Stripe failed to initialize", "stripe_init_failed");
+            throw new KuluPayError("stripe_init_failed", "Stripe failed to initialize", 500);
         }
 
         if (elements) {
@@ -77,7 +78,7 @@ export class StripeReactClient {
      */
     async createIntent(data: CreateIntentData): Promise<PaymentIntent> {
         if (!this.baseURL) {
-            throw new KuluPayError("baseURL is required for API calls", "missing_base_url");
+            throw new KuluPayError("missing_base_url", "baseURL is required for API calls", 400);
         }
 
         const res = await fetch(`${this.baseURL.replace(/\/$/, "")}/create-intent`, {
@@ -91,11 +92,11 @@ export class StripeReactClient {
         const responseData = (await res.json().catch(() => ({ error: "Unknown error" }))) as any;
 
         if (responseData.error) {
-            throw new KuluPayError(responseData.error, responseData.code);
+            throw new KuluPayError(responseData.code || "INTERNAL_ERROR", responseData.error, res.status);
         }
 
         if (!res.ok) {
-            throw new KuluPayError(responseData.error || "Request failed", responseData.code);
+            throw new KuluPayError(responseData.code || "INTERNAL_ERROR", responseData.error || "Request failed", res.status);
         }
 
         return responseData as PaymentIntent;
@@ -106,7 +107,7 @@ export class StripeReactClient {
      */
     async getIntent(id: string): Promise<PaymentIntent> {
         if (!this.baseURL) {
-            throw new KuluPayError("baseURL is required for API calls", "missing_base_url");
+            throw new KuluPayError("missing_base_url", "baseURL is required for API calls", 400);
         }
 
         const query = new URLSearchParams({ id, providerId: "stripe" });
@@ -120,11 +121,11 @@ export class StripeReactClient {
         const responseData = (await res.json().catch(() => ({ error: "Unknown error" }))) as any;
 
         if (responseData.error) {
-            throw new KuluPayError(responseData.error, responseData.code);
+            throw new KuluPayError(responseData.code || "INTERNAL_ERROR", responseData.error, res.status);
         }
 
         if (!res.ok) {
-            throw new KuluPayError(responseData.error || "Request failed", responseData.code);
+            throw new KuluPayError(responseData.code || "INTERNAL_ERROR", responseData.error || "Request failed", res.status);
         }
 
         return responseData as PaymentIntent;
@@ -136,12 +137,12 @@ export class StripeReactClient {
     async createPaymentMethod(paymentMethodData: any): Promise<any> {
         const stripe = await this.getStripe();
         if (!stripe) {
-            throw new KuluPayError("Stripe failed to initialize", "stripe_init_failed");
+            throw new KuluPayError("stripe_init_failed", "Stripe failed to initialize", 500);
         }
 
         const { error, paymentMethod } = await stripe.createPaymentMethod(paymentMethodData);
         if (error) {
-            throw new KuluPayError(error.message ?? "Payment method failed", "payment_method_failed");
+            throw new KuluPayError("payment_method_failed", error.message ?? "Payment method failed", 400);
         }
         return paymentMethod;
     }
@@ -152,7 +153,7 @@ export class StripeReactClient {
     async handlePaymentRequest(paymentRequest: any): Promise<any> {
         const stripe = await this.getStripe();
         if (!stripe) {
-            throw new KuluPayError("Stripe failed to initialize", "stripe_init_failed");
+            throw new KuluPayError("stripe_init_failed", "Stripe failed to initialize", 500);
         }
 
         return paymentRequest;

@@ -1,10 +1,29 @@
-import { KuluPayError } from "@kulupay/core/error";
+import { KuluPayAPIError, ProviderError } from "@kulupay/core/error";
 import { createKuluPayEndpoint } from "@kulupay/core/api";
+import type { PaymentStatus } from "@kulupay/core";
+
+/**
+ * Maps webhook event types to KuluPay PaymentStatus.
+ * Handles events from Stripe, Chapa, and other providers.
+ */
+const mapWebhookEventToStatus = (eventType: string): PaymentStatus => {
+    if (eventType.includes("succeeded") || eventType.includes("completed") || eventType.includes("paid")) {
+        return "succeeded";
+    }
+    if (eventType.includes("failed") || eventType.includes("declined") || eventType.includes("canceled")) {
+        return "failed";
+    }
+    if (eventType.includes("processing") || eventType.includes("pending")) {
+        return "processing";
+    }
+    return "pending";
+};
 
 /**
  * Unified webhook endpoint for all payment providers.
  * Receives the raw request and delegates verification + normalization
  * to the provider's webhookHandler.
+ * No session middleware — webhooks use provider signature verification.
  */
 export const webhook = createKuluPayEndpoint(
     "/webhook",
@@ -13,58 +32,72 @@ export const webhook = createKuluPayEndpoint(
         requireRequest: true,
     },
     async (ctx) => {
-        try {
-            const { providers, logger, orm, options } = ctx.context;
-            const providerId = (ctx.query?.providerId as string) || (ctx.body as any)?.providerId;
+        const { providers, logger, orm, options } = ctx.context;
+        const providerId = (ctx.query?.providerId as string) || (ctx.body as any)?.providerId;
 
-            if (!providerId) {
-                throw new KuluPayError("Missing providerId");
+        if (!providerId) {
+            throw KuluPayAPIError.fromCode("MISSING_FIELD");
+        }
+
+        const provider = providers.get(providerId);
+        if (!provider) {
+            throw KuluPayAPIError.fromCode("PROVIDER_NOT_FOUND");
+        }
+
+        if (!provider.webhookHandler) {
+            throw KuluPayAPIError.fromCode("PROVIDER_METHOD_NOT_SUPPORTED");
+        }
+
+        logger.debug(`Processing webhook for provider: ${providerId}`);
+
+        const event = await provider.webhookHandler(ctx.request, ctx.context).catch((error: any) => {
+            if (error instanceof ProviderError) {
+                throw KuluPayAPIError.from(400, {
+                    code: error.code || "WEBHOOK_SIGNATURE_INVALID",
+                    message: error.message,
+                }, error.raw);
             }
+            throw KuluPayAPIError.fromCode("INTERNAL_ERROR");
+        });
 
-            const provider = providers.get(providerId);
-            if (!provider) {
-                throw new KuluPayError(`Provider "${providerId}" not found.`);
-            }
+        if (orm) {
+            const paymentId = event.data?.id || event.data?.object || event.externalId;
 
-            if (!provider.webhookHandler) {
-                throw new KuluPayError(`Provider "${providerId}" does not support webhooks.`);
-            }
+            const existing = await orm.payment.findFirst({ where: { id: paymentId } }).catch(() => null);
 
-            logger.debug(`Processing webhook for provider: ${providerId}`);
+            if (existing) {
+                const newStatus = mapWebhookEventToStatus(event.type);
 
-            const event = await provider.webhookHandler(ctx.request, ctx.context);
+                if (existing.status === newStatus) {
+                    logger.debug(`Webhook event ${event.externalId} already processed (same status)`);
+                    return { received: true, duplicate: true };
+                }
 
-            if (orm) {
                 await orm.payment.update({
-                    where: { id: event.externalId },
+                    where: { id: paymentId },
                     data: {
-                        status: event.type,
+                        status: newStatus,
                         metadata: {
-                            ...event.data,
-                            providerId: event.providerId,
-                            timestamp: event.timestamp,
+                            ...(existing.metadata || {}),
+                            lastWebhookEvent: {
+                                type: event.type,
+                                providerId: event.providerId,
+                                externalId: event.externalId,
+                                timestamp: event.timestamp,
+                            },
                         },
+                        updatedAt: new Date(),
                     },
                 });
-            }
 
-            if (options.databaseHooks?.payment?.update?.after) {
-                await options.databaseHooks.payment.update.after(event.data as any, ctx.context);
+                if (options.databaseHooks?.payment?.update?.after) {
+                    await options.databaseHooks.payment.update.after(event.data as any, ctx.context);
+                }
+            } else {
+                logger.debug(`Webhook event for unknown payment: ${paymentId}. Storing event metadata.`);
             }
-
-            return event;
-        } catch (error: any) {
-            if (error instanceof KuluPayError) {
-                return {
-                    error: error.message,
-                    code: error.code || "WEBHOOK_ERROR",
-                };
-            }
-
-            return {
-                error: error.message || "Failed to process webhook",
-                code: "INTERNAL_ERROR",
-            };
         }
+
+        return { received: true, event };
     }
 );
