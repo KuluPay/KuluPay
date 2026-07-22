@@ -1,0 +1,15 @@
+{
+  "$schema": "https://kulupay.dev/schema.json",
+  "framework": "nextjs",
+  "srcDir": false,
+  "configPath": "lib/pay.ts",
+  "clientPath": "lib/pay-client.ts",
+  "routePath": "app/api/pay/[...kulupay]/route.ts",
+  "baseURL": "http://localhost:3000",
+  "providers": [
+    "stripe"
+  ],
+  "database": {
+    "type": "memory"
+  }
+}

@@ -1,5 +1,4 @@
-import { getKuluPayTables } from "@kulupay/core/db";
-import { renderSafeSql } from "@farming-labs/orm";
+import { getKuluPayTables, renderSafeSql } from "@kulupay/kulupay";
 import { neon } from "@neondatabase/serverless";
 import { readFileSync } from "fs";
 
@@ -21,7 +20,7 @@ async function main() {
   console.log("---\n");
 
   const sqlClient = neon(dbUrl);
-  const stmts = sql.split(";").filter((s) => s.trim());
+  const stmts = sql.split(";").filter((s: string) => s.trim());
   for (const stmt of stmts) {
     console.log("Executing:", stmt.trim().substring(0, 80) + "...");
     await sqlClient.query(stmt + ";");

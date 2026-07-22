@@ -1,0 +1,8 @@
+{
+  "title": "Providers",
+  "pages": [
+    "stripe",
+    "chapa",
+    "paypal"
+  ]
+}

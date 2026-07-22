@@ -1,0 +1,103 @@
+---
+title: Configuration Options
+description: Full reference of KuluPay configuration options.
+---
+
+# Configuration Options
+
+```ts
+export const pay = kuluPay({
+  // Database
+  database: yourDriver,
+
+  // Providers
+  providers: [
+    stripe({ apiKey: "sk_..." }),
+  ],
+
+  // Server
+  baseURL: "http://localhost:3000",
+  debug: false,
+
+  // Auth
+  auth: {
+    getSession: async (req) => { ... },
+  },
+
+  // Pricing
+  pricing: {
+    resolvePrice: async (data, ctx) => { ... },
+  },
+
+  // Security
+  trustedOrigins: ["http://localhost:3000"],
+
+  // Database customization
+  payment: { modelName: "payments", additionalFields: { ... } },
+  customer: { modelName: "customers", additionalFields: { ... } },
+  subscription: { modelName: "subscriptions", additionalFields: { ... } },
+
+  // Hooks
+  databaseHooks: {
+    payment: {
+      create: {
+        before: async (data, ctx) => { ... },
+        after: async (data, ctx) => { ... },
+      },
+    },
+  },
+
+  // Expand (attach related data)
+  expand: {
+    user: async (userIds, ctx) => { ... },
+    product: async (productIds, ctx) => { ... },
+  },
+
+  // Relations (native ORM joins)
+  relations: {
+    user: { model: "users", foreignKey: "id" },
+    product: { model: "products", foreignKey: "id" },
+  },
+
+  // Plugins
+  plugins: [myPlugin],
+});
+```
+
+## Option Reference
+
+### `database`
+The database driver. Use `createPgPoolDriver` for PostgreSQL or `createMemoryDriver` for testing.
+
+### `providers`
+Array of payment provider instances. Each provider implements the `PaymentProvider` interface.
+
+### `baseURL`
+The base URL of your application. Used for webhook URLs and redirects. Defaults to `http://localhost:3000`.
+
+### `debug`
+Enable debug logging. Defaults to `false`.
+
+### `auth.getSession`
+Function that resolves the session from a request. Returns `{ user: { id }, session: { id } }` or `null`.
+
+### `pricing.resolvePrice`
+Function that resolves the real price from your database. Overrides client-sent amount/currency.
+
+### `trustedOrigins`
+Array of trusted origins for CSRF protection, or a function that returns them dynamically.
+
+### `payment`, `customer`, `subscription`
+Customize table names and add additional fields.
+
+### `databaseHooks`
+Run custom logic before/after database operations.
+
+### `expand`
+Attach related data (users, products) to API responses.
+
+### `relations`
+Define native ORM relations for joins.
+
+### `plugins`
+Array of plugins. Each plugin can add endpoints, hooks, and actions.

@@ -1,0 +1,49 @@
+---
+title: Migrate
+description: Generate database schemas and run migrations.
+---
+
+# kulupay migrate
+
+Generate database schema files and push them to your database.
+
+## Generate Schema
+
+```bash
+# Raw SQL
+npx @kulupay/cli generate --generator sql --dialect postgresql
+
+# Prisma schema
+npx @kulupay/cli generate --generator prisma --dialect postgresql
+
+# Drizzle schema
+npx @kulupay/cli generate --generator drizzle --dialect pg
+```
+
+## Run Migration
+
+```bash
+npx @kulupay/cli migrate
+```
+
+This reads your `kulupay.json` config, generates the schema, and applies it to your database.
+
+## Options
+
+| Option | Description |
+| --- | --- |
+| `--config <path>` | Path to kulupay.json (default: `./kulupay.json`) |
+| `--output <path>` | Output file path for generated schema |
+| `--generator <type>` | Schema generator: `prisma`, `drizzle`, or `sql` |
+| `--dialect <type>` | Database dialect: `postgresql`, `mysql`, or `sqlite` |
+| `-y, --yes` | Skip confirmation prompts |
+
+## Generated Tables
+
+The migration creates three tables:
+
+- `payment` — Payment intents and their status
+- `customer` — Provider customers linked to your users
+- `subscription` — Subscription records
+
+If you configured custom `modelName` or `additionalFields`, those are included in the generated schema.

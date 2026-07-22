@@ -1,0 +1,74 @@
+---
+title: Error Codes
+description: Full reference of KuluPay error codes and their HTTP status.
+---
+
+# Error Codes
+
+KuluPay uses structured error codes following the better-auth pattern. Each error has a code, HTTP status, and message.
+
+## Authentication Errors
+
+| Code | Status | Description |
+| --- | --- | --- |
+| `UNAUTHORIZED` | 401 | No valid session found |
+| `FORBIDDEN` | 403 | User doesn't own the resource |
+
+## Origin/CSRF Errors
+
+| Code | Status | Description |
+| --- | --- | --- |
+| `MISSING_OR_NULL_ORIGIN` | 403 | Origin header missing |
+| `INVALID_ORIGIN` | 403 | Origin not in trusted origins list |
+
+## Provider Errors
+
+| Code | Status | Description |
+| --- | --- | --- |
+| `PROVIDER_NOT_FOUND` | 404 | Provider ID not registered |
+| `PROVIDER_SDK_NOT_FOUND` | 500 | Provider SDK not installed |
+| `PROVIDER_ERROR` | 502 | Provider returned an error |
+| `PROVIDER_METHOD_NOT_SUPPORTED` | 400 | Provider doesn't support this operation |
+
+## Pricing Errors
+
+| Code | Status | Description |
+| --- | --- | --- |
+| `PRICING_RESOLVE_FAILED` | 500 | Price resolver threw an error |
+| `PRICING_PRODUCT_NOT_FOUND` | 404 | Product not found in resolver |
+| `PRICING_AMOUNT_MUST_BE_POSITIVE` | 400 | Resolved amount ≤ 0 |
+| `PRICING_CURRENCY_REQUIRED` | 400 | Missing or invalid currency |
+| `PRICING_RESOLVER_NOT_CONFIGURED` | 500 | Resolver required but not configured |
+
+## Payment Errors
+
+| Code | Status | Description |
+| --- | --- | --- |
+| `PAYMENT_NOT_FOUND` | 404 | Payment not found |
+| `PAYMENT_ALREADY_SUCCEEDED` | 400 | Payment already succeeded |
+| `PAYMENT_ALREADY_CANCELED` | 400 | Payment already canceled |
+
+## Validation Errors
+
+| Code | Status | Description |
+| --- | --- | --- |
+| `MISSING_FIELD` | 400 | Required field missing |
+| `INVALID_CURRENCY` | 400 | Invalid currency code |
+
+## Server Errors
+
+| Code | Status | Description |
+| --- | --- | --- |
+| `INTERNAL_ERROR` | 500 | Internal server error |
+
+## Using Error Codes
+
+```ts
+import { KuluPayAPIError, KULUPAY_ERROR_CODES } from "@kulupay/core/error";
+
+// Throw a specific error
+throw KuluPayAPIError.fromCode("PAYMENT_NOT_FOUND");
+
+// With custom data
+throw KuluPayAPIError.fromCode("INTERNAL_ERROR", 500, { cause: "DB timeout" });
+```

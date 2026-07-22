@@ -1,0 +1,112 @@
+---
+title: Stripe
+description: Accept cards, Apple Pay, Google Pay, and more via Stripe.
+---
+
+# Stripe Provider
+
+## Installation
+
+```bash
+pnpm add stripe @stripe/stripe-js
+```
+
+## Server Setup
+
+```ts
+import { stripe } from "@kulupay/kulupay/providers/stripe";
+
+const stripeProvider = stripe({
+  apiKey: process.env.STRIPE_API_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  redirects: {
+    success: "/success",
+    cancel: "/cancel",
+  },
+});
+```
+
+## Configuration
+
+| Option | Type | Required | Description |
+| --- | --- | --- | --- |
+| `apiKey` | `string` | Yes | Stripe secret key (`sk_test_...` or `sk_live_...`) |
+| `webhookSecret` | `string` | No | Stripe webhook signing secret (`whsec_...`) |
+| `redirects` | `object` | No | Redirect URLs for success/cancel |
+
+## Environment Variables
+
+```bash
+STRIPE_API_KEY=sk_test_your_key
+STRIPE_WEBHOOK_SECRET=whsec_your_secret
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_key
+```
+
+## Client Setup
+
+```ts
+import { createStripeClientProvider } from "@kulupay/kulupay/client/providers";
+
+export const stripeProvider = createStripeClientProvider({
+  publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+});
+```
+
+## Full Checkout Flow
+
+```tsx
+"use client";
+import { usePaymentProvider } from "@kulupay/kulupay/client";
+
+function Checkout() {
+  const pay = usePaymentProvider({
+    client: payClient,
+    provider: stripeProvider,
+    providerId: "stripe",
+  });
+
+  const handlePay = async () => {
+    await pay.createIntent({
+      amount: 2500,
+      currency: "usd",
+      providerId: "stripe",
+      metadata: { productId: "prod_premium" },
+    });
+  };
+
+  const handleConfirm = async () => {
+    const result = await pay.confirmPayment({
+      elements: elementsRef.current,
+      redirectUrl: window.location.href,
+    });
+  };
+
+  return (
+    <>
+      <button onClick={handlePay}>Pay $25.00</button>
+      <div ref={containerRef} />
+      <button onClick={handleConfirm}>Confirm</button>
+    </>
+  );
+}
+```
+
+## Webhooks
+
+Stripe webhooks are handled automatically. Configure your webhook endpoint to point to:
+
+```
+POST /api/pay/webhook/stripe
+```
+
+KuluPay verifies the webhook signature using your `webhookSecret` and updates the payment status in the database.
+
+## Supported Features
+
+| Feature | Supported |
+| --- | --- |
+| One-time payments | ✅ |
+| Subscriptions | ✅ |
+| Customers | ✅ (auto-created) |
+| Refunds | ✅ |
+| Webhooks | ✅ |

@@ -1,0 +1,44 @@
+---
+title: Add Provider
+description: Add a new payment provider to an existing KuluPay setup.
+---
+
+# kulupay add-provider
+
+Add a new payment provider to your existing KuluPay configuration.
+
+## Usage
+
+```bash
+npx @kulupay/cli add-provider stripe
+```
+
+## What It Does
+
+1. Installs the required npm packages for the provider
+2. Updates `lib/pay.ts` to import and register the new provider
+3. Adds the provider's environment variables to `.env.local`
+4. Updates `kulupay.json`
+
+## Available Providers
+
+| Provider | Packages | Environment Variables |
+| --- | --- | --- |
+| `stripe` | `stripe`, `@stripe/stripe-js` | `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
+| `chapa` | (none) | `CHAPA_API_KEY`, `CHAPA_WEBHOOK_SECRET` |
+| `paypal` | `@paypal/paypal-js` | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` |
+
+## Example
+
+```bash
+$ npx @kulupay/cli add-provider paypal
+
+✔ Installing @paypal/paypal-js...
+✔ Updating lib/pay.ts...
+✔ Adding environment variables...
+
+PayPal provider added successfully!
+Add the following to your .env.local:
+  PAYPAL_CLIENT_ID=your_client_id
+  PAYPAL_CLIENT_SECRET=your_client_secret
+```

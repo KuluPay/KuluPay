@@ -30,10 +30,43 @@ export const createIntent = createKuluPayEndpoint(
 
         logger.debug(`Creating intent for provider: ${providerId}`, body);
 
+        // Auto-create or find customer for this user + provider
+        let customerId: string | undefined;
+        if (orm && provider.createCustomer) {
+            const existing = await orm.customer.findFirst({
+                where: { userId: session.user.id, providerId },
+            });
+            if (existing) {
+                customerId = existing.providerCustomerId;
+                logger.debug(`Found existing customer: ${customerId}`);
+            } else {
+                logger.debug(`Creating new customer for user: ${session.user.id}`);
+                const customer = await provider.createCustomer({
+                    userId: session.user.id,
+                    providerId,
+                    email: (session.user as any).email,
+                    name: (session.user as any).name,
+                });
+                await orm.customer.create({
+                    data: {
+                        id: customer.id,
+                        userId: session.user.id,
+                        providerId,
+                        providerCustomerId: customer.providerCustomerId,
+                        createdAt: customer.createdAt || new Date(),
+                        updatedAt: customer.updatedAt || new Date(),
+                    },
+                });
+                customerId = customer.providerCustomerId;
+                logger.debug(`Created new customer: ${customerId}`);
+            }
+        }
+
         const intentData: CreateIntentData = {
             ...body,
             userId: session.user.id,
             providerId,
+            customerId,
         };
 
         // If pricing.resolvePrice is configured, override amount/currency
@@ -80,10 +113,10 @@ export const createIntent = createKuluPayEndpoint(
                 currency: intent.currency,
                 status: intent.status,
                 providerId,
-                metadata: intent.metadata,
+                metadata: intent.metadata || body.metadata || {},
                 type: intent.type || body.type || "one_time",
                 description: intent.description || body.description || null,
-                customerId: body.customerId || null,
+                customerId: customerId || body.customerId || null,
                 providerPaymentId: intent.providerPaymentId || intent.id,
                 clientSecret: intent.clientSecret || null,
                 createdAt: now,

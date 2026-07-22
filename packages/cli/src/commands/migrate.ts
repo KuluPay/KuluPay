@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
 import prompts from "prompts";
-import yoctoSpinner from "yocto-spinner";
-import { createOrm, renderSafeSql, detectDatabaseRuntime } from "@farming-labs/orm";
+import { createOrm, renderSafeSql } from "@farming-labs/orm";
 import { getKuluPayTables } from "@kulupay/core/db";
 import { resolveDatabaseDriver } from "@kulupay/core/db";
 import { getConfig } from "../utils/get-config";
@@ -43,27 +43,32 @@ export async function migrateAction(opts: any) {
         return;
     }
 
-    const spinner = yoctoSpinner({ text: "Preparing migration..." }).start();
+    console.log(chalk.cyan("Preparing migration..."));
 
     const schema = getKuluPayTables(kuluPayOptions);
 
     const driver = await resolveDatabaseDriver(kuluPayOptions.database);
-    const runtime = detectDatabaseRuntime(driver);
-    if (!runtime) {
-        spinner.stop();
+    const handle = (driver as any).handle;
+    if (!handle) {
         console.error(
-            "Could not detect database type. Make sure you're passing a supported database client (Prisma, Drizzle, Kysely, pg, mysql2, etc).",
+            "Could not read database driver. Make sure you're passing a Farming ORM driver created via createPgPoolDriver, createMysqlDriver, createSqliteDriver, createMemoryDriver, etc.",
         );
         process.exit(1);
         return;
     }
 
-    const dialect = (runtime as any).dialect || "postgres";
-    const sql = renderSafeSql(schema, { dialect: dialect as "postgres" | "mysql" | "sqlite" });
+    const kind = handle.kind as string;
+    const dialect = (handle.dialect || "postgres") as "postgres" | "mysql" | "sqlite";
 
-    spinner.stop();
+    if (kind === "memory") {
+        console.log(chalk.yellow("Memory driver detected — no migration needed. Tables are created in-memory automatically."));
+        process.exit(0);
+        return;
+    }
 
-    console.log(`🔑 Detected database: ${chalk.cyan(runtime.kind)} (${chalk.yellow(dialect)})`);
+    const sql = renderSafeSql(schema, { dialect });
+
+    console.log(`🔑 Detected database: ${chalk.cyan(kind)} (${chalk.yellow(dialect)})`);
     console.log("");
     console.log("The following SQL will be executed:");
     console.log(chalk.gray("---"));
@@ -87,7 +92,7 @@ export async function migrateAction(opts: any) {
         process.exit(0);
     }
 
-    spinner.start("Migrating...");
+    console.log(chalk.cyan("Migrating..."));
 
     try {
         const orm = createOrm({
@@ -101,11 +106,9 @@ export async function migrateAction(opts: any) {
             try {
                 const existing = await (orm as any)[modelName].findMany({});
                 if (existing) {
-                    spinner.stop();
                     console.log(
                         chalk.yellow(`Table "${tableName}" already has data. Skipping creation.`),
                     );
-                    spinner.start();
                     continue;
                 }
             } catch {
@@ -113,11 +116,10 @@ export async function migrateAction(opts: any) {
             }
         }
 
-        await executeMigration(driver, sql, runtime);
-        spinner.stop();
+        await executeMigration(driver, sql, kind);
         console.log("🚀 Migration completed successfully!");
+        console.log(chalk.gray("Note: This only creates missing tables. For column updates, run `kulupay generate` and apply changes via your ORM's migration tool."));
     } catch (e: any) {
-        spinner.stop();
         console.error("Migration failed:", e?.message || e);
         process.exit(1);
     }
@@ -125,38 +127,48 @@ export async function migrateAction(opts: any) {
     process.exit(0);
 }
 
-async function executeMigration(database: any, sql: string, runtime: any) {
-    const kind = runtime.kind;
-
-    if (kind === "kysely" || kind === "sql" || kind === "drizzle") {
-        if (typeof database.connection?.query === "function") {
-            const statements = sql.split(";").filter((s) => s.trim());
-            for (const stmt of statements) {
-                await database.connection.query(stmt + ";");
-            }
-            return;
-        }
-        if (typeof database.query === "function") {
-            const statements = sql.split(";").filter((s) => s.trim());
-            for (const stmt of statements) {
-                await database.query(stmt + ";");
-            }
-            return;
-        }
+async function executeMigration(driver: any, sql: string, kind: string) {
+    const client = driver?.handle?.client;
+    if (!client) {
+        throw new Error(
+            `Cannot access underlying database client for driver kind "${kind}". Use \`npx @kulupay/cli generate\` to create schema files, then apply them with your ORM's migration tool.`,
+        );
     }
 
-    if (kind === "prisma") {
-        if (typeof database.$executeRawUnsafe === "function") {
-            const statements = sql.split(";").filter((s) => s.trim());
-            for (const stmt of statements) {
-                await database.$executeRawUnsafe(stmt + ";");
-            }
-            return;
+    const statements = sql.split(";").filter((s: string) => s.trim());
+
+    if (typeof client.query === "function") {
+        for (const stmt of statements) {
+            await client.query(stmt + ";");
         }
+        return;
     }
 
+    if (typeof client.$executeRawUnsafe === "function") {
+        for (const stmt of statements) {
+            await client.$executeRawUnsafe(stmt + ";");
+        }
+        return;
+    }
+
+    if (typeof client.exec === "function") {
+        for (const stmt of statements) {
+            client.exec(stmt + ";");
+        }
+        return;
+    }
+
+    if (typeof client.run === "function") {
+        for (const stmt of statements) {
+            await client.run(stmt + ";");
+        }
+        return;
+    }
+
+    const fallbackPath = path.join(process.cwd(), "kulupay-migration.sql");
+    await fs.writeFile(fallbackPath, sql);
     throw new Error(
-        `Cannot execute raw SQL for database type "${kind}". Use \`npx @kulupay/cli generate\` to create schema files, then apply them with your ORM's migration tool.`,
+        `Cannot execute raw SQL for database type "${kind}" (client has no query/exec/run/$executeRawUnsafe method).\nSQL has been written to ${fallbackPath} — run it manually with your database tool.`,
     );
 }
 

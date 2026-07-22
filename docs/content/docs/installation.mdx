@@ -1,0 +1,137 @@
+---
+title: Installation
+description: Install KuluPay and set up your first payment integration.
+---
+
+# Installation
+
+## Prerequisites
+
+- Node.js 18+ 
+- A package manager (pnpm recommended)
+- A database (PostgreSQL, MySQL, or SQLite)
+
+## 1. Install the SDK
+
+```bash
+pnpm add @kulupay/kulupay
+```
+
+## 2. Install Provider SDKs (only what you need)
+
+KuluPay uses modular imports — you only install the SDK for providers you use:
+
+```bash
+# Stripe only
+pnpm add stripe
+
+# PayPal only
+pnpm add @paypal/paypal-js
+
+# Chapa only (no SDK needed — uses fetch)
+```
+
+Provider SDKs are optional peer dependencies. If you don't use a provider, you don't need to install its SDK.
+
+## 3. Set Up Your Database
+
+KuluPay uses the Farming ORM and supports PostgreSQL, MySQL, and SQLite.
+
+<Tabs>
+  <Tab title="PostgreSQL" value="PostgreSQL">
+    ```bash
+    pnpm add pg @neondatabase/serverless
+    ```
+  </Tab>
+  <Tab title="SQLite" value="SQLite">
+    ```bash
+    pnpm add better-sqlite3
+    ```
+  </Tab>
+</Tabs>
+
+## 4. Create Your KuluPay Instance
+
+```ts title="lib/pay.ts"
+import { kuluPay, createPgPoolDriver } from "@kulupay/kulupay";
+import { stripe } from "@kulupay/kulupay/providers/stripe";
+import { Pool } from "pg";
+
+const database = createPgPoolDriver(
+  new Pool({ connectionString: process.env.DATABASE_URL! }),
+);
+
+export const pay = kuluPay({
+  database,
+  providers: [
+    stripe({
+      apiKey: process.env.STRIPE_API_KEY!,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    }),
+  ],
+  baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
+  auth: {
+    getSession: async (req) => {
+      // Plug in your auth solution here
+      return { user: { id: "user_123" }, session: { id: "sess_1" } };
+    },
+  },
+});
+```
+
+## 5. Add the API Route
+
+<Tabs>
+  <Tab title="Next.js App Router" value="nextjs">
+    ```ts title="app/api/pay/[...kulupay]/route.ts"
+    import { toNextJsHandler } from "@kulupay/kulupay/next-js";
+    import { pay } from "@/lib/pay";
+
+    export const { GET, POST, PUT, PATCH, DELETE } = toNextJsHandler(pay);
+    ```
+  </Tab>
+  <Tab title="Express" value="express">
+    ```ts title="server.ts"
+    import { toExpressHandler } from "@kulupay/kulupay";
+    import { pay } from "./lib/pay";
+
+    app.use("/api/pay", toExpressHandler(pay));
+    ```
+  </Tab>
+</Tabs>
+
+## 6. Generate Database Schema
+
+```bash
+npx @kulupay/cli generate --generator sql --dialect postgresql
+npx @kulupay/cli migrate
+```
+
+## 7. Use the Client
+
+```tsx title="components/checkout.tsx"
+"use client";
+import { usePaymentProvider } from "@kulupay/kulupay/client";
+
+export function Checkout() {
+  const pay = usePaymentProvider({
+    client: payClient,
+    provider: stripeProvider,
+    providerId: "stripe",
+  });
+
+  const handlePay = async () => {
+    await pay.createIntent({
+      amount: 2500,
+      currency: "usd",
+      userId: "user_123",
+      providerId: "stripe",
+      metadata: { productId: "prod_premium" },
+    });
+  };
+
+  return <button onClick={handlePay}>Pay $25.00</button>;
+}
+```
+
+That's it! You now have a fully functional payment integration.

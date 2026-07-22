@@ -1,10 +1,18 @@
 {
   "name": "@kulupay/kulupay",
-  "version": "0.0.6",
+  "version": "0.0.8",
   "description": "Unified Payment SDK",
   "author": "YonaniCodes",
   "license": "MIT",
-  "keywords": ["payment", "stripe", "paypal", "chapa", "crypto", "sdk", "kulupay"],
+  "keywords": [
+    "payment",
+    "stripe",
+    "paypal",
+    "chapa",
+    "crypto",
+    "sdk",
+    "kulupay"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/KuluPay/KuluPay.git",
@@ -43,6 +51,13 @@
       "require": "./dist/client/stripe.js",
       "default": "./dist/client/stripe.mjs"
     },
+    "./client/providers": {
+      "dev-source": "./src/client/providers/index.ts",
+      "types": "./dist/client/providers/index.d.ts",
+      "import": "./dist/client/providers/index.mjs",
+      "require": "./dist/client/providers/index.js",
+      "default": "./dist/client/providers/index.mjs"
+    },
     "./next-js": {
       "dev-source": "./src/integrations/next-js.ts",
       "types": "./dist/integrations/next-js.d.ts",
@@ -56,16 +71,61 @@
       "import": "./dist/payment-providers/index.mjs",
       "require": "./dist/payment-providers/index.js",
       "default": "./dist/payment-providers/index.mjs"
+    },
+    "./providers/stripe": {
+      "dev-source": "./src/payment-providers/stripe.ts",
+      "types": "./dist/payment-providers/stripe.d.ts",
+      "import": "./dist/payment-providers/stripe.mjs",
+      "require": "./dist/payment-providers/stripe.js",
+      "default": "./dist/payment-providers/stripe.mjs"
+    },
+    "./providers/chapa": {
+      "dev-source": "./src/payment-providers/chapa.ts",
+      "types": "./dist/payment-providers/chapa.d.ts",
+      "import": "./dist/payment-providers/chapa.mjs",
+      "require": "./dist/payment-providers/chapa.js",
+      "default": "./dist/payment-providers/chapa.mjs"
+    },
+    "./providers/paypal": {
+      "dev-source": "./src/payment-providers/paypal.ts",
+      "types": "./dist/payment-providers/paypal.d.ts",
+      "import": "./dist/payment-providers/paypal.mjs",
+      "require": "./dist/payment-providers/paypal.js",
+      "default": "./dist/payment-providers/paypal.mjs"
     }
   },
   "typesVersions": {
     "*": {
-      "*": ["./dist/index.d.ts"],
-      "api": ["./dist/api/index.d.ts"],
-      "client": ["./dist/client/index.d.ts"],
-      "client/stripe": ["./dist/client/stripe.d.ts"],
-      "next-js": ["./dist/integrations/next-js.d.ts"],
-      "providers": ["./dist/payment-providers/index.d.ts"]
+      "*": [
+        "./dist/index.d.ts"
+      ],
+      "api": [
+        "./dist/api/index.d.ts"
+      ],
+      "client": [
+        "./dist/client/index.d.ts"
+      ],
+      "client/stripe": [
+        "./dist/client/stripe.d.ts"
+      ],
+      "client/providers": [
+        "./dist/client/providers/index.d.ts"
+      ],
+      "next-js": [
+        "./dist/integrations/next-js.d.ts"
+      ],
+      "providers": [
+        "./dist/payment-providers/index.d.ts"
+      ],
+      "providers/stripe": [
+        "./dist/payment-providers/stripe.d.ts"
+      ],
+      "providers/chapa": [
+        "./dist/payment-providers/chapa.d.ts"
+      ],
+      "providers/paypal": [
+        "./dist/payment-providers/paypal.d.ts"
+      ]
     }
   },
   "files": [

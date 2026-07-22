@@ -1,0 +1,45 @@
+---
+title: Chapa
+description: Ethiopian payment gateway — accept local payment methods.
+---
+
+# Chapa Provider
+
+## Installation
+
+No SDK required — Chapa uses the standard `fetch` API.
+
+## Server Setup
+
+```ts
+import { chapa } from "@kulupay/kulupay/providers/chapa";
+
+const chapaProvider = chapa({
+  apiKey: process.env.CHAPA_API_KEY!,
+  webhookSecret: process.env.CHAPA_WEBHOOK_SECRET,
+});
+```
+
+## Configuration
+
+| Option | Type | Required | Description |
+| --- | --- | --- | --- |
+| `apiKey` | `string` | Yes | Chapa API key |
+| `webhookSecret` | `string` | No | Chapa webhook secret |
+
+## Environment Variables
+
+```bash
+CHAPA_API_KEY=your_chapa_api_key
+CHAPA_WEBHOOK_SECRET=your_webhook_secret
+```
+
+## Supported Features
+
+| Feature | Supported |
+| --- | --- |
+| One-time payments | ✅ |
+| Subscriptions | ❌ |
+| Customers | ❌ |
+| Refunds | ❌ |
+| Webhooks | ✅ |

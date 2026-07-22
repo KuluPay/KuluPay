@@ -1,0 +1,53 @@
+---
+title: Pricing
+description: Server-side price resolution to prevent client-side price manipulation.
+---
+
+# Pricing
+
+## Why Server-Side Pricing?
+
+Without server-side pricing, a malicious user could modify the amount in the browser and pay less than the actual price. KuluPay's `pricing.resolvePrice` prevents this by resolving the real price on the server.
+
+## Configuration
+
+```ts
+export const pay = kuluPay({
+  // ...
+  pricing: {
+    resolvePrice: async (data, ctx) => {
+      // data.metadata.productId contains the product ID from the client
+      const product = await db.products.findById(data.metadata.productId);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+      return {
+        amount: product.price,
+        currency: product.currency,
+      };
+    },
+  },
+});
+```
+
+## How It Works
+
+1. Client sends `createIntent` with `metadata: { productId: "prod_123" }`
+2. Server calls `pricing.resolvePrice(intentData, ctx)`
+3. The returned `amount` and `currency` **override** whatever the client sent
+4. The validated amount is passed to the provider (Stripe, PayPal, etc.)
+
+<Callout type="warn">
+  If `pricing.resolvePrice` is not configured, KuluPay uses the client-sent amount. This is fine for development/testing but should not be used in production.
+</Callout>
+
+## Error Handling
+
+If the resolver throws, KuluPay returns a structured error:
+
+| Error Code | Status | Description |
+| --- | --- | --- |
+| `PRICING_RESOLVE_FAILED` | 500 | Resolver threw an error |
+| `PRICING_PRODUCT_NOT_FOUND` | 404 | Product not found |
+| `PRICING_AMOUNT_MUST_BE_POSITIVE` | 400 | Resolved amount ≤ 0 |
+| `PRICING_CURRENCY_REQUIRED` | 400 | Missing or invalid currency |

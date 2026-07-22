@@ -1,0 +1,75 @@
+---
+title: Architecture
+description: How KuluPay is structured — packages, providers, and the request lifecycle.
+---
+
+# Architecture
+
+## Package Structure
+
+```
+@kulupay/core       → Types, payment provider implementations, DB, error handling
+@kulupay/kulupay    → SDK entry point, API routes, client, framework integrations
+@kulupay/cli        → CLI for schema generation, migration, and provider management
+```
+
+## Modular Provider Imports
+
+KuluPay follows the shadcn/ui pattern for provider imports. Instead of a barrel export that pulls in all providers, each provider has its own entry point:
+
+```ts
+// ✅ Only loads Stripe SDK
+import { stripe } from "@kulupay/kulupay/providers/stripe";
+
+// ✅ Only loads Chapa (no SDK needed)
+import { chapa } from "@kulupay/kulupay/providers/chapa";
+
+// ✅ Only loads PayPal SDK
+import { paypal } from "@kulupay/kulupay/providers/paypal";
+```
+
+Provider SDKs (`stripe`, `@paypal/paypal-js`, `viem`) are optional peer dependencies — you only install what you use.
+
+## Request Lifecycle
+
+```
+Client → POST /api/pay/create-intent
+  → sessionMiddleware (auth check)
+  → originCheckMiddleware (CSRF protection)
+  → pricing.resolvePrice (server-side price resolution)
+  → auto-customer creation (find or create)
+  → provider.createIntent (Stripe/PayPal/Chapa API call)
+  → save to database
+  → return clientSecret
+Client → mounts payment UI (Stripe Elements, etc.)
+Client → confirmPayment
+  → elements.submit()
+  → stripe.confirmPayment()
+Webhook → POST /api/pay/webhook/stripe
+  → signature verification
+  → update payment status in DB
+```
+
+## Auth Integration
+
+KuluPay doesn't hardcode any auth library. You provide a `getSession` function:
+
+```ts
+auth: {
+  getSession: async (req) => {
+    // Use better-auth, NextAuth, custom JWT, etc.
+    const session = await myAuth.api.getSession({ headers: req.headers });
+    return session;
+  },
+}
+```
+
+The `userId` always comes from the session, never from the request body.
+
+## Framework Bindings
+
+Framework integrations are thin wrappers:
+
+- **Next.js**: `toNextJsHandler(pay)` → exports GET/POST/PUT/PATCH/DELETE
+- **React**: `usePaymentProvider` hook → wraps the vanilla client
+- **Vanilla JS**: `createKuluPayClient` → framework-agnostic client

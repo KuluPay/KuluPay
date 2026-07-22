@@ -1,0 +1,62 @@
+---
+title: Introduction
+description: A unified payment SDK for Node.js — integrate multiple providers through a single API.
+---
+
+# Introduction
+
+KuluPay is a unified payment gateway SDK that lets you integrate multiple payment providers (Stripe, PayPal, Chapa, crypto) through a single, type-safe API.
+
+## Why KuluPay?
+
+- **Multi-provider** — Stripe, PayPal, Chapa, and crypto out of the box
+- **Modular imports** — Only install the SDK for providers you use (like shadcn/ui)
+- **Framework agnostic** — Works with Next.js, Express, Hono, or any Node.js server
+- **Type-safe** — Written in TypeScript with full type definitions
+- **Pluggable auth** — Bring your own auth (better-auth, NextAuth, custom)
+- **Server-side pricing** — Prevent client-side price manipulation
+- **Auto-customers** — Automatically creates provider customers for your users
+- **CLI tools** — Generate schemas, migrate databases, add providers
+
+## Quick Example
+
+```ts
+import { kuluPay } from "@kulupay/kulupay";
+import { stripe } from "@kulupay/kulupay/providers/stripe";
+
+export const pay = kuluPay({
+  database: yourDriver,
+  providers: [
+    stripe({ apiKey: process.env.STRIPE_API_KEY! }),
+  ],
+  auth: {
+    getSession: async (req) => yourAuthSession(req),
+  },
+  pricing: {
+    resolvePrice: async (data) => {
+      const product = await db.products.findById(data.metadata.productId);
+      return { amount: product.price, currency: product.currency };
+    },
+  },
+});
+```
+
+## Packages
+
+| Package | Description |
+| --- | --- |
+| `@kulupay/core` | Core logic, types, provider implementations |
+| `@kulupay/kulupay` | Full SDK with server handler, client, and framework integrations |
+| `@kulupay/cli` | CLI tool for schema generation and database migration |
+
+## Architecture
+
+KuluPay follows a modular architecture inspired by better-auth and shadcn/ui:
+
+1. **Server providers** are framework-agnostic (standard Request/Response)
+2. **Client providers** are framework-agnostic (vanilla JS, `PaymentClientProvider` interface)
+3. **Framework bindings** are thin wrappers (React `usePaymentProvider` hook)
+4. **Auth is pluggable** — you provide `getSession()`, KuluPay doesn't hardcode any auth library
+5. **CLI follows shadcn pattern** — you own the code, eject providers/blocks/middleware
+
+Ready to get started? Check the [Installation](/docs/installation) guide.

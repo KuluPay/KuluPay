@@ -1,0 +1,47 @@
+---
+title: PayPal
+description: Accept PayPal payments globally.
+---
+
+# PayPal Provider
+
+## Installation
+
+```bash
+pnpm add @paypal/paypal-js
+```
+
+## Server Setup
+
+```ts
+import { paypal } from "@kulupay/kulupay/providers/paypal";
+
+const paypalProvider = paypal({
+  clientId: process.env.PAYPAL_CLIENT_ID!,
+  clientSecret: process.env.PAYPAL_CLIENT_SECRET!,
+});
+```
+
+## Configuration
+
+| Option | Type | Required | Description |
+| --- | --- | --- | --- |
+| `clientId` | `string` | Yes | PayPal client ID |
+| `clientSecret` | `string` | Yes | PayPal client secret |
+
+## Environment Variables
+
+```bash
+PAYPAL_CLIENT_ID=your_client_id
+PAYPAL_CLIENT_SECRET=your_client_secret
+```
+
+## Supported Features
+
+| Feature | Supported |
+| --- | --- |
+| One-time payments | ✅ |
+| Subscriptions | ❌ |
+| Customers | ❌ |
+| Refunds | ❌ |
+| Webhooks | ✅ |

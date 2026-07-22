@@ -469,6 +469,75 @@ export interface PaymentAnalytics {
     }>;
 }
 
+/**
+ * Client-side payment provider interface.
+ * This is the client-side equivalent of PaymentProvider.
+ *
+ * While PaymentProvider runs on the server (with API keys, SDK access),
+ * PaymentClientProvider runs in the browser (with publishable keys, SDK client-side).
+ *
+ * The flow is:
+ * 1. Client calls KuluPayClient.createIntent() → hits server API → server calls PaymentProvider.createIntent()
+ * 2. Server returns PaymentIntent with clientSecret
+ * 3. Client calls PaymentClientProvider.confirmPayment(clientSecret) → uses provider SDK to confirm
+ *
+ * Implement this to add client-side provider support (e.g. Stripe Elements, Chapa checkout).
+ */
+export interface PaymentClientProvider {
+    id: string;
+    /**
+     * Confirm a payment using the provider's client SDK.
+     * Called after createIntent returns a clientSecret.
+     */
+    confirmPayment: (clientSecret: string, options?: PaymentConfirmOptions) => Promise<PaymentIntent>;
+    /**
+     * Get the provider's SDK instance (e.g. Stripe.js object).
+     * Useful for mounting Elements, creating payment requests, etc.
+     */
+    getSDK?: () => Promise<any>;
+    /**
+     * Create an Elements instance (Stripe-specific, but generic enough).
+     * Other providers can return their equivalent UI container.
+     */
+    createElements?: (options?: any) => Promise<any>;
+    /**
+     * Create a payment method (e.g. card token) using the provider's SDK.
+     */
+    createPaymentMethod?: (data: any) => Promise<any>;
+    /**
+     * Verify a payment status by polling the provider's client SDK.
+     */
+    verifyPayment?: (clientSecret: string) => Promise<PaymentIntent>;
+}
+
+/**
+ * Options for confirming a payment on the client side.
+ */
+export interface PaymentConfirmOptions {
+    /**
+     * For Stripe Elements: the Elements instance to use.
+     * For other providers: the equivalent UI container.
+     */
+    elements?: any;
+    /**
+     * The URL to redirect to after payment is confirmed.
+     */
+    redirectUrl?: string;
+    /**
+     * Whether to redirect automatically ("if_required" | "always").
+     * Defaults to "if_required".
+     */
+    redirect?: "if_required" | "always";
+    /**
+     * Additional provider-specific confirm params.
+     */
+    confirmParams?: Record<string, any>;
+    /**
+     * Payment method data (for non-Elements confirmation).
+     */
+    paymentMethodData?: any;
+}
+
 export type KuluPayORM = {
     payment: {
         create: (args: { data: any }) => Promise<any>;

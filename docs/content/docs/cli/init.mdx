@@ -1,0 +1,57 @@
+---
+title: Init
+description: Initialize KuluPay in your project with the CLI.
+---
+
+# kulupay init
+
+Initialize KuluPay in your project. This creates a `lib/pay.ts` file with your selected providers and a `kulupay.json` config file.
+
+## Usage
+
+```bash
+npx @kulupay/cli init
+```
+
+## What It Does
+
+1. Prompts you to select payment providers (Stripe, Chapa, PayPal)
+2. Generates `lib/pay.ts` with the correct modular imports
+3. Creates `kulupay.json` with provider configuration
+4. Installs required npm packages
+5. Adds environment variables to `.env.local`
+
+## Generated File
+
+```ts title="lib/pay.ts"
+import { kuluPay, createPgPoolDriver } from "@kulupay/kulupay";
+import { stripe } from "@kulupay/kulupay/providers/stripe";
+import { Pool } from "pg";
+
+const database = createPgPoolDriver(
+  new Pool({ connectionString: process.env.DATABASE_URL! }),
+);
+
+export const pay = kuluPay({
+  database,
+  providers: [
+    stripe({
+      apiKey: process.env.STRIPE_API_KEY!,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    }),
+  ],
+  baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
+  auth: {
+    getSession: async (req) => {
+      // Plug in your auth
+    },
+  },
+});
+```
+
+## Options
+
+| Option | Description |
+| --- | --- |
+| `--config <path>` | Path to kulupay.json (default: `./kulupay.json`) |
+| `-y, --yes` | Skip confirmation prompts |

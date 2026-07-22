@@ -1,0 +1,13 @@
+{
+  "title": "KuluPay",
+  "root": true,
+  "pages": [
+    "introduction",
+    "installation",
+    "basic-usage",
+    "providers",
+    "concepts",
+    "cli",
+    "reference"
+  ]
+}

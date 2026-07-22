@@ -1,10 +1,18 @@
 {
   "name": "@kulupay/core",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Core logic for KuluPay SDK",
   "author": "YonaniCodes",
   "license": "MIT",
-  "keywords": ["payment", "stripe", "paypal", "chapa", "crypto", "sdk", "kulupay"],
+  "keywords": [
+    "payment",
+    "stripe",
+    "paypal",
+    "chapa",
+    "crypto",
+    "sdk",
+    "kulupay"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/KuluPay/KuluPay.git",
@@ -64,6 +72,27 @@
       "require": "./dist/payment-providers/index.js",
       "default": "./dist/payment-providers/index.mjs"
     },
+    "./payment-providers/stripe": {
+      "dev-source": "./src/payment-providers/stripe.ts",
+      "types": "./dist/payment-providers/stripe.d.ts",
+      "import": "./dist/payment-providers/stripe.mjs",
+      "require": "./dist/payment-providers/stripe.js",
+      "default": "./dist/payment-providers/stripe.mjs"
+    },
+    "./payment-providers/chapa": {
+      "dev-source": "./src/payment-providers/chapa.ts",
+      "types": "./dist/payment-providers/chapa.d.ts",
+      "import": "./dist/payment-providers/chapa.mjs",
+      "require": "./dist/payment-providers/chapa.js",
+      "default": "./dist/payment-providers/chapa.mjs"
+    },
+    "./payment-providers/paypal": {
+      "dev-source": "./src/payment-providers/paypal.ts",
+      "types": "./dist/payment-providers/paypal.d.ts",
+      "import": "./dist/payment-providers/paypal.mjs",
+      "require": "./dist/payment-providers/paypal.js",
+      "default": "./dist/payment-providers/paypal.mjs"
+    },
     "./utils": {
       "dev-source": "./src/utils/index.ts",
       "types": "./dist/utils/index.d.ts",
@@ -74,14 +103,39 @@
   },
   "typesVersions": {
     "*": {
-      "*": ["./dist/index.d.ts"],
-      "api": ["./dist/api/index.d.ts"],
-      "async_hooks": ["./dist/async_hooks/index.d.ts"],
-      "context": ["./dist/context/index.d.ts"],
-      "db": ["./dist/db/index.d.ts"],
-      "error": ["./dist/error/index.d.ts"],
-      "payment-providers": ["./dist/payment-providers/index.d.ts"],
-      "utils": ["./dist/utils/index.d.ts"]
+      "*": [
+        "./dist/index.d.ts"
+      ],
+      "api": [
+        "./dist/api/index.d.ts"
+      ],
+      "async_hooks": [
+        "./dist/async_hooks/index.d.ts"
+      ],
+      "context": [
+        "./dist/context/index.d.ts"
+      ],
+      "db": [
+        "./dist/db/index.d.ts"
+      ],
+      "error": [
+        "./dist/error/index.d.ts"
+      ],
+      "payment-providers": [
+        "./dist/payment-providers/index.d.ts"
+      ],
+      "payment-providers/stripe": [
+        "./dist/payment-providers/stripe.d.ts"
+      ],
+      "payment-providers/chapa": [
+        "./dist/payment-providers/chapa.d.ts"
+      ],
+      "payment-providers/paypal": [
+        "./dist/payment-providers/paypal.d.ts"
+      ],
+      "utils": [
+        "./dist/utils/index.d.ts"
+      ]
     }
   },
   "files": [
@@ -104,27 +158,33 @@
     "zod": "^4.0.0",
     "better-call": "latest",
     "@farming-labs/orm": "latest",
+    "@farming-labs/orm-sql": "latest",
     "@better-fetch/fetch": "latest"
   },
-  "optionalDependencies": {
+  "peerDependencies": {
     "stripe": "^20.0.0",
     "@paypal/paypal-js": "^7.0.0",
     "viem": "^2.0.0"
   },
   "peerDependenciesMeta": {
-    "@farming-labs/orm-sql": {
-      "optional": true
-    },
     "pg": {
       "optional": true
     },
     "@neondatabase/serverless": {
       "optional": true
+    },
+    "stripe": {
+      "optional": true
+    },
+    "@paypal/paypal-js": {
+      "optional": true
+    },
+    "viem": {
+      "optional": true
     }
   },
   "devDependencies": {
     "tsup": "^8.0.0",
-    "@farming-labs/orm-sql": "latest",
     "pg": "^8.22.0",
     "@types/pg": "^8.20.0",
     "@neondatabase/serverless": "^1.1.0"

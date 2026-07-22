@@ -1,0 +1,57 @@
+---
+title: Webhooks
+description: Handle provider webhooks for payment status updates.
+---
+
+# Webhooks
+
+## How Webhooks Work in KuluPay
+
+Webhooks are essential for reliable payment status updates. When a payment succeeds or fails asynchronously (e.g., 3DS authentication, bank transfers), the provider sends a webhook to your server.
+
+KuluPay handles webhook verification and status updates automatically.
+
+## Stripe Webhooks
+
+### 1. Configure the webhook endpoint
+
+In your Stripe Dashboard, create a webhook endpoint pointing to:
+
+```
+https://yourdomain.com/api/pay/webhook/stripe
+```
+
+### 2. Set the webhook secret
+
+```bash
+STRIPE_WEBHOOK_SECRET=whsec_your_secret
+```
+
+### 3. KuluPay handles the rest
+
+KuluPay:
+- Verifies the webhook signature using your `webhookSecret`
+- Parses the event type (payment_intent.succeeded, payment_intent.payment_failed, etc.)
+- Updates the payment status in the database
+- Triggers any configured database hooks
+
+<Callout type="info">
+  Webhooks use signature verification, not session auth. This means they work without a logged-in user.
+</Callout>
+
+## Local Development
+
+Use the Stripe CLI to forward webhooks to your local server:
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+## Supported Events
+
+| Event | Action |
+| --- | --- |
+| `payment_intent.succeeded` | Update status to `succeeded` |
+| `payment_intent.payment_failed` | Update status to `failed` |
+| `payment_intent.canceled` | Update status to `canceled` |
+| `charge.refunded` | Update status to `refunded` |

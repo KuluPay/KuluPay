@@ -1,0 +1,66 @@
+---
+title: Customers
+description: Auto-creation and management of provider customers.
+---
+
+# Customers
+
+## Auto-Customer Creation
+
+KuluPay automatically creates provider customers (e.g., Stripe Customers) for your users. This happens transparently inside the `createIntent` flow:
+
+1. KuluPay checks the `customer` table for an existing record matching `userId + providerId`
+2. If found → reuses the `providerCustomerId`
+3. If not found → calls `provider.createCustomer()` → saves to DB → uses the new customer
+
+```ts
+// No extra configuration needed — this happens automatically
+const intent = await pay.createIntent({
+  amount: 2500,
+  currency: "usd",
+  providerId: "stripe",
+  metadata: { productId: "prod_premium" },
+});
+// → A Stripe Customer is created for the user (if not already)
+// → The PaymentIntent is attached to that Customer
+```
+
+## Customer Data
+
+The `customer` table stores:
+
+| Field | Description |
+| --- | --- |
+| `id` | KuluPay customer ID |
+| `userId` | Your user's ID (from session) |
+| `providerId` | e.g., "stripe" |
+| `providerCustomerId` | e.g., Stripe's `cus_xxx` ID |
+
+## Manual Customer Management
+
+You can also manage customers directly:
+
+```ts
+// Create a customer
+const customer = await pay.stripe.createCustomer({
+  userId: "user_123",
+  providerId: "stripe",
+  email: "user@example.com",
+  name: "John Doe",
+});
+
+// Retrieve a customer
+const customer = await pay.stripe.getCustomer("cus_xxx");
+```
+
+## Subscriptions
+
+Customers are required for subscriptions. Since KuluPay auto-creates them, you can start subscriptions without any extra setup:
+
+```ts
+const subscription = await pay.stripe.createSubscription({
+  userId: "user_123",
+  providerId: "stripe",
+  planId: "price_xxx",
+});
+```

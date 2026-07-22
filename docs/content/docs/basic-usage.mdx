@@ -1,0 +1,134 @@
+---
+title: Basic Usage
+description: Create payment intents, confirm payments, and handle the full checkout flow.
+---
+
+# Basic Usage
+
+## Server-Side: Creating a KuluPay Instance
+
+```ts
+import { kuluPay } from "@kulupay/kulupay";
+import { stripe } from "@kulupay/kulupay/providers/stripe";
+
+export const pay = kuluPay({
+  database: yourDriver,
+  providers: [
+    stripe({ apiKey: process.env.STRIPE_API_KEY! }),
+  ],
+  auth: {
+    getSession: async (req) => yourAuthSession(req),
+  },
+});
+```
+
+## The Payment Flow
+
+KuluPay follows a standard payment intent flow:
+
+1. **Client** calls `createIntent` with product/amount info
+2. **Server** resolves the price (if `pricing.resolvePrice` is configured)
+3. **Server** auto-creates or finds a customer for the user
+4. **Server** calls the provider (e.g., Stripe) to create a PaymentIntent
+5. **Server** saves the payment to the database
+6. **Client** receives a `clientSecret` and mounts payment UI (e.g., Stripe Elements)
+7. **Client** confirms the payment
+8. **Webhook** updates payment status (async)
+
+## Creating a Payment Intent
+
+```ts
+const intent = await pay.createIntent({
+  amount: 2500,
+  currency: "usd",
+  providerId: "stripe",
+  metadata: { productId: "prod_premium" },
+});
+```
+
+<Callout type="info">
+  When `pricing.resolvePrice` is configured, the `amount` and `currency` sent by the client are overridden by the server-resolved values. This prevents price manipulation.
+</Callout>
+
+## Server-Side Pricing
+
+Configure `pricing.resolvePrice` to resolve prices from your database:
+
+```ts
+export const pay = kuluPay({
+  // ...
+  pricing: {
+    resolvePrice: async (data, ctx) => {
+      const product = await db.products.findById(data.metadata.productId);
+      if (!product) throw new Error("Product not found");
+      return { amount: product.price, currency: product.currency };
+    },
+  },
+});
+```
+
+Now the client only sends a `productId` — the server determines the real price.
+
+## Auto-Customer Creation
+
+KuluPay automatically creates provider customers (e.g., Stripe Customers) for your users:
+
+1. Before creating a payment intent, KuluPay checks if a customer exists for `userId + providerId`
+2. If not, it calls `provider.createCustomer()` and saves to the `customer` table
+3. The `customerId` is passed to the provider's `createIntent`
+
+This happens automatically — no extra configuration needed.
+
+## Retrieving a Payment
+
+```ts
+const intent = await pay.getIntent({
+  id: "pi_12345",
+  providerId: "stripe",
+});
+```
+
+## Client-Side (React)
+
+```tsx
+import { usePaymentProvider } from "@kulupay/kulupay/client";
+
+function Checkout() {
+  const pay = usePaymentProvider({
+    client: payClient,
+    provider: stripeProvider,
+    providerId: "stripe",
+  });
+
+  // Create intent
+  await pay.createIntent({
+    amount: 2500,
+    currency: "usd",
+    providerId: "stripe",
+    metadata: { productId: "prod_premium" },
+  });
+
+  // Confirm payment
+  await pay.confirmPayment({
+    elements: elementsRef.current,
+    redirectUrl: window.location.href,
+  });
+}
+```
+
+## Client-Side (Vanilla JS)
+
+```ts
+import { createKuluPayClient } from "@kulupay/kulupay/client";
+
+const client = createKuluPayClient({
+  baseURL: "/api/pay",
+  providerId: "stripe",
+});
+
+const intent = await client.createIntent({
+  amount: 2500,
+  currency: "usd",
+  providerId: "stripe",
+});
+```

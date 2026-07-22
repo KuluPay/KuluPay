@@ -1,0 +1,8 @@
+{
+  "title": "CLI",
+  "pages": [
+    "init",
+    "add-provider",
+    "migrate"
+  ]
+}

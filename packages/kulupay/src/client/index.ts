@@ -1,7 +1,8 @@
 export * from './vanilla';
 export * from './react';
-export { createKuluPayReactHooks } from './react';
-export type { CreateIntentData, PaymentIntent, PaymentStatus } from '@kulupay/core';
+export * from './providers';
+export { createKuluPayReactHooks, usePaymentProvider } from './react';
+export type { CreateIntentData, PaymentIntent, PaymentStatus, PaymentClientProvider, PaymentConfirmOptions } from '@kulupay/core';
 
 import { KuluPayClient, KuluPayClientOptions } from './vanilla';
 import { createKuluPayReactHooks } from './react';

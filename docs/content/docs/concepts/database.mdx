@@ -1,0 +1,124 @@
+---
+title: Database
+description: Database schema, custom fields, and supported drivers.
+---
+
+# Database
+
+KuluPay uses the [Farming ORM](https://github.com/farming-labs/orm) and supports PostgreSQL, MySQL, and SQLite.
+
+## Schema
+
+KuluPay creates three tables:
+
+### Payment
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Payment intent ID |
+| `userId` | `string` | User who initiated the payment |
+| `amount` | `number` | Payment amount |
+| `currency` | `string` | ISO 4217 currency code |
+| `status` | `string` | pending, succeeded, canceled, failed |
+| `providerId` | `string` | Provider that processed the payment |
+| `metadata` | `json` | Arbitrary metadata |
+| `type` | `string` | one_time, subscription_initial, topup, refund |
+| `customerId` | `string` | Linked customer ID |
+| `providerPaymentId` | `string` | Provider's payment ID |
+| `clientSecret` | `string` | Client secret for frontend |
+| `createdAt` | `datetime` | Creation timestamp |
+| `updatedAt` | `datetime` | Last update timestamp |
+
+### Customer
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Customer ID |
+| `userId` | `string` | Linked user ID |
+| `providerId` | `string` | Provider ID |
+| `providerCustomerId` | `string` | Provider's customer ID |
+| `createdAt` | `datetime` | Creation timestamp |
+| `updatedAt` | `datetime` | Last update timestamp |
+
+### Subscription
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Subscription ID |
+| `userId` | `string` | User ID |
+| `planId` | `string` | Plan ID |
+| `status` | `string` | active, canceled, past_due |
+| `providerSubscriptionId` | `string` | Provider's subscription ID |
+| `currentPeriodEnd` | `datetime` | Current period end |
+| `cancelAtPeriodEnd` | `boolean` | Cancel at period end |
+| `createdAt` | `datetime` | Creation timestamp |
+| `updatedAt` | `datetime` | Last update timestamp |
+
+## Custom Fields
+
+Add custom fields to any table:
+
+```ts
+export const pay = kuluPay({
+  // ...
+  payment: {
+    modelName: "payments",
+    additionalFields: {
+      description: { type: "string", required: false },
+      receiptEmail: { type: "string", required: false },
+    },
+  },
+  customer: {
+    additionalFields: {
+      country: { type: "string", required: false },
+    },
+  },
+});
+```
+
+Supported field types: `string`, `number`, `boolean`, `datetime`, `json`.
+
+## Database Drivers
+
+### PostgreSQL (pg)
+
+```ts
+import { createPgPoolDriver } from "@kulupay/kulupay";
+import { Pool } from "pg";
+
+const database = createPgPoolDriver(
+  new Pool({ connectionString: process.env.DATABASE_URL! }),
+);
+```
+
+### Neon (Serverless PostgreSQL)
+
+```ts
+import { createPgPoolDriver } from "@kulupay/kulupay";
+import { neon } from "@neondatabase/serverless";
+
+const database = createPgPoolDriver(neon(process.env.DATABASE_URL!));
+```
+
+### Memory (for testing)
+
+```ts
+import { createMemoryDriver } from "@farming-labs/orm";
+
+const database = createMemoryDriver();
+```
+
+## Schema Generation
+
+Generate SQL or ORM schemas using the CLI:
+
+```bash
+# Raw SQL
+npx @kulupay/cli generate --generator sql --dialect postgresql
+
+# Prisma
+npx @kulupay/cli generate --generator prisma --dialect postgresql
+
+# Drizzle
+npx @kulupay/cli generate --generator drizzle --dialect pg
+```

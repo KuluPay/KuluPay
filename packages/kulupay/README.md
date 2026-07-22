@@ -33,8 +33,7 @@ npm install @kulupay/kulupay
 ### Server-side Setup
 
 ```typescript
-import { kuluPay, PaymentProvider } from "@kulupay/kulupay";
-import { createMemoryDriver } from "@farming-labs/orm";
+import { kuluPay, PaymentProvider, createMemoryDriver } from "@kulupay/kulupay";
 
 const mockProvider: PaymentProvider = {
   id: "mock",
