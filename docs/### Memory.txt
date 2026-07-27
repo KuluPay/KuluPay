@@ -1,0 +1,83 @@
+### Memory
+Memory
+
+```
+import { createMemoryDriver, createOrm } from "@farming-labs/orm"; const orm = createOrm({ schema: authSchema, driver: createMemoryDriver(), });
+```
+
+
+```
+import { createMemoryDriver, createOrm } from "@farming-labs/orm"; const orm = createOrm({ schema: authSchema, driver: createMemoryDriver(), });
+```
+
+### Prisma
+Prisma
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createPrismaDriver } from "@farming-labs/orm-prisma"; import { PrismaClient } from "@prisma/client"; const prisma = new PrismaClient(); const orm = createOrm({ schema: authSchema, driver: createPrismaDriver({ client: prisma }), });
+```
+
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createPrismaDriver } from "@farming-labs/orm-prisma"; import { PrismaClient } from "@prisma/client"; const prisma = new PrismaClient(); const orm = createOrm({ schema: authSchema, driver: createPrismaDriver({ client: prisma }), });
+```
+
+### Drizzle
+Drizzle
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createDrizzleDriver } from "@farming-labs/orm-drizzle"; import { drizzle } from "drizzle-orm/node-postgres"; import { Pool } from "pg"; const db = drizzle( new Pool({ connectionString: process.env.DATABASE_URL, }), ); const orm = createOrm({ schema: authSchema, driver: createDrizzleDriver({ db, dialect: "postgres", }), });
+```
+
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createDrizzleDriver } from "@farming-labs/orm-drizzle"; import { drizzle } from "drizzle-orm/node-postgres"; import { Pool } from "pg"; const db = drizzle( new Pool({ connectionString: process.env.DATABASE_URL, }), ); const orm = createOrm({ schema: authSchema, driver: createDrizzleDriver({ db, dialect: "postgres", }), });
+```
+
+### Direct SQL
+Direct SQL
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createPgPoolDriver } from "@farming-labs/orm-sql"; import { Pool } from "pg"; const orm = createOrm({ schema: authSchema, driver: createPgPoolDriver( new Pool({ connectionString: process.env.DATABASE_URL, }), ), });
+```
+
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createPgPoolDriver } from "@farming-labs/orm-sql"; import { Pool } from "pg"; const orm = createOrm({ schema: authSchema, driver: createPgPoolDriver( new Pool({ connectionString: process.env.DATABASE_URL, }), ), });
+```
+
+### EdgeDB / Gel
+EdgeDB / Gel
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createEdgeDbDriver } from "@farming-labs/orm-edgedb"; import { createClient } from "gel"; const orm = createOrm({ schema: authSchema, driver: createEdgeDbDriver({ client: createClient(), }), });
+```
+
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createEdgeDbDriver } from "@farming-labs/orm-edgedb"; import { createClient } from "gel"; const orm = createOrm({ schema: authSchema, driver: createEdgeDbDriver({ client: createClient(), }), });
+```
+
+### Xata
+Xata
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createXataDriver } from "@farming-labs/orm-xata"; import { xata } from "./xata-client"; const orm = createOrm({ schema: authSchema, driver: createXataDriver({ client: xata, }), });
+```
+
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createXataDriver } from "@farming-labs/orm-xata"; import { xata } from "./xata-client"; const orm = createOrm({ schema: authSchema, driver: createXataDriver({ client: xata, }), });
+```
+
+### Cloudflare D1
+Cloudflare D1
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createD1Driver } from "@farming-labs/orm-d1"; export type Env = { DB: D1Database; }; export default { async fetch(_request: Request, env: Env) { const orm = createOrm({ schema: authSchema, driver: createD1Driver({ client: env.DB, }), }); return Response.json(await orm.user.count()); }, };
+```
+
+
+```
+import { createOrm } from "@farming-labs/orm"; import { createD1Driver } from "@farming-labs/orm-d1"; export type Env = { DB: D1Database; }; export default { async fetch(_request: Request, env: Env) { const orm = createOrm({ schema: authSchema, driver: createD1Driver({ client: env.DB, }), }); return Response.json(await orm.user.count()); }, };
+```

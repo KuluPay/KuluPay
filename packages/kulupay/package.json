@@ -92,6 +92,13 @@
       "import": "./dist/payment-providers/paypal.mjs",
       "require": "./dist/payment-providers/paypal.js",
       "default": "./dist/payment-providers/paypal.mjs"
+    },
+    "./providers/blockchain": {
+      "dev-source": "./src/payment-providers/blockchain.ts",
+      "types": "./dist/payment-providers/blockchain.d.ts",
+      "import": "./dist/payment-providers/blockchain.mjs",
+      "require": "./dist/payment-providers/blockchain.js",
+      "default": "./dist/payment-providers/blockchain.mjs"
     }
   },
   "typesVersions": {
@@ -125,6 +132,9 @@
       ],
       "providers/paypal": [
         "./dist/payment-providers/paypal.d.ts"
+      ],
+      "providers/blockchain": [
+        "./dist/payment-providers/blockchain.d.ts"
       ]
     }
   },

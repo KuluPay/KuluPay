@@ -97,7 +97,7 @@ describe("Middleware", () => {
                 context: ctx,
             };
 
-            const result = await sessionMiddleware.handler(mockCtx);
+            const result = await sessionMiddleware(mockCtx);
             expect(result.session).toBeDefined();
             expect(result.session.user.id).toBe("test-user-id");
             expect(ctx.session).toBeDefined();
@@ -112,9 +112,9 @@ describe("Middleware", () => {
                 context: ctx,
             };
 
-            await expect(sessionMiddleware.handler(mockCtx)).rejects.toThrow();
+            await expect(sessionMiddleware(mockCtx)).rejects.toThrow();
             try {
-                await sessionMiddleware.handler(mockCtx);
+                await sessionMiddleware(mockCtx);
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
                 expect((error as KuluPayAPIError).status).toBe(401);
@@ -128,7 +128,7 @@ describe("Middleware", () => {
                 context: ctx,
             };
 
-            await expect(sessionMiddleware.handler(mockCtx)).rejects.toThrow();
+            await expect(sessionMiddleware(mockCtx)).rejects.toThrow();
         });
     });
 
@@ -143,7 +143,7 @@ describe("Middleware", () => {
                 context: ctx,
             };
 
-            await expect(originCheckMiddleware.handler(mockCtx)).resolves.toBeUndefined();
+            await expect(originCheckMiddleware(mockCtx)).resolves.toBeUndefined();
         });
 
         it("should reject untrusted origins", async () => {
@@ -157,7 +157,7 @@ describe("Middleware", () => {
             };
 
             try {
-                await originCheckMiddleware.handler(mockCtx);
+                await originCheckMiddleware(mockCtx);
                 expect.fail("Should have thrown");
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
@@ -176,7 +176,7 @@ describe("Middleware", () => {
             };
 
             try {
-                await originCheckMiddleware.handler(mockCtx);
+                await originCheckMiddleware(mockCtx);
                 expect.fail("Should have thrown");
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
@@ -194,7 +194,7 @@ describe("Middleware", () => {
                 context: ctx,
             };
 
-            await expect(originCheckMiddleware.handler(mockCtx)).resolves.toBeUndefined();
+            await expect(originCheckMiddleware(mockCtx)).resolves.toBeUndefined();
         });
 
         it("should skip origin check for OPTIONS requests", async () => {
@@ -206,7 +206,7 @@ describe("Middleware", () => {
                 context: ctx,
             };
 
-            await expect(originCheckMiddleware.handler(mockCtx)).resolves.toBeUndefined();
+            await expect(originCheckMiddleware(mockCtx)).resolves.toBeUndefined();
         });
 
         it("should support wildcard trusted origins", async () => {
@@ -233,7 +233,7 @@ describe("Middleware", () => {
                 context: ctx,
             };
 
-            await expect(originCheckMiddleware.handler(mockCtx)).resolves.toBeUndefined();
+            await expect(originCheckMiddleware(mockCtx)).resolves.toBeUndefined();
         });
     });
 
@@ -248,7 +248,7 @@ describe("Middleware", () => {
             const middleware = ownershipMiddleware(async () => "user-1");
             const mockCtx: any = { context: ctx };
 
-            await expect(middleware.handler(mockCtx)).resolves.toBeUndefined();
+            await expect(middleware(mockCtx)).resolves.toBeUndefined();
         });
 
         it("should throw FORBIDDEN when user does not own the resource", async () => {
@@ -262,7 +262,7 @@ describe("Middleware", () => {
             const mockCtx: any = { context: ctx };
 
             try {
-                await middleware.handler(mockCtx);
+                await middleware(mockCtx);
                 expect.fail("Should have thrown");
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
@@ -282,7 +282,7 @@ describe("Middleware", () => {
             const mockCtx: any = { context: ctx };
 
             try {
-                await middleware.handler(mockCtx);
+                await middleware(mockCtx);
                 expect.fail("Should have thrown");
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
@@ -299,7 +299,7 @@ describe("Middleware", () => {
             const mockCtx: any = { context: ctx };
 
             try {
-                await middleware.handler(mockCtx);
+                await middleware(mockCtx);
                 expect.fail("Should have thrown");
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);

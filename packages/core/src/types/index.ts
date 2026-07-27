@@ -151,7 +151,7 @@ export interface KuluPayOptions {
      * ```ts
      * pricing: {
      *     resolvePrice: async (data, ctx) => {
-     *         const product = await myDB.products.findById(data.metadata.productId);
+     *         const product = await myDB.products.findById(data.productId);
      *         return { amount: product.price, currency: product.currency };
      *     }
      * }
@@ -305,6 +305,7 @@ export interface CreateIntentData {
     userId: string;
     providerId: string;
     id?: string;
+    productId?: string;
     description?: string;
     customerId?: string;
     metadata?: Record<string, any>;

@@ -27,6 +27,15 @@ npx @kulupay/cli add-provider stripe
 | `stripe` | `stripe`, `@stripe/stripe-js` | `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
 | `chapa` | (none) | `CHAPA_API_KEY`, `CHAPA_WEBHOOK_SECRET` |
 | `paypal` | `@paypal/paypal-js` | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` |
+| `evm-eth` | `viem` | `NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS` |
+| `evm-base-usdc` | `viem` | `NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS`, `NEXT_PUBLIC_BASE_USDC_CONTRACT` |
+| `tron-trx` | `tronweb` | `NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS` |
+| `tron-usdt` | `tronweb` | `NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS`, `NEXT_PUBLIC_TRON_USDT_CONTRACT` |
+
+<Callout type="warn" title="Refund keys">
+  Blockchain refunds require server-side private keys:
+  `EVM_REFUND_PRIVATE_KEY` and `TRON_REFUND_PRIVATE_KEY`. Never expose these to the client.
+</Callout>
 
 ## Example
 

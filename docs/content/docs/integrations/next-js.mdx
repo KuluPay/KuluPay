@@ -1,0 +1,406 @@
+---
+title: Next.js Integration
+description: Add KuluPay payments to your Next.js App Router application.
+---
+
+# Next.js Integration
+
+KuluPay provides a first-class integration for Next.js App Router. You can expose a single API route for all payment operations, then use the React client to collect payments from any provider.
+
+This guide sets up:
+
+- A single `/api/pay/[...kulupay]` route
+- Server-side providers: Stripe, EVM crypto, Tron crypto
+- A React checkout UI that works with all providers
+
+---
+
+## 1. Install dependencies
+
+```bash
+npm install @kulupay/kulupay @kulupay/core stripe pg
+```
+
+Optional peer dependencies (only install what you use):
+
+```bash
+npm install viem tronweb
+```
+
+---
+
+## 2. Configure KuluPay
+
+Create `lib/pay.ts` with your providers. The example below wires Stripe, Base USDC, native ETH, Tron USDT, and native TRX.
+
+```ts title="lib/pay.ts"
+import { kuluPay, createPgPoolDriver } from "@kulupay/kulupay";
+import { stripe } from "@kulupay/kulupay/providers/stripe";
+import { evm, tron, CHAINS, TOKENS } from "@kulupay/kulupay/providers/blockchain";
+import { Pool } from "pg";
+
+const database = createPgPoolDriver(
+  new Pool({ connectionString: process.env.DATABASE_URL! }),
+);
+
+export const pay = kuluPay({
+  database,
+  providers: [
+    stripe({
+      apiKey: process.env.STRIPE_API_KEY!,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    }),
+    evm({
+      chain: CHAINS.base,
+      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
+      token: TOKENS.USDC(process.env.NEXT_PUBLIC_BASE_USDC_CONTRACT!),
+      id: "evm-base-usdc",
+    }),
+    evm({
+      chain: CHAINS.ethereum,
+      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
+      id: "evm-eth",
+    }),
+    tron({
+      chain: CHAINS.tron,
+      recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,
+      token: {
+        symbol: "USDT",
+        decimals: 6,
+        contractAddress: process.env.NEXT_PUBLIC_TRON_USDT_CONTRACT!,
+      },
+      id: "tron-usdt",
+    }),
+    tron({
+      chain: CHAINS.tron,
+      recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,
+      id: "tron-trx",
+    }),
+  ],
+  baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
+  debug: true,
+  auth: {
+    getSession: async () => ({
+      user: { id: "user_123", name: "Demo User", email: "demo@example.com" },
+      session: { id: "session_123", userId: "user_123", expiresAt: new Date(Date.now() + 86400000) },
+    }),
+  },
+  pricing: {
+    resolvePrice: async (data) => {
+      const products = {
+        prod_premium: { amount: 2500, currency: "usd", name: "Premium Plan" },
+      };
+      const product = products[data.productId as keyof typeof products];
+      if (!product) throw new Error("Product not found");
+      return { amount: product.amount, currency: product.currency };
+    },
+  },
+});
+```
+
+---
+
+## 3. Add the API route
+
+Create the catch-all route that handles every KuluPay request.
+
+```ts title="app/api/pay/[...kulupay]/route.ts"
+import { toNextJsHandler } from "@kulupay/kulupay/next-js";
+import { pay } from "@/lib/pay";
+
+export const { GET, POST, PUT, PATCH, DELETE } = toNextJsHandler(pay);
+```
+
+---
+
+## 4. Set up the client
+
+Create `lib/pay-client.ts` with your client providers. Each client provider matches a server provider by `id`.
+
+```ts title="lib/pay-client.ts"
+import { createPayClient } from "@kulupay/kulupay/client";
+import {
+  createStripeClientProvider,
+  createEVMClientProvider,
+  createTronClientProvider,
+} from "@kulupay/kulupay/client/providers";
+
+export const payClient = createPayClient({
+  baseURL: "/api/pay",
+});
+
+export const stripeProvider = createStripeClientProvider({
+  publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "",
+});
+
+export const baseUsdcProvider = createEVMClientProvider({
+  id: "evm-base-usdc",
+  chainId: 8453,
+  recipientAddress: (process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS ?? "0x0") as `0x${string}`,
+  tokenContractAddress: (process.env.NEXT_PUBLIC_BASE_USDC_CONTRACT ?? "0x0") as `0x${string}`,
+  tokenDecimals: 6,
+});
+
+export const ethProvider = createEVMClientProvider({
+  id: "evm-eth",
+  chainId: 1,
+  recipientAddress: (process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS ?? "0x0") as `0x${string}`,
+});
+
+export const tronUsdtProvider = createTronClientProvider({
+  id: "tron-usdt",
+  recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS ?? "T...",
+  tokenContractAddress: process.env.NEXT_PUBLIC_TRON_USDT_CONTRACT,
+  tokenDecimals: 6,
+});
+
+export const tronTrxProvider = createTronClientProvider({
+  id: "tron-trx",
+  recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS ?? "T...",
+});
+```
+
+---
+
+## 5. Build the checkout UI
+
+Use `usePaymentProvider` to switch between providers with the same hook API.
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { usePaymentProvider } from "@kulupay/kulupay/client";
+import {
+  payClient,
+  stripeProvider,
+  baseUsdcProvider,
+  ethProvider,
+  tronUsdtProvider,
+  tronTrxProvider,
+} from "@/lib/pay-client";
+
+type ProviderKey =
+  | "stripe"
+  | "evm-base-usdc"
+  | "evm-eth"
+  | "tron-usdt"
+  | "tron-trx";
+
+const PROVIDERS = [
+  { key: "stripe", label: "Stripe", description: "Card / Apple Pay / Google Pay" },
+  { key: "evm-base-usdc", label: "Base USDC", description: "MetaMask / Coinbase Wallet" },
+  { key: "evm-eth", label: "Ethereum ETH", description: "MetaMask / EIP-1193 wallet" },
+  { key: "tron-usdt", label: "Tron USDT", description: "TronLink wallet" },
+  { key: "tron-trx", label: "Tron TRX", description: "TronLink wallet" },
+];
+
+function getProviderByKey(key: ProviderKey) {
+  switch (key) {
+    case "stripe": return stripeProvider;
+    case "evm-base-usdc": return baseUsdcProvider;
+    case "evm-eth": return ethProvider;
+    case "tron-usdt": return tronUsdtProvider;
+    case "tron-trx": return tronTrxProvider;
+  }
+}
+
+export default function Home() {
+  const [selectedProvider, setSelectedProvider] = useState<ProviderKey>("stripe");
+  const provider = getProviderByKey(selectedProvider);
+
+  const pay = usePaymentProvider({
+    client: payClient,
+    provider,
+    providerId: selectedProvider,
+  });
+
+  const elementsRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [verifying, setVerifying] = useState(false);
+
+  useEffect(() => {
+    if (
+      selectedProvider === "stripe" &&
+      pay.intent?.clientSecret &&
+      !elementsRef.current
+    ) {
+      pay.createElements({ clientSecret: pay.intent.clientSecret }).then((elements) => {
+        elementsRef.current = elements;
+        const paymentElement = elements.create("payment");
+        paymentElement.mount(containerRef.current);
+      });
+    }
+  }, [pay.intent, selectedProvider, pay.createElements]);
+
+  const handleCreateIntent = async () => {
+    elementsRef.current = null;
+    await pay.createIntent({
+      amount: 2500,
+      currency: "usd",
+      userId: "user_demo",
+      providerId: selectedProvider,
+      productId: "prod_premium",
+    });
+  };
+
+  const handleConfirm = async () => {
+    if (selectedProvider === "stripe") {
+      const result = await pay.confirmPayment({
+        elements: elementsRef.current,
+        redirectUrl: window.location.href,
+      });
+      alert(`Stripe payment ${result.status}: ${result.id}`);
+      return;
+    }
+
+    const intent = pay.intent;
+    if (!intent) {
+      alert("Create a payment intent first");
+      return;
+    }
+
+    try {
+      const result = await pay.confirmPayment({
+        paymentMethodData: intent.raw,
+      });
+
+      setVerifying(true);
+      const verified = await pay.verifyPayment(result.id);
+      setVerifying(false);
+
+      alert(`Crypto payment ${verified.status}: ${result.id}`);
+    } catch (err: any) {
+      setVerifying(false);
+      alert(err.message || "Payment failed");
+    }
+  };
+
+  return (
+    <main style={{ padding: 24, fontFamily: "sans-serif", maxWidth: 600 }}>
+      <h1>KuluPay Checkout Demo</h1>
+
+      <div style={{ margin: "24px 0" }}>
+        <label style={{ fontWeight: 600 }}>Payment method</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+          {PROVIDERS.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setSelectedProvider(p.key as ProviderKey)}
+              style={{ padding: 10, border: "1px solid #ccc", borderRadius: 8 }}
+            >
+              <div style={{ fontWeight: 600 }}>{p.label}</div>
+              <div style={{ fontSize: 12 }}>{p.description}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!pay.intent && (
+        <button onClick={handleCreateIntent} disabled={pay.loading}>
+          {pay.loading ? "Creating..." : `Pay $25.00 with ${PROVIDERS.find((p) => p.key === selectedProvider)?.label}`}
+        </button>
+      )}
+
+      {pay.intent && selectedProvider === "stripe" && pay.intent.status !== "succeeded" && (
+        <>
+          <div ref={containerRef} style={{ minHeight: 200 }} />
+          <button onClick={handleConfirm} disabled={pay.loading}>
+            Confirm Card Payment
+          </button>
+        </>
+      )}
+
+      {pay.intent && selectedProvider !== "stripe" && pay.intent.status !== "succeeded" && (
+        <>
+          <pre>{JSON.stringify(pay.intent.raw, null, 2)}</pre>
+          <button onClick={handleConfirm} disabled={pay.loading || verifying}>
+            Confirm with Wallet
+          </button>
+        </>
+      )}
+
+      {pay.intent?.status === "succeeded" && (
+        <p style={{ color: "green" }}>Payment succeeded! ID: {pay.intent.id}</p>
+      )}
+
+      {pay.error && <p style={{ color: "red" }}>Error: {pay.error.message}</p>}
+    </main>
+  );
+}
+```
+
+---
+
+## 6. Environment variables
+
+```bash
+# App
+DATABASE_URL=postgresql://...
+KULUPAY_URL=http://localhost:3000
+
+# Stripe
+STRIPE_API_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+
+# Blockchain (public)
+NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS=0xYourWalletAddress
+NEXT_PUBLIC_BASE_USDC_CONTRACT=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS=TYourTronAddress
+NEXT_PUBLIC_TRON_USDT_CONTRACT=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+
+# Refund keys (server-side only)
+EVM_REFUND_PRIVATE_KEY=
+TRON_REFUND_PRIVATE_KEY=
+```
+
+<Callout type="warn" title="Keep refund keys private">
+  `EVM_REFUND_PRIVATE_KEY` and `TRON_REFUND_PRIVATE_KEY` must never be exposed to the browser. Use server-only environment variables.
+</Callout>
+
+---
+
+## 7. Run the dev server
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000`, pick a payment method, create an intent, and confirm.
+
+---
+
+## How it works
+
+1. `usePaymentProvider` binds a server provider ID to a client provider instance.
+2. `createIntent` calls `/api/pay/create-intent` and returns provider-specific payment data.
+3. `confirmPayment` delegates to the client provider:
+   - Stripe mounts the Payment Element and confirms via Stripe.js.
+   - EVM calls `eth_sendTransaction` through the user's wallet.
+   - Tron calls `trx.sendTransaction` or the TRC-20 contract through TronLink.
+4. `verifyPayment` reads the on-chain receipt or Stripe confirmation status.
+
+---
+
+## Pages Router
+
+If you use the older Pages Router, create `pages/api/pay/[...kulupay].ts`:
+
+```ts
+import { toNextJsHandler } from "@kulupay/kulupay/next-js";
+import { pay } from "@/lib/pay";
+
+export default async function handler(req: Request) {
+  const { handler: payHandler } = toNextJsHandler(pay);
+  return payHandler(req);
+}
+```
+
+---
+
+## Next steps
+
+- Add [webhooks](/docs/providers/stripe) to handle Stripe events server-side.
+- Add [compliance screening](/docs/compliance) to block risky wallet addresses.
+- Use [CLI commands](/docs/cli) to add providers and generate database schemas.

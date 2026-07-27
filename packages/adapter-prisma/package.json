@@ -1,0 +1,56 @@
+{
+  "name": "@kulupay/adapter-prisma",
+  "version": "0.0.1",
+  "description": "Prisma ORM adapter for KuluPay",
+  "author": "YonaniCodes",
+  "license": "MIT",
+  "keywords": [
+    "kulupay",
+    "adapter",
+    "database",
+    "prisma",
+    "prisma-orm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KuluPay/KuluPay.git",
+    "directory": "packages/adapter-prisma"
+  },
+  "homepage": "https://github.com/KuluPay/KuluPay#readme",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "dev-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "biome lint src",
+    "prepublishOnly": "tsup"
+  },
+  "dependencies": {
+    "@farming-labs/orm-prisma": "latest"
+  },
+  "peerDependencies": {
+    "@prisma/client": "^6.0.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "@prisma/client": "^6.0.0"
+  }
+}

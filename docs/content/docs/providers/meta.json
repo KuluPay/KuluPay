@@ -3,6 +3,7 @@
   "pages": [
     "stripe",
     "chapa",
-    "paypal"
+    "paypal",
+    "blockchain"
   ]
 }

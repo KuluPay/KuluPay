@@ -31,7 +31,7 @@ export interface UsePaymentProviderReturn {
     createIntent: (data: CreateIntentData) => Promise<PaymentIntent>;
     confirmPayment: (options?: PaymentConfirmOptions) => Promise<PaymentIntent>;
     getIntent: (id: string) => Promise<PaymentIntent>;
-    verifyPayment: () => Promise<PaymentIntent>;
+    verifyPayment: (id?: string) => Promise<PaymentIntent>;
     loading: boolean;
     error: KuluPayClientError | null;
     intent: PaymentIntent | null;
@@ -242,8 +242,9 @@ export function usePaymentProvider({
         }
     }, []);
 
-    const verifyPayment = useCallback(async (): Promise<PaymentIntent> => {
-        if (!intent?.clientSecret) {
+    const verifyPayment = useCallback(async (id?: string): Promise<PaymentIntent> => {
+        const secret = id || intent?.clientSecret;
+        if (!secret) {
             const err = new KuluPayClientError(
                 "no_intent",
                 "No payment intent to verify. Call createIntent first.",
@@ -264,7 +265,7 @@ export function usePaymentProvider({
         setLoading(true);
         setError(null);
         try {
-            const result = await provider.verifyPayment(intent.clientSecret);
+            const result = await provider.verifyPayment(secret);
             setIntent(result);
             return result;
         } catch (err: any) {

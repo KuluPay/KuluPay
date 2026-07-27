@@ -1,0 +1,245 @@
+---
+title: Blockchain (EVM & Tron)
+description: Accept crypto payments via Ethereum, Polygon, Base, Tron, and more.
+---
+
+# Blockchain Providers
+
+KuluPay supports crypto payments across EVM chains (Ethereum, Polygon, Base, Arbitrum) and Tron (TRC-20). The architecture is modular — each chain family has its own provider, and adding new chains is easy.
+
+## Installation
+
+```bash
+pnpm add viem          # for EVM chains
+pnpm add tronweb       # for Tron
+```
+
+Both are optional peer dependencies — only install the one you need.
+
+## EVM Provider (Ethereum, Polygon, Base, Arbitrum)
+
+### Server Setup
+
+```ts
+import { evm, CHAINS, TOKENS } from "@kulupay/kulupay/payment-providers/blockchain";
+
+const usdcOnBase = TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913");
+
+const baseProvider = evm({
+  chain: CHAINS.base,
+  recipientAddress: "0xYourWalletAddress",
+  token: usdcOnBase,
+});
+```
+
+### Accept Native ETH
+
+```ts
+const ethProvider = evm({
+  chain: CHAINS.ethereum,
+  recipientAddress: "0xYourWalletAddress",
+  // token defaults to { symbol: "ETH", decimals: 18 }
+});
+```
+
+### Multi-Chain Setup
+
+```ts
+import { evm, CHAINS, TOKENS } from "@kulupay/kulupay/payment-providers/blockchain";
+
+const providers = [
+  // USDC on Base
+  evm({
+    chain: CHAINS.base,
+    recipientAddress: "0xYourWallet",
+    token: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"),
+  }),
+  // USDC on Polygon
+  evm({
+    chain: CHAINS.polygon,
+    recipientAddress: "0xYourWallet",
+    token: TOKENS.USDC("0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359"),
+  }),
+  // Native ETH on Ethereum
+  evm({
+    chain: CHAINS.ethereum,
+    recipientAddress: "0xYourWallet",
+  }),
+];
+```
+
+### Client Setup
+
+```ts
+import { createEVMClientProvider } from "@kulupay/kulupay/client/providers";
+
+const evmClient = createEVMClientProvider({
+  chainId: 8453, // Base
+  recipientAddress: "0xYourWalletAddress",
+  tokenContractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  tokenDecimals: 6,
+});
+```
+
+The EVM client provider uses `window.ethereum` directly (EIP-1193), so it works with MetaMask, Coinbase Wallet, Rainbow, and any EVM-compatible wallet. No wagmi dependency required.
+
+### Full Checkout Flow
+
+```tsx
+"use client";
+import { usePaymentProvider } from "@kulupay/kulupay/client";
+
+function CryptoCheckout() {
+  const pay = usePaymentProvider({
+    client: payClient,
+    provider: evmClient,
+    providerId: "evm-base",
+  });
+
+  const handlePay = async () => {
+    // 1. Create intent on server → get payment data
+    await pay.createIntent({
+      amount: 2500,
+      currency: "usd",
+      providerId: "evm-base",
+      metadata: { productId: "prod_premium" },
+    });
+
+    // 2. Confirm payment via wallet (MetaMask pops up)
+    const result = await pay.confirmPayment({
+      paymentMethodData: {
+        to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        value: "0x0",
+        data: "0xa9059cbb...",
+      },
+    });
+
+    // 3. Verify on-chain
+    const verified = await pay.verifyPayment(result.id);
+    console.log(verified.status); // "succeeded" | "pending" | "failed"
+  };
+
+  return <button onClick={handlePay}>Pay with USDC</button>;
+}
+```
+
+## Tron Provider (TRX & TRC-20)
+
+### Server Setup
+
+```ts
+import { tron, CHAINS, TOKENS } from "@kulupay/kulupay/payment-providers/blockchain";
+
+// Accept USDT (TRC-20) on Tron
+const usdtProvider = tron({
+  chain: CHAINS.tron,
+  recipientAddress: "TYourTronAddress",
+  token: {
+    symbol: "USDT",
+    decimals: 6,
+    contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+  },
+});
+
+// Accept native TRX
+const trxProvider = tron({
+  chain: CHAINS.tron,
+  recipientAddress: "TYourTronAddress",
+});
+```
+
+### Client Setup
+
+```ts
+import { createTronClientProvider } from "@kulupay/kulupay/client/providers";
+
+const tronClient = createTronClientProvider({
+  recipientAddress: "TYourTronAddress",
+  tokenContractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+  tokenDecimals: 6,
+});
+```
+
+The Tron client provider uses `window.tronWeb` (injected by TronLink extension).
+
+## Price Conversion (Fiat → Crypto)
+
+By default, the `amount` field is treated as the raw crypto amount in the token's smallest unit (wei, sun, etc.). To accept fiat and auto-convert to crypto, provide a `priceConverter`:
+
+```ts
+import { evm, CHAINS, TOKENS, type PriceConverter } from "@kulupay/kulupay/payment-providers/blockchain";
+
+const coinGeckoConverter: PriceConverter = async (amount, currency, token, chain) => {
+  // Fetch current price from your preferred oracle
+  const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=usd`);
+  const data = await res.json();
+  const rate = data["usd-coin"].usd;
+
+  const cryptoAmount = Math.round((amount / 100) / rate * Math.pow(10, token.decimals)).toString();
+
+  return {
+    cryptoAmount,
+    tokenSymbol: token.symbol,
+    rate,
+    rateTimestamp: new Date(),
+  };
+};
+
+const provider = evm({
+  chain: CHAINS.base,
+  recipientAddress: "0xYourWallet",
+  token: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"),
+  priceConverter: coinGeckoConverter,
+});
+```
+
+## Refunds
+
+Refunds require a funded wallet with a private key set via environment variable:
+
+```bash
+# For EVM refunds
+EVM_REFUND_PRIVATE_KEY=0xYourPrivateKey
+
+# For Tron refunds
+TRON_REFUND_PRIVATE_KEY=YourTronPrivateKey
+```
+
+```ts
+// Refund a specific transaction
+const result = await provider.refund("0xTransactionHash");
+```
+
+## Available Chains
+
+| Chain | Family | Chain ID | Native Token |
+| --- | --- | --- | --- |
+| Ethereum | EVM | 1 | ETH |
+| Polygon | EVM | 137 | MATIC |
+| Base | EVM | 8453 | ETH |
+| Arbitrum | EVM | 42161 | ETH |
+| Tron | Tron | 728126428 | TRX |
+
+## Supported Features
+
+| Feature | EVM | Tron |
+| --- | --- | --- |
+| Native token payments | ✅ ETH | ✅ TRX |
+| Stablecoin payments | ✅ ERC-20 | ✅ TRC-20 |
+| Multi-chain | ✅ | ✅ |
+| Price conversion | ✅ (pluggable) | ✅ (pluggable) |
+| Refunds | ✅ (requires key) | ✅ (requires key) |
+| Subscriptions | ❌ (use smart contracts) | ❌ |
+| Webhooks | ❌ (polling) | ❌ (polling) |
+
+## Adding a New Chain
+
+The blockchain provider architecture is modular. To add a new chain family:
+
+1. Create a new file in `packages/core/src/payment-providers/blockchain/`
+2. Implement the `PaymentProvider` interface
+3. Add chain presets to the `CHAINS` constant
+4. Create a client provider in `packages/kulupay/src/client/providers/`
+5. Export both from their respective index files
+
+Each provider handles its own SDK imports dynamically, so unused chains add zero bundle weight.

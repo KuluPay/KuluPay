@@ -42,3 +42,18 @@ export const createKuluPayClient = (options: KuluPayClientOptions): KuluPayClien
     const hooks = createKuluPayReactHooks(client);
     return Object.assign(client, { usePayment: hooks.usePayment });
 };
+
+/**
+ * Alias for {@link createKuluPayClient}.
+ * Matches the better-auth convention of `createAuthClient`.
+ *
+ * @example
+ * ```ts
+ * // lib/pay-client.ts
+ * export const payClient = createPayClient({
+ *   baseURL: "/api/pay",
+ * });
+ * ```
+ */
+export const createPayClient = createKuluPayClient;
+export type PayClient = KuluPayClientWithHooks;

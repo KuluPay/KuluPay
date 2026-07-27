@@ -93,6 +93,13 @@
       "require": "./dist/payment-providers/paypal.js",
       "default": "./dist/payment-providers/paypal.mjs"
     },
+    "./payment-providers/blockchain": {
+      "dev-source": "./src/payment-providers/blockchain/index.ts",
+      "types": "./dist/payment-providers/blockchain/index.d.ts",
+      "import": "./dist/payment-providers/blockchain/index.mjs",
+      "require": "./dist/payment-providers/blockchain/index.js",
+      "default": "./dist/payment-providers/blockchain/index.mjs"
+    },
     "./utils": {
       "dev-source": "./src/utils/index.ts",
       "types": "./dist/utils/index.d.ts",
@@ -133,6 +140,9 @@
       "payment-providers/paypal": [
         "./dist/payment-providers/paypal.d.ts"
       ],
+      "payment-providers/blockchain": [
+        "./dist/payment-providers/blockchain/index.d.ts"
+      ],
       "utils": [
         "./dist/utils/index.d.ts"
       ]
@@ -164,7 +174,8 @@
   "peerDependencies": {
     "stripe": "^20.0.0",
     "@paypal/paypal-js": "^7.0.0",
-    "viem": "^2.0.0"
+    "viem": "^2.0.0",
+    "tronweb": "^6.0.0"
   },
   "peerDependenciesMeta": {
     "pg": {
@@ -181,12 +192,16 @@
     },
     "viem": {
       "optional": true
+    },
+    "tronweb": {
+      "optional": true
     }
   },
   "devDependencies": {
     "tsup": "^8.0.0",
     "pg": "^8.22.0",
     "@types/pg": "^8.20.0",
-    "@neondatabase/serverless": "^1.1.0"
+    "@neondatabase/serverless": "^1.1.0",
+    "@types/node": "^20.0.0"
   }
 }

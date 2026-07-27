@@ -12,6 +12,7 @@ export default defineConfig({
     "src/payment-providers/stripe.ts",
     "src/payment-providers/chapa.ts",
     "src/payment-providers/paypal.ts",
+    "src/payment-providers/blockchain/index.ts",
     "src/utils/index.ts",
   ],
   format: ["cjs", "esm"],
@@ -19,5 +20,5 @@ export default defineConfig({
   splitting: true,
   sourcemap: true,
   clean: true,
-  external: ["pg", "@farming-labs/orm-sql", "@neondatabase/serverless"],
+  external: ["pg", "@farming-labs/orm-sql", "@neondatabase/serverless", "viem", "tronweb"],
 });
