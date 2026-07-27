@@ -24,10 +24,9 @@ export interface PrismaAdapterOptions {
 export function prismaAdapter<Client = any>(
   client: Client,
   options: PrismaAdapterOptions,
-) {
+): any {
   return createPrismaDriver({
-    client,
-    provider: options.provider,
+    client: client as any,
   });
 }
 

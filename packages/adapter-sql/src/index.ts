@@ -1,7 +1,6 @@
 import type { Pool } from "pg";
 import type { Connection, ConnectionOptions } from "mysql2";
 import type { Database } from "better-sqlite3";
-import type { OrmDriver } from "@farming-labs/orm";
 import {
   createPgPoolDriver,
   createMysqlDriver,
@@ -26,7 +25,7 @@ import {
  * });
  * ```
  */
-export function pg(pool: Pool): OrmDriver<any, any> {
+export function pg(pool: Pool): any {
   return createPgPoolDriver(pool);
 }
 
@@ -48,7 +47,7 @@ export function pg(pool: Pool): OrmDriver<any, any> {
  * });
  * ```
  */
-export function mysql(connection: Connection | ConnectionOptions): OrmDriver<any, any> {
+export function mysql(connection: Connection | ConnectionOptions): any {
   return createMysqlDriver(connection as any);
 }
 
@@ -70,7 +69,7 @@ export function mysql(connection: Connection | ConnectionOptions): OrmDriver<any
  * });
  * ```
  */
-export function sqlite(db: Database): OrmDriver<any, any> {
+export function sqlite(db: Database): any {
   return createSqliteDriver(db);
 }
 

@@ -27,10 +27,16 @@ export interface DrizzleAdapterOptions {
 export function drizzleAdapter<DB = any>(
   db: DB,
   options: DrizzleAdapterOptions,
-) {
+): any {
+  const dialectMap = {
+    pg: "postgres",
+    mysql: "mysql",
+    sqlite: "sqlite",
+  } as const;
+
   return createDrizzleDriver({
-    db,
-    dialect: options.provider,
+    db: db as any,
+    dialect: dialectMap[options.provider] as any,
   });
 }
 
