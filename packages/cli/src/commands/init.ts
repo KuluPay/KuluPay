@@ -18,7 +18,6 @@ export interface KuluPayRegistry {
     providers: string[];
     database: {
         type: "memory" | "postgres" | "mysql" | "sqlite";
-        url?: string;
     };
 }
 
@@ -130,27 +129,29 @@ export async function initAction(opts: any) {
     let router = "app";
     let entryFile: string | undefined;
 
+    const hasSrcDir = existsSync(path.join(cwd, "src"));
+
     if (fw === "nextjs") {
         const nextResponses = await prompts([
             {
-                type: "select",
+                type: opts.yes ? null : "select",
                 name: "router",
                 message: "Are you using App Router or Pages Router?",
                 choices: ROUTER_OPTIONS,
                 initial: 0,
             },
             {
-                type: "confirm",
+                type: opts.yes ? null : "confirm",
                 name: "srcDir",
                 message: "Are you using a src/ directory?",
-                initial: existsSync(path.join(cwd, "src")),
+                initial: hasSrcDir,
             },
         ]);
         router = nextResponses.router || "app";
-        srcDir = nextResponses.srcDir ?? false;
+        srcDir = nextResponses.srcDir ?? hasSrcDir;
     } else {
         const entryResponse = await prompts({
-            type: "select",
+            type: opts.yes ? null : "select",
             name: "entryFile",
             message: `Where is your ${fw} entry file?`,
             choices: ENTRY_FILE_OPTIONS,
@@ -172,22 +173,10 @@ export async function initAction(opts: any) {
     });
     const db = database || selectedDatabase;
 
-    let databaseUrl: string | undefined;
-    if (db === "postgres" || db === "mysql") {
-        const { url } = await prompts({
-            type: "text",
-            name: "url",
-            message: db === "postgres"
-                ? "PostgreSQL connection string (e.g. postgresql://user:pass@host/db)"
-                : "MySQL connection string (e.g. mysql://user:pass@host/db)",
-        });
-        databaseUrl = url;
-    }
-
     // Step 4: Base URL
     const baseURL = opts.baseURL;
     const { selectedBaseURL } = await prompts({
-        type: baseURL ? null : "text",
+        type: baseURL || opts.yes ? null : "text",
         name: "selectedBaseURL",
         message: "What is your app's base URL?",
         initial: "http://localhost:3000",
@@ -248,7 +237,6 @@ export async function initAction(opts: any) {
         providers: [],
         database: {
             type: db as KuluPayRegistry["database"]["type"],
-            ...(databaseUrl ? { url: databaseUrl } : {}),
         },
     };
 
@@ -301,34 +289,65 @@ export async function initAction(opts: any) {
         console.log();
     }
     console.log(chalk.gray("  Next steps:"));
-    console.log(`    ${chalk.white("1.")} Add a provider:  ${chalk.cyan("npx kulupay add-provider stripe")}`);
-    console.log(`    ${chalk.white("2.")} Generate schema: ${chalk.cyan("npx kulupay generate")}`);
-    console.log(`    ${chalk.white("3.")} Run migration:   ${chalk.cyan("npx kulupay migrate")}`);
+
+    if (db !== "memory") {
+        console.log(`    ${chalk.white("1.")} Install database dependencies:`);
+        if (db === "postgres") {
+            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-sql pg")}`);
+            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-sql pg")}`);
+        } else if (db === "mysql") {
+            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-sql mysql2")}`);
+            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-sql mysql2")}`);
+        } else if (db === "sqlite") {
+            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-sql better-sqlite3")}`);
+            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-sql better-sqlite3")}`);
+        }
+        console.log();
+        console.log(`    ${chalk.white("2.")} Set environment variables:`);
+        if (db === "postgres" || db === "mysql") {
+            console.log(`       ${chalk.cyan("DATABASE_URL=your_connection_string")}`);
+        } else if (db === "sqlite") {
+            console.log(`       ${chalk.gray("# No env variable needed for SQLite file path")}`);
+        }
+        console.log();
+        console.log(`    ${chalk.white("3.")} Add a provider:  ${chalk.cyan("npx kulupay add-provider stripe")}`);
+        console.log(`    ${chalk.white("4.")} Generate schema: ${chalk.cyan("npx kulupay generate")}`);
+        console.log(`    ${chalk.white("5.")} Run migration:   ${chalk.cyan("npx kulupay migrate")}`);
+    } else {
+        console.log(`    ${chalk.white("1.")} Add a provider:  ${chalk.cyan("npx kulupay add-provider stripe")}`);
+        console.log(`    ${chalk.white("2.")} Generate schema: ${chalk.cyan("npx kulupay generate")}`);
+        console.log(`    ${chalk.white("3.")} Run migration:   ${chalk.cyan("npx kulupay migrate")}`);
+    }
     console.log();
 }
 
 function generateConfigFile(registry: KuluPayRegistry): string {
-    const dbDriverImport = registry.database.type === "memory"
-        ? "createMemoryDriver"
-        : registry.database.type === "postgres"
-        ? "createPgPoolDriver"
-        : registry.database.type === "mysql"
-        ? "createMysqlDriver"
-        : "createSqliteDriver";
-
-    const dbLine = registry.database.type === "memory"
-        ? `const database = createMemoryDriver();`
-        : registry.database.type === "postgres"
-        ? `import { Pool } from "pg";\n\nconst database = createPgPoolDriver(\n  new Pool({ connectionString: process.env.DATABASE_URL! }),\n);`
-        : registry.database.type === "mysql"
-        ? `import mysql from "mysql2/promise";\n\nconst database = createMysqlDriver(\n  await mysql.createConnection(process.env.DATABASE_URL!),\n);`
-        : `const database = createSqliteDriver("kulupay.db");`;
-
     const providersArray = registry.providers.length > 0
         ? `[\n    ${registry.providers.map(p => providerImportLine(p)).join(",\n    ")},\n  ]`
         : `[]`;
 
-    return `import { kuluPay, ${dbDriverImport} } from "@kulupay/kulupay";
+    const dbAdapterImport = registry.database.type === "memory"
+        ? "@farming-labs/orm"
+        : "@kulupay/adapter-sql";
+
+    const dbDriverImport = registry.database.type === "memory"
+        ? "createMemoryDriver"
+        : registry.database.type === "postgres"
+        ? "pg"
+        : registry.database.type === "mysql"
+        ? "mysql"
+        : "sqlite";
+
+    const dbLine = registry.database.type === "memory"
+        ? `const database = createMemoryDriver();`
+        : registry.database.type === "postgres"
+        ? `import { Pool } from "pg";\n\nconst database = pg(\n  new Pool({ connectionString: process.env.DATABASE_URL! }),\n);`
+        : registry.database.type === "mysql"
+        ? `import mysql from "mysql2/promise";\n\nconst database = mysql(\n  await mysql.createConnection(process.env.DATABASE_URL!),\n);`
+        : `import Database from "better-sqlite3";\n\nconst database = sqlite(new Database("kulupay.db"));`;
+
+    return `import { kuluPay } from "@kulupay/kulupay";
+import { ${dbDriverImport} } from "${dbAdapterImport}";
 ${registry.providers.map(p => providerImportLine(p, true)).join("\n")}
 ${dbLine}
 

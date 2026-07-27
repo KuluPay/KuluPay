@@ -35,17 +35,27 @@ Provider SDKs are optional peer dependencies. If you don't use a provider, you d
 
 ## 3. Set Up Your Database
 
-KuluPay uses the Farming ORM and supports PostgreSQL, MySQL, and SQLite.
+KuluPay uses the Farming ORM and supports PostgreSQL, MySQL, SQLite, Prisma, and Drizzle via adapter packages.
 
 <Tabs>
   <Tab title="PostgreSQL" value="PostgreSQL">
     ```bash
-    pnpm add pg @neondatabase/serverless
+    pnpm add @kulupay/adapter-sql pg
     ```
   </Tab>
   <Tab title="SQLite" value="SQLite">
     ```bash
-    pnpm add better-sqlite3
+    pnpm add @kulupay/adapter-sql better-sqlite3
+    ```
+  </Tab>
+  <Tab title="Prisma" value="Prisma">
+    ```bash
+    pnpm add @kulupay/adapter-prisma @prisma/client
+    ```
+  </Tab>
+  <Tab title="Drizzle" value="Drizzle">
+    ```bash
+    pnpm add @kulupay/adapter-drizzle drizzle-orm
     ```
   </Tab>
 </Tabs>
@@ -53,11 +63,12 @@ KuluPay uses the Farming ORM and supports PostgreSQL, MySQL, and SQLite.
 ## 4. Create Your KuluPay Instance
 
 ```ts title="lib/pay.ts"
-import { kuluPay, createPgPoolDriver } from "@kulupay/kulupay";
+import { kuluPay } from "@kulupay/kulupay";
+import { pg } from "@kulupay/adapter-sql";
 import { stripe } from "@kulupay/kulupay/providers/stripe";
 import { Pool } from "pg";
 
-const database = createPgPoolDriver(
+const database = pg(
   new Pool({ connectionString: process.env.DATABASE_URL! }),
 );
 

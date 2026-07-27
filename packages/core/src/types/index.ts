@@ -55,12 +55,12 @@ export type KuluPayDBOptions<Keys extends string = string> = {
  *
  * KuluPay uses the Farming ORM for database access, which means it supports
  * any database that Farming ORM has a driver for:
- * - PostgreSQL (via `@farming-labs/orm-sql` + `pg`)
- * - Neon (via `@farming-labs/orm-sql` + `@neondatabase/serverless`)
- * - MySQL (via `@farming-labs/orm-sql` + `mysql2`)
- * - SQLite (via `@farming-labs/orm-sql` + `better-sqlite3`)
- * - Prisma (via `@farming-labs/orm-prisma`)
- * - Drizzle (via `@farming-labs/orm-drizzle`)
+ * - PostgreSQL (via `@kulupay/adapter-sql` + `pg`)
+ * - Neon (via `@kulupay/adapter-sql` + `@neondatabase/serverless`)
+ * - MySQL (via `@kulupay/adapter-sql` + `mysql2`)
+ * - SQLite (via `@kulupay/adapter-sql` + `better-sqlite3`)
+ * - Prisma (via `@kulupay/adapter-prisma`)
+ * - Drizzle (via `@kulupay/adapter-drizzle`)
  * - EdgeDB / Gel (via `@farming-labs/orm-edgedb`)
  * - Cloudflare D1 (via `@farming-labs/orm-d1`)
  * - MongoDB / Mongoose (via `@farming-labs/orm-mongodb`)
@@ -73,34 +73,35 @@ export type KuluPayDBOptions<Keys extends string = string> = {
  * @example
  * ```ts
  * // PostgreSQL
- * import { createPgPoolDriver } from "@farming-labs/orm-sql";
+ * import { pg } from "@kulupay/adapter-sql";
  * import { Pool } from "pg";
  * const pay = kuluPay({
- *   database: createPgPoolDriver(new Pool({ connectionString: process.env.DATABASE_URL })),
+ *   database: pg(new Pool({ connectionString: process.env.DATABASE_URL })),
  *   providers: [stripe({ apiKey: "sk_..." })],
  * });
  *
  * // Neon (serverless, HTTP-based)
- * import { createPgPoolDriver } from "@farming-labs/orm-sql";
+ * import { pg } from "@kulupay/adapter-sql";
  * import { Pool } from "@neondatabase/serverless";
  * const pay = kuluPay({
- *   database: createPgPoolDriver(new Pool({ connectionString: process.env.DATABASE_URL })),
+ *   database: pg(new Pool({ connectionString: process.env.DATABASE_URL })),
  *   providers: [stripe({ apiKey: "sk_..." })],
  * });
  *
  * // Prisma
- * import { createPrismaDriver } from "@farming-labs/orm-prisma";
+ * import { prismaAdapter } from "@kulupay/adapter-prisma";
  * import { PrismaClient } from "@prisma/client";
+ * const prisma = new PrismaClient();
  * const pay = kuluPay({
- *   database: createPrismaDriver({ client: new PrismaClient() }),
+ *   database: prismaAdapter(prisma, { provider: "postgresql" }),
  *   providers: [stripe({ apiKey: "sk_..." })],
  * });
  *
  * // Drizzle
- * import { createDrizzleDriver } from "@farming-labs/orm-drizzle";
+ * import { drizzleAdapter } from "@kulupay/adapter-drizzle";
  * import { drizzle } from "drizzle-orm/node-postgres";
  * const pay = kuluPay({
- *   database: createDrizzleDriver({ db: drizzle(pool), dialect: "postgres" }),
+ *   database: drizzleAdapter(drizzle(pool), { provider: "pg" }),
  *   providers: [stripe({ apiKey: "sk_..." })],
  * });
  *

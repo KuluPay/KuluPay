@@ -168,7 +168,6 @@
     "zod": "^4.0.0",
     "better-call": "latest",
     "@farming-labs/orm": "latest",
-    "@farming-labs/orm-sql": "latest",
     "@better-fetch/fetch": "latest"
   },
   "peerDependencies": {

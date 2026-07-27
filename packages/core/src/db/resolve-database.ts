@@ -7,22 +7,22 @@
  *
  * @example
  * ```ts
- * import { createPgPoolDriver } from "@farming-labs/orm-sql";
+ * import { pg } from "@kulupay/adapter-sql";
  * import { Pool } from "pg";
  *
  * const pay = kuluPay({
- *   database: createPgPoolDriver(new Pool({ connectionString: process.env.DATABASE_URL })),
+ *   database: pg(new Pool({ connectionString: process.env.DATABASE_URL })),
  *   providers: [myProvider],
  * });
  * ```
  *
  * For Neon:
  * ```ts
- * import { createPgPoolDriver } from "@farming-labs/orm-sql";
+ * import { pg } from "@kulupay/adapter-sql";
  * import { Pool } from "@neondatabase/serverless";
  *
  * const pay = kuluPay({
- *   database: createPgPoolDriver(new Pool({ connectionString: process.env.DATABASE_URL })),
+ *   database: pg(new Pool({ connectionString: process.env.DATABASE_URL })),
  *   providers: [myProvider],
  * });
  * ```
@@ -30,7 +30,7 @@
 export async function resolveDatabaseDriver(database: any): Promise<any> {
     if (!database) {
         throw new Error(
-            "KuluPay: No database configured. Pass a Farming ORM driver to the `database` option.\n\nExample:\n  import { createPgPoolDriver } from \"@farming-labs/orm-sql\";\n  import { Pool } from \"pg\";\n\n  kuluPay({ database: createPgPoolDriver(new Pool({ connectionString })), ... });",
+            "KuluPay: No database configured. Pass a Farming ORM driver to the `database` option.\n\nExample:\n  import { pg } from \"@kulupay/adapter-sql\";\n  import { Pool } from \"pg\";\n\n  kuluPay({ database: pg(new Pool({ connectionString })), ... });",
         );
     }
 

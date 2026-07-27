@@ -1,9 +1,10 @@
-import { kuluPay, createPgPoolDriver } from "@kulupay/kulupay";
+import { kuluPay } from "@kulupay/kulupay";
+import { pg } from "@kulupay/adapter-sql";
 import { stripe } from "@kulupay/kulupay/providers/stripe";
 import { evm, tron, CHAINS, TOKENS } from "@kulupay/kulupay/providers/blockchain";
 import { Pool } from "pg";
 
-const database = createPgPoolDriver(
+const database = pg(
   new Pool({ connectionString: process.env.DATABASE_URL! }),
 );
 

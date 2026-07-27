@@ -45,6 +45,7 @@
     "prepublishOnly": "tsup"
   },
   "dependencies": {
+    "@farming-labs/orm": "latest",
     "@farming-labs/orm-sql": "latest"
   },
   "peerDependencies": {

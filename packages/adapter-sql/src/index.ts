@@ -74,3 +74,4 @@ export function sqlite(db: Database): any {
 }
 
 export { createPgPoolDriver, createMysqlDriver, createSqliteDriver } from "@farming-labs/orm-sql";
+export { renderSafeSql } from "@farming-labs/orm";
