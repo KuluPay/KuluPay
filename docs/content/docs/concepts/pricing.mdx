@@ -35,7 +35,7 @@ export const pay = kuluPay({
 1. Client sends `createIntent` with `metadata: { productId: "prod_123" }`
 2. Server calls `pricing.resolvePrice(intentData, ctx)`
 3. The returned `amount` and `currency` **override** whatever the client sent
-4. The validated amount is passed to the provider (Stripe, PayPal, etc.)
+4. The validated amount is passed to the provider (Stripe, blockchain, etc.)
 
 <Callout type="warn">
   If `pricing.resolvePrice` is not configured, KuluPay uses the client-sent amount. This is fine for development/testing but should not be used in production.

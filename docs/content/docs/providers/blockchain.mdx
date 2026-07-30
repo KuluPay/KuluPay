@@ -1,11 +1,11 @@
 ---
 title: Blockchain (EVM & Tron)
-description: Accept crypto payments via Ethereum, Polygon, Base, Tron, and more.
+description: Accept crypto payments via Ethereum, Base, and Tron.
 ---
 
 # Blockchain Providers
 
-KuluPay supports crypto payments across EVM chains (Ethereum, Polygon, Base, Arbitrum) and Tron (TRC-20). The architecture is modular — each chain family has its own provider, and adding new chains is easy.
+KuluPay supports crypto payments across EVM chains (Ethereum, Base) and Tron (TRC-20). The architecture is modular — each chain family has its own provider, and adding new chains is easy.
 
 ## Installation
 
@@ -16,7 +16,7 @@ pnpm add tronweb       # for Tron
 
 Both are optional peer dependencies — only install the one you need.
 
-## EVM Provider (Ethereum, Polygon, Base, Arbitrum)
+## EVM Provider (Ethereum, Base)
 
 ### Server Setup
 
@@ -29,6 +29,7 @@ const baseProvider = evm({
   chain: CHAINS.base,
   recipientAddress: "0xYourWalletAddress",
   token: usdcOnBase,
+  testnet: "base-sepolia", // uses Sepolia USDC contract automatically
 });
 ```
 
@@ -53,12 +54,7 @@ const providers = [
     chain: CHAINS.base,
     recipientAddress: "0xYourWallet",
     token: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"),
-  }),
-  // USDC on Polygon
-  evm({
-    chain: CHAINS.polygon,
-    recipientAddress: "0xYourWallet",
-    token: TOKENS.USDC("0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359"),
+    testnet: "base-sepolia", // uses Sepolia USDC contract automatically
   }),
   // Native ETH on Ethereum
   evm({
@@ -74,10 +70,19 @@ const providers = [
 import { createEVMClientProvider } from "@kulupay/kulupay/client/providers";
 
 const evmClient = createEVMClientProvider({
+  id: "evm-base",
   chainId: 8453, // Base
   recipientAddress: "0xYourWalletAddress",
   tokenContractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   tokenDecimals: 6,
+  network: {
+    name: "base-sepolia",
+    chainId: 84532,
+    rpcUrl: "https://base-sepolia.blastapi.io",
+    explorerUrl: "https://sepolia.explorer.base.org",
+    isTestnet: true,
+    faucetUrl: "https://www.coinbase.com/developer-platform/base-sepolia-testnet-faucet",
+  },
 });
 ```
 
@@ -130,7 +135,7 @@ function CryptoCheckout() {
 ```ts
 import { tron, CHAINS, TOKENS } from "@kulupay/kulupay/payment-providers/blockchain";
 
-// Accept USDT (TRC-20) on Tron
+// Accept USDT (TRC-20) on Tron mainnet
 const usdtProvider = tron({
   chain: CHAINS.tron,
   recipientAddress: "TYourTronAddress",
@@ -148,19 +153,146 @@ const trxProvider = tron({
 });
 ```
 
+### Testnet Support (Nile & Shasta)
+
+KuluPay supports both Tron testnets. **Nile is the default** testnet (recommended — Shasta faucet is often unreliable).
+
+```ts
+// Nile testnet (default — recommended)
+const nileProvider = tron({
+  chain: CHAINS.tron,
+  recipientAddress: "TYourTronAddress",
+  token: "USDT",
+  testnet: "nile", // uses Nile USDT contract: TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf
+});
+
+// Shasta testnet
+const shastaProvider = tron({
+  chain: CHAINS.tron,
+  recipientAddress: "TYourTronAddress",
+  token: "USDT",
+  testnet: "shasta", // uses Shasta USDT contract: TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs
+});
+```
+
+When `testnet` is specified, the server automatically resolves the correct testnet token contract address from `networks.ts`. You don't need to manually pass the contract address.
+
+#### Getting Testnet Tokens
+
+**Nile testnet (recommended):**
+- **Test TRX:** Visit https://nileex.io/join/getJoinPage and paste your TronLink address
+- **Test USDT:** Join the [TRON Discord](https://discord.gg/tronnetwork) and type `!nile_usdt YOUR_ADDRESS` in the faucet channel
+
+**Shasta testnet:**
+- **Test TRX/USDT:** Visit https://shasta.tronex.io/join/getJoinPage
+
+#### Switching TronLink to Nile
+
+TronLink doesn't support programmatic network switching. Users must manually switch:
+
+1. Open TronLink extension
+2. Go to **Settings → Networks**
+3. Enable **"Show Test Networks"**
+4. Select **Nile Testnet**
+
+The client provider checks the wallet's network before sending transactions and throws a `WRONG_CHAIN` error if the wallet is on the wrong network.
+
 ### Client Setup
 
 ```ts
 import { createTronClientProvider } from "@kulupay/kulupay/client/providers";
 
 const tronClient = createTronClientProvider({
+  id: "tron",
   recipientAddress: "TYourTronAddress",
-  tokenContractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
-  tokenDecimals: 6,
+  network: {
+    name: "tron-nile",
+    chainId: 3448148188,
+    rpcUrl: "https://nile.trongrid.io",
+    explorerUrl: "https://nile.tronscan.org",
+    isTestnet: true,
+    faucetUrl: "https://nileex.io/join/getJoinPage",
+  },
 });
 ```
 
 The Tron client provider uses `window.tronWeb` (injected by TronLink extension).
+
+### TRC-20 Transfer Flow
+
+The Tron client provider uses TronLink's native `contract().at().transfer().send()` API for TRC-20 transfers. TronLink handles signing internally and returns the transaction hash directly.
+
+Before sending, the provider performs a **pre-flight contract verification** — it calls `getContract()` to check if the token contract exists on the current network. If the contract doesn't exist (e.g., using a mainnet contract on testnet), it throws an `INVALID_CONTRACT` error with a developer-friendly message.
+
+## Wallet Auto-Detection
+
+KuluPay auto-detects the wallet from the `providerId`:
+
+- **`"tron"`** → uses `window.tronWeb` (TronLink)
+- **Anything else** → uses `window.ethereum` (MetaMask, Coinbase, etc.)
+
+No manual provider setup is needed in the UI. The client infers the wallet from the provider ID.
+
+## Error Handling
+
+KuluPay provides context-aware blockchain errors with developer messages and hints. All errors include:
+
+- **`code`** — Machine-readable error code (e.g., `WRONG_CHAIN`, `INSUFFICIENT_FUNDS`)
+- **`message`** — User-friendly error message
+- **`developerMessage`** — Detailed explanation for developers
+- **`hint`** — Actionable next step (e.g., faucet URL for testnets)
+
+### Common Error Codes
+
+| Code | Description | Hint |
+| --- | --- | --- |
+| `WALLET_NOT_FOUND` | No wallet extension detected | Install MetaMask or TronLink |
+| `WALLET_NOT_CONNECTED` | Wallet not connected | Connect your wallet |
+| `WRONG_CHAIN` | Wallet on wrong network | Switch to the correct network in wallet settings |
+| `INSUFFICIENT_FUNDS` | Not enough balance | Testnet: use faucet URL; Mainnet: fund wallet |
+| `INVALID_CONTRACT` | Token contract not found on network | Check contract address in networks.ts |
+| `TRANSACTION_REJECTED` | User rejected transaction in wallet | Approve the transaction |
+| `TRANSACTION_FAILED` | Transaction reverted on-chain | Check transaction on block explorer |
+| `MISSING_PAYMENT_DATA` | No intent data available | Call createIntent first |
+
+### Context-Aware Hints
+
+When a `NetworkInfo` is provided to the client provider, error hints are automatically enriched with network-specific information:
+
+- **Testnet + `INSUFFICIENT_FUNDS`** → "Get free test tokens from {faucetUrl}"
+- **Mainnet + `INSUFFICIENT_FUNDS`** → "Fund your wallet with real tokens. This is mainnet — no free faucet available."
+- **`WRONG_CHAIN`** → "Open your wallet extension and switch to {networkName} (chainId: {chainId})."
+- **`INVALID_CONTRACT`** → "The token contract does not exist on {networkName}. Verify the contract address in networks.ts."
+- **`TRANSACTION_FAILED`** → "Check the transaction on {explorerUrl}"
+
+## Payment Verification
+
+Blockchain verification is **trustless** — it queries the blockchain directly, not a central server.
+
+### Client-Side Verification
+
+```ts
+// After confirmPayment returns a txHash
+const result = await payClient.verifyPayment({ providerId: "tron" });
+
+// Status: "succeeded" | "pending" | "failed"
+console.log(result.data.status);
+```
+
+The client provider queries the blockchain via the user's wallet:
+- **Tron:** `tronWeb.trx.getTransaction(txHash)` → checks `tx.ret[0].contractRet === "success"`
+- **EVM:** `eth_getTransactionReceipt(txHash)` → checks transaction receipt status
+
+### Server-Side Verification (Recommended for Production)
+
+For production use, implement server-side verification to handle cases where the user leaves the page after sending the transaction:
+
+1. **Client sends txHash to server** after `confirmPayment`
+2. **Server polls the blockchain** using its own RPC node (not the user's wallet)
+3. **Server marks intent as succeeded** in the database once the transaction is confirmed
+4. **Server fires a webhook** to notify the merchant
+
+This ensures payments are recorded even if the user closes their browser after broadcasting the transaction.
 
 ## Price Conversion (Fiat → Crypto)
 
@@ -210,15 +342,36 @@ TRON_REFUND_PRIVATE_KEY=YourTronPrivateKey
 const result = await provider.refund("0xTransactionHash");
 ```
 
-## Available Chains
+## Available Networks
+
+### Mainnet
 
 | Chain | Family | Chain ID | Native Token |
 | --- | --- | --- | --- |
 | Ethereum | EVM | 1 | ETH |
-| Polygon | EVM | 137 | MATIC |
 | Base | EVM | 8453 | ETH |
-| Arbitrum | EVM | 42161 | ETH |
 | Tron | Tron | 728126428 | TRX |
+
+### Testnets
+
+| Testnet | Family | Chain ID | Faucet |
+| --- | --- | --- | --- |
+| Ethereum Sepolia | EVM | 11155111 | https://sepoliafaucet.com |
+| Base Sepolia | EVM | 84532 | https://www.coinbase.com/developer-platform/base-sepolia-testnet-faucet |
+| Tron Nile | Tron | 3448148188 | https://nileex.io/join/getJoinPage |
+| Tron Shasta | Tron | 2494104990 | https://shasta.tronex.io/join/getJoinPage |
+
+### Token Contract Addresses
+
+| Token | Network | Contract Address |
+| --- | --- | --- |
+| USDT | Tron Mainnet | `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` |
+| USDT | Tron Nile | `TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf` |
+| USDT | Tron Shasta | `TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs` |
+| USDC | Ethereum Mainnet | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` |
+| USDC | Ethereum Sepolia | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` |
+| USDC | Base Mainnet | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| USDC | Base Sepolia | `0x036CbD5384cD538F5f65c3655E385Abe07138516` |
 
 ## Supported Features
 
@@ -227,8 +380,11 @@ const result = await provider.refund("0xTransactionHash");
 | Native token payments | ✅ ETH | ✅ TRX |
 | Stablecoin payments | ✅ ERC-20 | ✅ TRC-20 |
 | Multi-chain | ✅ | ✅ |
+| Testnet support | ✅ Sepolia, Base Sepolia | ✅ Nile, Shasta |
+| Network detection | ✅ chainId check | ✅ fullHost check |
 | Price conversion | ✅ (pluggable) | ✅ (pluggable) |
 | Refunds | ✅ (requires key) | ✅ (requires key) |
+| Context-aware errors | ✅ | ✅ |
 | Subscriptions | ❌ (use smart contracts) | ❌ |
 | Webhooks | ❌ (polling) | ❌ (polling) |
 
@@ -238,8 +394,9 @@ The blockchain provider architecture is modular. To add a new chain family:
 
 1. Create a new file in `packages/core/src/payment-providers/blockchain/`
 2. Implement the `PaymentProvider` interface
-3. Add chain presets to the `CHAINS` constant
-4. Create a client provider in `packages/kulupay/src/client/providers/`
-5. Export both from their respective index files
+3. Add chain presets to the `NETWORKS` constant in `networks.ts`
+4. Add testnet configurations and token contract addresses
+5. Create a client provider in `packages/kulupay/src/client/providers/`
+6. Export both from their respective index files
 
 Each provider handles its own SDK imports dynamically, so unused chains add zero bundle weight.

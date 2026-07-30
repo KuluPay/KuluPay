@@ -21,14 +21,9 @@ KuluPay follows the shadcn/ui pattern for provider imports. Instead of a barrel 
 // ✅ Only loads Stripe SDK
 import { stripe } from "@kulupay/kulupay/providers/stripe";
 
-// ✅ Only loads Chapa (no SDK needed)
-import { chapa } from "@kulupay/kulupay/providers/chapa";
-
-// ✅ Only loads PayPal SDK
-import { paypal } from "@kulupay/kulupay/providers/paypal";
 ```
 
-Provider SDKs (`stripe`, `@paypal/paypal-js`, `viem`) are optional peer dependencies — you only install what you use.
+Provider SDKs (`stripe`, `viem`, `tronweb`) are optional peer dependencies — you only install what you use.
 
 ## Request Lifecycle
 
@@ -38,7 +33,7 @@ Client → POST /api/pay/create-intent
   → originCheckMiddleware (CSRF protection)
   → pricing.resolvePrice (server-side price resolution)
   → auto-customer creation (find or create)
-  → provider.createIntent (Stripe/PayPal/Chapa API call)
+  → provider.createIntent (Stripe/blockchain API call)
   → save to database
   → return clientSecret
 Client → mounts payment UI (Stripe Elements, etc.)

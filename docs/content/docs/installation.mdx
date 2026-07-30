@@ -24,11 +24,6 @@ KuluPay uses modular imports — you only install the SDK for providers you use:
 ```bash
 # Stripe only
 pnpm add stripe
-
-# PayPal only
-pnpm add @paypal/paypal-js
-
-# Chapa only (no SDK needed — uses fetch)
 ```
 
 Provider SDKs are optional peer dependencies. If you don't use a provider, you don't need to install its SDK.

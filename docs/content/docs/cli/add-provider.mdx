@@ -25,8 +25,6 @@ npx @kulupay/cli add-provider stripe
 | Provider | Packages | Environment Variables |
 | --- | --- | --- |
 | `stripe` | `stripe`, `@stripe/stripe-js` | `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
-| `chapa` | (none) | `CHAPA_API_KEY`, `CHAPA_WEBHOOK_SECRET` |
-| `paypal` | `@paypal/paypal-js` | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` |
 | `evm-eth` | `viem` | `NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS` |
 | `evm-base-usdc` | `viem` | `NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS`, `NEXT_PUBLIC_BASE_USDC_CONTRACT` |
 | `tron-trx` | `tronweb` | `NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS` |
@@ -40,14 +38,13 @@ npx @kulupay/cli add-provider stripe
 ## Example
 
 ```bash
-$ npx @kulupay/cli add-provider paypal
+$ npx @kulupay/cli add-provider evm-eth
 
-✔ Installing @paypal/paypal-js...
+✔ Installing viem...
 ✔ Updating lib/pay.ts...
 ✔ Adding environment variables...
 
-PayPal provider added successfully!
+EVM Ethereum provider added successfully!
 Add the following to your .env.local:
-  PAYPAL_CLIENT_ID=your_client_id
-  PAYPAL_CLIENT_SECRET=your_client_secret
+  NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS=0xYourWalletAddress
 ```
