@@ -259,11 +259,11 @@ KuluPay provides context-aware blockchain errors with developer messages and hin
 
 When a `NetworkInfo` is provided to the client provider, error hints are automatically enriched with network-specific information:
 
-- **Testnet + `INSUFFICIENT_FUNDS`** → "Get free test tokens from {faucetUrl}"
+- **Testnet + `INSUFFICIENT_FUNDS`** → "Get free test tokens from `faucetUrl`"
 - **Mainnet + `INSUFFICIENT_FUNDS`** → "Fund your wallet with real tokens. This is mainnet — no free faucet available."
-- **`WRONG_CHAIN`** → "Open your wallet extension and switch to {networkName} (chainId: {chainId})."
-- **`INVALID_CONTRACT`** → "The token contract does not exist on {networkName}. Verify the contract address in networks.ts."
-- **`TRANSACTION_FAILED`** → "Check the transaction on {explorerUrl}"
+- **`WRONG_CHAIN`** → "Open your wallet extension and switch to `networkName` (chainId: `chainId`)."
+- **`INVALID_CONTRACT`** → "The token contract does not exist on `networkName`. Verify the contract address in networks.ts."
+- **`TRANSACTION_FAILED`** → "Check the transaction on `explorerUrl`"
 
 ## Payment Verification
 
