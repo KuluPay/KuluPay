@@ -2,5 +2,5 @@
   "framework": "nextjs",
   "buildCommand": "pnpm --filter docs build",
   "installCommand": "pnpm install",
-  "outputDirectory": "docs/.next"
+  "outputDirectory": ".next"
 }

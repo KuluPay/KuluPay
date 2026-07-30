@@ -1,75 +1,75 @@
 {
-  "name": "@kulupay/adapter-sql",
-  "version": "0.0.1",
-  "description": "SQL database adapter for KuluPay (PostgreSQL, MySQL, SQLite)",
-  "author": "YonaniCodes",
-  "license": "MIT",
-  "keywords": [
-    "kulupay",
-    "adapter",
-    "database",
-    "postgres",
-    "mysql",
-    "sqlite"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/KuluPay/KuluPay.git",
-    "directory": "packages/adapter-sql"
-  },
-  "homepage": "https://github.com/KuluPay/KuluPay#readme",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "dev-source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "default": "./dist/index.mjs"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "lint": "biome lint src",
-    "prepublishOnly": "tsup"
-  },
-  "dependencies": {
-    "@farming-labs/orm": "latest",
-    "@farming-labs/orm-sql": "latest"
-  },
-  "peerDependencies": {
-    "pg": "^8.0.0",
-    "mysql2": "^3.0.0",
-    "better-sqlite3": "^9.0.0"
-  },
-  "peerDependenciesMeta": {
-    "pg": {
-      "optional": true
-    },
-    "mysql2": {
-      "optional": true
-    },
-    "better-sqlite3": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "tsup": "^8.0.0",
-    "pg": "^8.22.0",
-    "@types/pg": "^8.20.0",
-    "mysql2": "^3.0.0",
-    "better-sqlite3": "^9.0.0",
-    "@types/better-sqlite3": "^7.6.0"
-  }
+    "name":  "@kulupay/adapter-sql",
+    "version":  "0.0.2",
+    "description":  "SQL database adapter for KuluPay (PostgreSQL, MySQL, SQLite)",
+    "author":  "YonaniCodes",
+    "license":  "MIT",
+    "keywords":  [
+                     "kulupay",
+                     "adapter",
+                     "database",
+                     "postgres",
+                     "mysql",
+                     "sqlite"
+                 ],
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/KuluPay/KuluPay.git",
+                       "directory":  "packages/adapter-sql"
+                   },
+    "homepage":  "https://github.com/KuluPay/KuluPay#readme",
+    "main":  "./dist/index.js",
+    "module":  "./dist/index.mjs",
+    "types":  "./dist/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "dev-source":  "./src/index.ts",
+                              "types":  "./dist/index.d.ts",
+                              "import":  "./dist/index.mjs",
+                              "require":  "./dist/index.js",
+                              "default":  "./dist/index.mjs"
+                          }
+                },
+    "files":  [
+                  "dist",
+                  "README.md",
+                  "LICENSE"
+              ],
+    "publishConfig":  {
+                          "access":  "public"
+                      },
+    "scripts":  {
+                    "build":  "tsup",
+                    "dev":  "tsup --watch",
+                    "lint":  "biome lint src",
+                    "prepublishOnly":  "tsup"
+                },
+    "dependencies":  {
+                         "@farming-labs/orm":  "latest",
+                         "@farming-labs/orm-sql":  "latest"
+                     },
+    "peerDependencies":  {
+                             "pg":  "^8.0.0",
+                             "mysql2":  "^3.0.0",
+                             "better-sqlite3":  "^9.0.0"
+                         },
+    "peerDependenciesMeta":  {
+                                 "pg":  {
+                                            "optional":  true
+                                        },
+                                 "mysql2":  {
+                                                "optional":  true
+                                            },
+                                 "better-sqlite3":  {
+                                                        "optional":  true
+                                                    }
+                             },
+    "devDependencies":  {
+                            "tsup":  "^8.0.0",
+                            "pg":  "^8.22.0",
+                            "@types/pg":  "^8.20.0",
+                            "mysql2":  "^3.0.0",
+                            "better-sqlite3":  "^9.0.0",
+                            "@types/better-sqlite3":  "^7.6.0"
+                        }
 }

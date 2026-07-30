@@ -1,206 +1,206 @@
 {
-  "name": "@kulupay/core",
-  "version": "0.0.6",
-  "description": "Core logic for KuluPay SDK",
-  "author": "YonaniCodes",
-  "license": "MIT",
-  "keywords": [
-    "payment",
-    "stripe",
-    "paypal",
-    "chapa",
-    "crypto",
-    "sdk",
-    "kulupay"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/KuluPay/KuluPay.git",
-    "directory": "packages/core"
-  },
-  "homepage": "https://github.com/KuluPay/KuluPay#readme",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "dev-source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "default": "./dist/index.mjs"
-    },
-    "./api": {
-      "dev-source": "./src/api/index.ts",
-      "types": "./dist/api/index.d.ts",
-      "import": "./dist/api/index.mjs",
-      "require": "./dist/api/index.js",
-      "default": "./dist/api/index.mjs"
-    },
-    "./async_hooks": {
-      "dev-source": "./src/async_hooks/index.ts",
-      "types": "./dist/async_hooks/index.d.ts",
-      "import": "./dist/async_hooks/index.mjs",
-      "require": "./dist/async_hooks/index.js",
-      "default": "./dist/async_hooks/index.mjs"
-    },
-    "./context": {
-      "dev-source": "./src/context/index.ts",
-      "types": "./dist/context/index.d.ts",
-      "import": "./dist/context/index.mjs",
-      "require": "./dist/context/index.js",
-      "default": "./dist/context/index.mjs"
-    },
-    "./db": {
-      "dev-source": "./src/db/index.ts",
-      "types": "./dist/db/index.d.ts",
-      "import": "./dist/db/index.mjs",
-      "require": "./dist/db/index.js",
-      "default": "./dist/db/index.mjs"
-    },
-    "./error": {
-      "dev-source": "./src/error/index.ts",
-      "types": "./dist/error/index.d.ts",
-      "import": "./dist/error/index.mjs",
-      "require": "./dist/error/index.js",
-      "default": "./dist/error/index.mjs"
-    },
-    "./payment-providers": {
-      "dev-source": "./src/payment-providers/index.ts",
-      "types": "./dist/payment-providers/index.d.ts",
-      "import": "./dist/payment-providers/index.mjs",
-      "require": "./dist/payment-providers/index.js",
-      "default": "./dist/payment-providers/index.mjs"
-    },
-    "./payment-providers/stripe": {
-      "dev-source": "./src/payment-providers/stripe.ts",
-      "types": "./dist/payment-providers/stripe.d.ts",
-      "import": "./dist/payment-providers/stripe.mjs",
-      "require": "./dist/payment-providers/stripe.js",
-      "default": "./dist/payment-providers/stripe.mjs"
-    },
-    "./payment-providers/chapa": {
-      "dev-source": "./src/payment-providers/chapa.ts",
-      "types": "./dist/payment-providers/chapa.d.ts",
-      "import": "./dist/payment-providers/chapa.mjs",
-      "require": "./dist/payment-providers/chapa.js",
-      "default": "./dist/payment-providers/chapa.mjs"
-    },
-    "./payment-providers/paypal": {
-      "dev-source": "./src/payment-providers/paypal.ts",
-      "types": "./dist/payment-providers/paypal.d.ts",
-      "import": "./dist/payment-providers/paypal.mjs",
-      "require": "./dist/payment-providers/paypal.js",
-      "default": "./dist/payment-providers/paypal.mjs"
-    },
-    "./payment-providers/blockchain": {
-      "dev-source": "./src/payment-providers/blockchain/index.ts",
-      "types": "./dist/payment-providers/blockchain/index.d.ts",
-      "import": "./dist/payment-providers/blockchain/index.mjs",
-      "require": "./dist/payment-providers/blockchain/index.js",
-      "default": "./dist/payment-providers/blockchain/index.mjs"
-    },
-    "./utils": {
-      "dev-source": "./src/utils/index.ts",
-      "types": "./dist/utils/index.d.ts",
-      "import": "./dist/utils/index.mjs",
-      "require": "./dist/utils/index.js",
-      "default": "./dist/utils/index.mjs"
-    }
-  },
-  "typesVersions": {
-    "*": {
-      "*": [
-        "./dist/index.d.ts"
-      ],
-      "api": [
-        "./dist/api/index.d.ts"
-      ],
-      "async_hooks": [
-        "./dist/async_hooks/index.d.ts"
-      ],
-      "context": [
-        "./dist/context/index.d.ts"
-      ],
-      "db": [
-        "./dist/db/index.d.ts"
-      ],
-      "error": [
-        "./dist/error/index.d.ts"
-      ],
-      "payment-providers": [
-        "./dist/payment-providers/index.d.ts"
-      ],
-      "payment-providers/stripe": [
-        "./dist/payment-providers/stripe.d.ts"
-      ],
-      "payment-providers/chapa": [
-        "./dist/payment-providers/chapa.d.ts"
-      ],
-      "payment-providers/paypal": [
-        "./dist/payment-providers/paypal.d.ts"
-      ],
-      "payment-providers/blockchain": [
-        "./dist/payment-providers/blockchain/index.d.ts"
-      ],
-      "utils": [
-        "./dist/utils/index.d.ts"
-      ]
-    }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "lint": "biome lint src",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "prepublishOnly": "tsup"
-  },
-  "dependencies": {
-    "zod": "^4.0.0",
-    "better-call": "latest",
-    "@farming-labs/orm": "latest",
-    "@better-fetch/fetch": "latest"
-  },
-  "peerDependencies": {
-    "stripe": "^20.0.0",
-    "@paypal/paypal-js": "^7.0.0",
-    "viem": "^2.0.0",
-    "tronweb": "^6.0.0"
-  },
-  "peerDependenciesMeta": {
-    "pg": {
-      "optional": true
-    },
-    "@neondatabase/serverless": {
-      "optional": true
-    },
-    "stripe": {
-      "optional": true
-    },
-    "@paypal/paypal-js": {
-      "optional": true
-    },
-    "viem": {
-      "optional": true
-    },
-    "tronweb": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "tsup": "^8.0.0",
-    "pg": "^8.22.0",
-    "@types/pg": "^8.20.0",
-    "@neondatabase/serverless": "^1.1.0",
-    "@types/node": "^20.0.0"
-  }
+    "name":  "@kulupay/core",
+    "version":  "0.0.7",
+    "description":  "Core logic for KuluPay SDK",
+    "author":  "YonaniCodes",
+    "license":  "MIT",
+    "keywords":  [
+                     "payment",
+                     "stripe",
+                     "paypal",
+                     "chapa",
+                     "crypto",
+                     "sdk",
+                     "kulupay"
+                 ],
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/KuluPay/KuluPay.git",
+                       "directory":  "packages/core"
+                   },
+    "homepage":  "https://github.com/KuluPay/KuluPay#readme",
+    "main":  "./dist/index.js",
+    "module":  "./dist/index.mjs",
+    "types":  "./dist/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "dev-source":  "./src/index.ts",
+                              "types":  "./dist/index.d.ts",
+                              "import":  "./dist/index.mjs",
+                              "require":  "./dist/index.js",
+                              "default":  "./dist/index.mjs"
+                          },
+                    "./api":  {
+                                  "dev-source":  "./src/api/index.ts",
+                                  "types":  "./dist/api/index.d.ts",
+                                  "import":  "./dist/api/index.mjs",
+                                  "require":  "./dist/api/index.js",
+                                  "default":  "./dist/api/index.mjs"
+                              },
+                    "./async_hooks":  {
+                                          "dev-source":  "./src/async_hooks/index.ts",
+                                          "types":  "./dist/async_hooks/index.d.ts",
+                                          "import":  "./dist/async_hooks/index.mjs",
+                                          "require":  "./dist/async_hooks/index.js",
+                                          "default":  "./dist/async_hooks/index.mjs"
+                                      },
+                    "./context":  {
+                                      "dev-source":  "./src/context/index.ts",
+                                      "types":  "./dist/context/index.d.ts",
+                                      "import":  "./dist/context/index.mjs",
+                                      "require":  "./dist/context/index.js",
+                                      "default":  "./dist/context/index.mjs"
+                                  },
+                    "./db":  {
+                                 "dev-source":  "./src/db/index.ts",
+                                 "types":  "./dist/db/index.d.ts",
+                                 "import":  "./dist/db/index.mjs",
+                                 "require":  "./dist/db/index.js",
+                                 "default":  "./dist/db/index.mjs"
+                             },
+                    "./error":  {
+                                    "dev-source":  "./src/error/index.ts",
+                                    "types":  "./dist/error/index.d.ts",
+                                    "import":  "./dist/error/index.mjs",
+                                    "require":  "./dist/error/index.js",
+                                    "default":  "./dist/error/index.mjs"
+                                },
+                    "./payment-providers":  {
+                                                "dev-source":  "./src/payment-providers/index.ts",
+                                                "types":  "./dist/payment-providers/index.d.ts",
+                                                "import":  "./dist/payment-providers/index.mjs",
+                                                "require":  "./dist/payment-providers/index.js",
+                                                "default":  "./dist/payment-providers/index.mjs"
+                                            },
+                    "./payment-providers/stripe":  {
+                                                       "dev-source":  "./src/payment-providers/stripe.ts",
+                                                       "types":  "./dist/payment-providers/stripe.d.ts",
+                                                       "import":  "./dist/payment-providers/stripe.mjs",
+                                                       "require":  "./dist/payment-providers/stripe.js",
+                                                       "default":  "./dist/payment-providers/stripe.mjs"
+                                                   },
+                    "./payment-providers/chapa":  {
+                                                      "dev-source":  "./src/payment-providers/chapa.ts",
+                                                      "types":  "./dist/payment-providers/chapa.d.ts",
+                                                      "import":  "./dist/payment-providers/chapa.mjs",
+                                                      "require":  "./dist/payment-providers/chapa.js",
+                                                      "default":  "./dist/payment-providers/chapa.mjs"
+                                                  },
+                    "./payment-providers/paypal":  {
+                                                       "dev-source":  "./src/payment-providers/paypal.ts",
+                                                       "types":  "./dist/payment-providers/paypal.d.ts",
+                                                       "import":  "./dist/payment-providers/paypal.mjs",
+                                                       "require":  "./dist/payment-providers/paypal.js",
+                                                       "default":  "./dist/payment-providers/paypal.mjs"
+                                                   },
+                    "./payment-providers/blockchain":  {
+                                                           "dev-source":  "./src/payment-providers/blockchain/index.ts",
+                                                           "types":  "./dist/payment-providers/blockchain/index.d.ts",
+                                                           "import":  "./dist/payment-providers/blockchain/index.mjs",
+                                                           "require":  "./dist/payment-providers/blockchain/index.js",
+                                                           "default":  "./dist/payment-providers/blockchain/index.mjs"
+                                                       },
+                    "./utils":  {
+                                    "dev-source":  "./src/utils/index.ts",
+                                    "types":  "./dist/utils/index.d.ts",
+                                    "import":  "./dist/utils/index.mjs",
+                                    "require":  "./dist/utils/index.js",
+                                    "default":  "./dist/utils/index.mjs"
+                                }
+                },
+    "typesVersions":  {
+                          "*":  {
+                                    "*":  [
+                                              "./dist/index.d.ts"
+                                          ],
+                                    "api":  [
+                                                "./dist/api/index.d.ts"
+                                            ],
+                                    "async_hooks":  [
+                                                        "./dist/async_hooks/index.d.ts"
+                                                    ],
+                                    "context":  [
+                                                    "./dist/context/index.d.ts"
+                                                ],
+                                    "db":  [
+                                               "./dist/db/index.d.ts"
+                                           ],
+                                    "error":  [
+                                                  "./dist/error/index.d.ts"
+                                              ],
+                                    "payment-providers":  [
+                                                              "./dist/payment-providers/index.d.ts"
+                                                          ],
+                                    "payment-providers/stripe":  [
+                                                                     "./dist/payment-providers/stripe.d.ts"
+                                                                 ],
+                                    "payment-providers/chapa":  [
+                                                                    "./dist/payment-providers/chapa.d.ts"
+                                                                ],
+                                    "payment-providers/paypal":  [
+                                                                     "./dist/payment-providers/paypal.d.ts"
+                                                                 ],
+                                    "payment-providers/blockchain":  [
+                                                                         "./dist/payment-providers/blockchain/index.d.ts"
+                                                                     ],
+                                    "utils":  [
+                                                  "./dist/utils/index.d.ts"
+                                              ]
+                                }
+                      },
+    "files":  [
+                  "dist",
+                  "README.md",
+                  "LICENSE"
+              ],
+    "publishConfig":  {
+                          "access":  "public"
+                      },
+    "scripts":  {
+                    "build":  "tsup",
+                    "dev":  "tsup --watch",
+                    "lint":  "biome lint src",
+                    "test":  "vitest run",
+                    "test:watch":  "vitest",
+                    "prepublishOnly":  "tsup"
+                },
+    "dependencies":  {
+                         "zod":  "^4.0.0",
+                         "better-call":  "latest",
+                         "@farming-labs/orm":  "latest",
+                         "@better-fetch/fetch":  "latest"
+                     },
+    "peerDependencies":  {
+                             "stripe":  "^20.0.0",
+                             "@paypal/paypal-js":  "^7.0.0",
+                             "viem":  "^2.0.0",
+                             "tronweb":  "^6.0.0"
+                         },
+    "peerDependenciesMeta":  {
+                                 "pg":  {
+                                            "optional":  true
+                                        },
+                                 "@neondatabase/serverless":  {
+                                                                  "optional":  true
+                                                              },
+                                 "stripe":  {
+                                                "optional":  true
+                                            },
+                                 "@paypal/paypal-js":  {
+                                                           "optional":  true
+                                                       },
+                                 "viem":  {
+                                              "optional":  true
+                                          },
+                                 "tronweb":  {
+                                                 "optional":  true
+                                             }
+                             },
+    "devDependencies":  {
+                            "tsup":  "^8.0.0",
+                            "pg":  "^8.22.0",
+                            "@types/pg":  "^8.20.0",
+                            "@neondatabase/serverless":  "^1.1.0",
+                            "@types/node":  "^20.0.0"
+                        }
 }

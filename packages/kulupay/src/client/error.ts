@@ -1,4 +1,7 @@
 export class KuluPayClientError extends Error {
+    developerMessage?: string;
+    hint?: string;
+
     constructor(
         public code: string,
         message: string,

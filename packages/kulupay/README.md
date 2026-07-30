@@ -18,50 +18,118 @@ A unified payment SDK for Node.js. Integrate multiple payment providers (Stripe,
 | --- | --- |
 | `@kulupay/core` | Core logic, types, and payment provider implementations |
 | `@kulupay/kulupay` | Full SDK with server handler, client, and framework integrations |
-| `@kulupay/cli` | CLI tool for schema generation and database migration |
+| `@kulupay/cli` | CLI tool for init, schema generation, and database migration |
+| `@kulupay/adapter-sql` | SQL adapter for PostgreSQL, MySQL, and SQLite (via `pg`, `mysql2`, `better-sqlite3`) |
+| `@kulupay/adapter-drizzle` | Drizzle ORM adapter — reuse your existing Drizzle db instance |
+| `@kulupay/adapter-prisma` | Prisma adapter — reuse your existing `PrismaClient` instance |
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-pnpm add @kulupay/kulupay
+pnpm add @kulupay/kulupay @kulupay/adapter-sql pg
 # or
-npm install @kulupay/kulupay
+npm install @kulupay/kulupay @kulupay/adapter-sql pg
 ```
+
+### Quick Setup with CLI
+
+The fastest way to get started is with the CLI init command:
+
+```bash
+npx @kulupay/cli init
+```
+
+This will interactively generate:
+- `lib/db.ts` — your database instance (reusable across your app)
+- `lib/pay.ts` — KuluPay server config
+- `lib/pay-client.ts` — KuluPay client config
+- `app/api/pay/[...kulupay]/route.ts` — Next.js API route (if Next.js)
+- `kulupay.json` — CLI registry file
 
 ### Server-side Setup
 
-```typescript
-import { kuluPay, PaymentProvider, createMemoryDriver } from "@kulupay/kulupay";
+KuluPay is database-agnostic. You create your own database instance and pass it via an adapter.
 
-const mockProvider: PaymentProvider = {
-  id: "mock",
-  createIntent: async (data) => ({
-    id: `mock_${Date.now()}`,
-    amount: data.amount,
-    currency: data.currency,
-    status: "pending",
-    metadata: data.metadata,
-  }),
-  getIntent: async (id) => ({
-    id,
-    amount: 1000,
-    currency: "USD",
-    status: "succeeded",
-  }),
-  cancelIntent: async (id) => ({
-    id,
-    amount: 1000,
-    currency: "USD",
-    status: "canceled",
-  }),
-};
+**PostgreSQL (via `@kulupay/adapter-sql`):**
+
+```typescript
+// lib/db.ts
+import { Pool } from "pg";
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL!,
+});
+```
+
+```typescript
+// lib/pay.ts
+import { kuluPay } from "@kulupay/kulupay";
+import { pg } from "@kulupay/adapter-sql";
+import { pool } from "./db";
+
+export const pay = kuluPay({
+  database: pg(pool),
+  providers: [],
+  baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
+});
+```
+
+**Drizzle ORM (via `@kulupay/adapter-drizzle`):**
+
+```typescript
+// lib/db.ts
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+
+export const db = drizzle(new Pool({ connectionString: process.env.DATABASE_URL! }));
+```
+
+```typescript
+// lib/pay.ts
+import { kuluPay } from "@kulupay/kulupay";
+import { drizzleAdapter } from "@kulupay/adapter-drizzle";
+import { db } from "./db";
+
+export const pay = kuluPay({
+  database: drizzleAdapter(db, { provider: "pg" }),
+  providers: [],
+  baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
+});
+```
+
+**Prisma (via `@kulupay/adapter-prisma`):**
+
+```typescript
+// lib/db.ts
+import { PrismaClient } from "@prisma/client";
+
+export const prisma = new PrismaClient();
+```
+
+```typescript
+// lib/pay.ts
+import { kuluPay } from "@kulupay/kulupay";
+import { prismaAdapter } from "@kulupay/adapter-prisma";
+import { prisma } from "./db";
+
+export const pay = kuluPay({
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  providers: [],
+  baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
+});
+```
+
+**Memory (for testing):**
+
+```typescript
+import { kuluPay } from "@kulupay/kulupay";
+import { createMemoryDriver } from "@farming-labs/orm";
 
 export const pay = kuluPay({
   database: createMemoryDriver(),
-  providers: [mockProvider],
-  baseURL: "http://localhost:3000/api/pay",
+  providers: [],
 });
 ```
 
@@ -78,20 +146,31 @@ export const { GET, POST, PUT, PATCH, DELETE } = toNextJsHandler(pay);
 ### Client-side (React)
 
 ```typescript
-import { usePayment } from "@kulupay/kulupay/client";
+// lib/pay-client.ts
+import { createKuluPayClient } from "@kulupay/kulupay/client";
+
+export const payClient = createKuluPayClient({
+  baseURL: "/api/pay",
+});
+```
+
+```typescript
+import { usePaymentProvider } from "@kulupay/kulupay/client";
+import { payClient } from "@/lib/pay-client";
 
 function Checkout() {
-  const { createIntent, loading, error } = usePayment({
-    baseURL: "/api/pay",
-    providerId: "mock",
+  const { createIntent, loading, error } = usePaymentProvider({
+    client: payClient,
+    providerId: "stripe",
   });
 
   const handlePay = async () => {
     const intent = await createIntent({
       amount: 1000,
-      currency: "USD",
+      currency: "usd",
       userId: "user_123",
-      providerId: "mock",
+      providerId: "stripe",
+      productId: "prod_premium",
     });
     console.log(intent);
   };
@@ -111,14 +190,14 @@ import { createKuluPayClient } from "@kulupay/kulupay/client";
 
 const client = createKuluPayClient({
   baseURL: "/api/pay",
-  providerId: "mock",
 });
 
 const intent = await client.createIntent({
   amount: 1000,
-  currency: "USD",
+  currency: "usd",
   userId: "user_123",
-  providerId: "mock",
+  providerId: "stripe",
+  productId: "prod_premium",
 });
 ```
 
@@ -180,31 +259,45 @@ Supported field types: `string`, `number`, `boolean`, `datetime`, `json`.
 
 ## CLI
 
-KuluPay provides a CLI tool for generating database schema files and migrating your database:
+KuluPay provides a CLI tool for project initialization, schema generation, and database migration:
 
 ```bash
-# Generate a Prisma schema
-npx @kulupay/cli generate --generator prisma --dialect postgresql
+# Initialize KuluPay in your project (interactive)
+npx @kulupay/cli init
 
-# Generate a Drizzle schema
-npx @kulupay/cli generate --generator drizzle --dialect pg
+# Initialize with flags (non-interactive)
+npx @kulupay/cli init --framework nextjs --database drizzle --yes
 
-# Generate raw SQL
-npx @kulupay/cli generate --generator sql --dialect postgres
+# Generate schema
+npx @kulupay/cli generate --generator drizzle
 
 # Push schema to database
 npx @kulupay/cli migrate
+
+# Add a payment provider
+npx @kulupay/cli add-provider stripe
 ```
 
-### CLI Options
+### CLI Init Options
 
 | Option | Description |
 | --- | --- |
-| `--config <path>` | Path to your KuluPay config file |
-| `--output <path>` | Output file path for generated schema |
-| `--generator <type>` | Schema generator: `prisma`, `drizzle`, or `sql` |
-| `--dialect <type>` | Database dialect: `postgresql`, `mysql`, or `sqlite` |
-| `-y, --yes` | Skip confirmation prompts |
+| `--framework <name>` | Framework: `nextjs`, `express`, `hono`, `elysia` |
+| `--database <type>` | Database: `memory`, `postgres`, `mysql`, `sqlite`, `prisma`, `drizzle` |
+| `--baseURL <url>` | Base URL for KuluPay server |
+| `--cwd <path>` | Working directory |
+| `-y, --yes` | Skip prompts, use defaults |
+
+### Database Adapters
+
+| Database | Adapter Package | Driver Dependency |
+| --- | --- | --- |
+| PostgreSQL | `@kulupay/adapter-sql` | `pg` |
+| MySQL | `@kulupay/adapter-sql` | `mysql2` |
+| SQLite | `@kulupay/adapter-sql` | `better-sqlite3` |
+| Drizzle ORM | `@kulupay/adapter-drizzle` | `drizzle-orm` + driver |
+| Prisma | `@kulupay/adapter-prisma` | `@prisma/client` |
+| Memory | `@farming-labs/orm` | (none, for testing) |
 
 ## Testing
 

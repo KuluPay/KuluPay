@@ -17,7 +17,7 @@ export interface KuluPayRegistry {
     baseURL: string;
     providers: string[];
     database: {
-        type: "memory" | "postgres" | "mysql" | "sqlite";
+        type: "memory" | "postgres" | "mysql" | "sqlite" | "prisma" | "drizzle";
     };
 }
 
@@ -47,6 +47,7 @@ const ENTRY_FILE_OPTIONS = [
 interface ResolvedPaths {
     configPath: string;
     clientPath: string;
+    dbPath: string;
     routePath: string;
     entryFile?: string;
 }
@@ -65,6 +66,7 @@ function resolvePaths(
             return {
                 configPath: `${lib}/pay.ts`,
                 clientPath: `${lib}/pay-client.ts`,
+                dbPath: `${lib}/db.ts`,
                 routePath: `${base}/api/pay/[...kulupay].ts`,
             };
         }
@@ -72,6 +74,7 @@ function resolvePaths(
         return {
             configPath: `${lib}/pay.ts`,
             clientPath: `${lib}/pay-client.ts`,
+            dbPath: `${lib}/db.ts`,
             routePath: `${base}/api/pay/[...kulupay]/route.ts`,
         };
     }
@@ -79,6 +82,7 @@ function resolvePaths(
     return {
         configPath: `${lib}/pay.ts`,
         clientPath: `${lib}/pay-client.ts`,
+        dbPath: `${lib}/db.ts`,
         routePath: `${lib}/pay-route.ts`,
         entryFile: entryFile || "index.ts",
     };
@@ -89,6 +93,8 @@ const DATABASE_OPTIONS = [
     { title: "PostgreSQL", value: "postgres" },
     { title: "MySQL", value: "mysql" },
     { title: "SQLite", value: "sqlite" },
+    { title: "Prisma", value: "prisma" },
+    { title: "Drizzle ORM", value: "drizzle" },
 ];
 
 export async function initAction(opts: any) {
@@ -202,6 +208,7 @@ export async function initAction(opts: any) {
     console.log(chalk.gray("  Files that will be created:"));
     console.log(`    ${chalk.cyan(REGISTRY_FILE)}`);
     console.log(`    ${chalk.cyan(paths.configPath)}`);
+    console.log(`    ${chalk.cyan(paths.dbPath)}`);
     console.log(`    ${chalk.cyan(paths.clientPath)}`);
     if (fw === "nextjs") {
         console.log(`    ${chalk.cyan(paths.routePath)}`);
@@ -242,6 +249,11 @@ export async function initAction(opts: any) {
 
     await fs.writeFile(registryPath, JSON.stringify(registry, null, 2));
 
+    // Create db file
+    const dbFullPath = path.join(cwd, paths.dbPath);
+    await fs.mkdir(path.dirname(dbFullPath), { recursive: true });
+    await fs.writeFile(dbFullPath, generateDbFile(registry));
+
     // Create server config
     const configFullPath = path.join(cwd, registry.configPath);
     await fs.mkdir(path.dirname(configFullPath), { recursive: true });
@@ -270,6 +282,7 @@ export async function initAction(opts: any) {
     console.log(chalk.gray("  Files created:"));
     console.log(`    ${chalk.cyan(REGISTRY_FILE)}`);
     console.log(`    ${chalk.cyan(registry.configPath)}`);
+    console.log(`    ${chalk.cyan(paths.dbPath)}`);
     console.log(`    ${chalk.cyan(registry.clientPath)}`);
     console.log(`    ${chalk.cyan(registry.routePath)}`);
     console.log();
@@ -301,10 +314,16 @@ export async function initAction(opts: any) {
         } else if (db === "sqlite") {
             console.log(`       ${chalk.cyan("npm install @kulupay/adapter-sql better-sqlite3")}`);
             console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-sql better-sqlite3")}`);
+        } else if (db === "prisma") {
+            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-prisma @prisma/client")}`);
+            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-prisma @prisma/client")}`);
+        } else if (db === "drizzle") {
+            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-drizzle drizzle-orm pg")}`);
+            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-drizzle drizzle-orm pg")}`);
         }
         console.log();
         console.log(`    ${chalk.white("2.")} Set environment variables:`);
-        if (db === "postgres" || db === "mysql") {
+        if (db === "postgres" || db === "mysql" || db === "prisma" || db === "drizzle") {
             console.log(`       ${chalk.cyan("DATABASE_URL=your_connection_string")}`);
         } else if (db === "sqlite") {
             console.log(`       ${chalk.gray("# No env variable needed for SQLite file path")}`);
@@ -321,38 +340,93 @@ export async function initAction(opts: any) {
     console.log();
 }
 
+function generateDbFile(registry: KuluPayRegistry): string {
+    const db = registry.database.type;
+
+    if (db === "memory") {
+        return `import { createMemoryDriver } from "@farming-labs/orm";
+
+export const database = createMemoryDriver();
+`;
+    }
+
+    if (db === "postgres") {
+        return `import { Pool } from "pg";
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL!,
+});
+`;
+    }
+
+    if (db === "mysql") {
+        return `import mysql from "mysql2/promise";
+
+export const connection = await mysql.createConnection(
+  process.env.DATABASE_URL!,
+);
+`;
+    }
+
+    if (db === "sqlite") {
+        return `import Database from "better-sqlite3";
+
+export const sqliteDb = new Database("kulupay.db");
+`;
+    }
+
+    if (db === "prisma") {
+        return `import { PrismaClient } from "@prisma/client";
+
+export const prisma = new PrismaClient();
+`;
+    }
+
+    // drizzle
+    return `import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+
+export const db = drizzle(
+  new Pool({ connectionString: process.env.DATABASE_URL! }),
+);
+`;
+}
+
 function generateConfigFile(registry: KuluPayRegistry): string {
     const providersArray = registry.providers.length > 0
         ? `[\n    ${registry.providers.map(p => providerImportLine(p)).join(",\n    ")},\n  ]`
         : `[]`;
 
-    const dbAdapterImport = registry.database.type === "memory"
-        ? "@farming-labs/orm"
-        : "@kulupay/adapter-sql";
+    const db = registry.database.type;
 
-    const dbDriverImport = registry.database.type === "memory"
-        ? "createMemoryDriver"
-        : registry.database.type === "postgres"
-        ? "pg"
-        : registry.database.type === "mysql"
-        ? "mysql"
-        : "sqlite";
+    let dbImport = "";
+    let dbLine = "";
 
-    const dbLine = registry.database.type === "memory"
-        ? `const database = createMemoryDriver();`
-        : registry.database.type === "postgres"
-        ? `import { Pool } from "pg";\n\nconst database = pg(\n  new Pool({ connectionString: process.env.DATABASE_URL! }),\n);`
-        : registry.database.type === "mysql"
-        ? `import mysql from "mysql2/promise";\n\nconst database = mysql(\n  await mysql.createConnection(process.env.DATABASE_URL!),\n);`
-        : `import Database from "better-sqlite3";\n\nconst database = sqlite(new Database("kulupay.db"));`;
+    if (db === "memory") {
+        dbImport = `import { database } from "./db";`;
+        dbLine = `  database,`;
+    } else if (db === "postgres") {
+        dbImport = `import { pg } from "@kulupay/adapter-sql";\nimport { pool } from "./db";`;
+        dbLine = `  database: pg(pool),`;
+    } else if (db === "mysql") {
+        dbImport = `import { mysql } from "@kulupay/adapter-sql";\nimport { connection } from "./db";`;
+        dbLine = `  database: mysql(connection),`;
+    } else if (db === "sqlite") {
+        dbImport = `import { sqlite } from "@kulupay/adapter-sql";\nimport { sqliteDb } from "./db";`;
+        dbLine = `  database: sqlite(sqliteDb),`;
+    } else if (db === "prisma") {
+        dbImport = `import { prismaAdapter } from "@kulupay/adapter-prisma";\nimport { prisma } from "./db";`;
+        dbLine = `  database: prismaAdapter(prisma, { provider: "postgresql" }),`;
+    } else if (db === "drizzle") {
+        dbImport = `import { drizzleAdapter } from "@kulupay/adapter-drizzle";\nimport { db } from "./db";`;
+        dbLine = `  database: drizzleAdapter(db, { provider: "pg" }),`;
+    }
 
     return `import { kuluPay } from "@kulupay/kulupay";
-import { ${dbDriverImport} } from "${dbAdapterImport}";
+${dbImport}
 ${registry.providers.map(p => providerImportLine(p, true)).join("\n")}
-${dbLine}
-
 export const pay = kuluPay({
-  database,
+${dbLine}
   providers: ${providersArray},
   baseURL: process.env.KULUPAY_URL ?? "${registry.baseURL}",
   debug: true,
@@ -442,7 +516,7 @@ export const init = new Command("init")
     .description("Initialize KuluPay in your project (creates kulupay.json + config files)")
     .option("-c, --cwd <cwd>", "the working directory", process.cwd())
     .option("-f, --framework <framework>", "framework: nextjs, express, hono, or elysia")
-    .option("-d, --database <database>", "database: memory, postgres, mysql, or sqlite")
+    .option("-d, --database <database>", "database: memory, postgres, mysql, sqlite, prisma, or drizzle")
     .option("--baseURL <baseURL>", "your app's base URL")
     .option("-y, --yes", "skip confirmation prompts", false)
     .action(initAction);

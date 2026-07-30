@@ -128,11 +128,17 @@ export async function migrateAction(opts: any) {
 }
 
 async function executeMigration(driver: any, sql: string, kind: string) {
-    const client = driver?.handle?.client;
+    let client = driver?.handle?.client;
     if (!client) {
         throw new Error(
             `Cannot access underlying database client for driver kind "${kind}". Use \`npx @kulupay/cli generate\` to create schema files, then apply them with your ORM's migration tool.`,
         );
+    }
+
+    // For Drizzle, the handle.client is the Drizzle db instance.
+    // The raw database connection is under $client.
+    if (kind === "drizzle" && client.$client) {
+        client = client.$client;
     }
 
     const statements = sql.split(";").filter((s: string) => s.trim());

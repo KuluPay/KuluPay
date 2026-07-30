@@ -1,70 +1,70 @@
 {
-  "name": "@kulupay/cli",
-  "version": "0.0.8",
-  "description": "The CLI for KuluPay - generate schemas and migrate your database",
-  "type": "module",
-  "license": "MIT",
-  "author": "YonaniCodes",
-  "homepage": "https://github.com/KuluPay/KuluPay#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/KuluPay/KuluPay.git",
-    "directory": "packages/cli"
-  },
-  "keywords": [
-    "payment",
-    "stripe",
-    "paypal",
-    "chapa",
-    "crypto",
-    "sdk",
-    "kulupay",
-    "cli",
-    "migrate"
-  ],
-  "publishConfig": {
-    "access": "public",
-    "executableFiles": [
-      "./dist/index.mjs"
-    ]
-  },
-  "bin": {
-    "kulupay": "dist/index.mjs"
-  },
-  "exports": {
-    ".": {
-      "dev-source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "default": "./dist/index.mjs"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "scripts": {
-    "build": "tsup",
-    "dev": "tsx ./src/index.ts",
-    "start": "node ./dist/index.mjs",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "prepublishOnly": "tsup"
-  },
-  "dependencies": {
-    "@kulupay/core": "workspace:*",
-    "@farming-labs/orm": "^0.0.62",
-    "chalk": "^5.6.2",
-    "commander": "^12.1.0",
-    "dotenv": "^17.3.1",
-    "prompts": "^2.4.2",
-    "tsx": "^4.21.0",
-    "yocto-spinner": "^0.2.3"
-  },
-  "devDependencies": {
-    "@types/prompts": "^2.4.9",
-    "tsup": "^8.5.1",
-    "typescript": "^5.9.2"
-  }
+    "name":  "@kulupay/cli",
+    "version":  "0.0.9",
+    "description":  "The CLI for KuluPay - generate schemas and migrate your database",
+    "type":  "module",
+    "license":  "MIT",
+    "author":  "YonaniCodes",
+    "homepage":  "https://github.com/KuluPay/KuluPay#readme",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/KuluPay/KuluPay.git",
+                       "directory":  "packages/cli"
+                   },
+    "keywords":  [
+                     "payment",
+                     "stripe",
+                     "paypal",
+                     "chapa",
+                     "crypto",
+                     "sdk",
+                     "kulupay",
+                     "cli",
+                     "migrate"
+                 ],
+    "publishConfig":  {
+                          "access":  "public",
+                          "executableFiles":  [
+                                                  "./dist/index.mjs"
+                                              ]
+                      },
+    "bin":  {
+                "kulupay":  "dist/index.mjs"
+            },
+    "exports":  {
+                    ".":  {
+                              "dev-source":  "./src/index.ts",
+                              "types":  "./dist/index.d.ts",
+                              "import":  "./dist/index.mjs",
+                              "default":  "./dist/index.mjs"
+                          }
+                },
+    "files":  [
+                  "dist",
+                  "README.md",
+                  "LICENSE"
+              ],
+    "scripts":  {
+                    "build":  "tsup",
+                    "dev":  "tsx ./src/index.ts",
+                    "start":  "node ./dist/index.mjs",
+                    "test":  "vitest run",
+                    "test:watch":  "vitest",
+                    "prepublishOnly":  "tsup"
+                },
+    "dependencies":  {
+                         "@kulupay/core":  "workspace:*",
+                         "@farming-labs/orm":  "^0.0.62",
+                         "chalk":  "^5.6.2",
+                         "commander":  "^12.1.0",
+                         "dotenv":  "^17.3.1",
+                         "prompts":  "^2.4.2",
+                         "tsx":  "^4.21.0",
+                         "yocto-spinner":  "^0.2.3"
+                     },
+    "devDependencies":  {
+                            "@types/prompts":  "^2.4.9",
+                            "tsup":  "^8.5.1",
+                            "typescript":  "^5.9.2"
+                        }
 }

@@ -5,7 +5,7 @@ description: Initialize KuluPay in your project with the CLI.
 
 # kulupay init
 
-Initialize KuluPay in your project. This creates a `lib/pay.ts` file with your selected providers and a `kulupay.json` config file.
+Initialize KuluPay in your project. This creates a `kulupay.json` registry, a `lib/pay.ts` server config using your selected database adapter, a `lib/pay-client.ts` client config, and the framework route file.
 
 ## Usage
 
@@ -15,37 +15,31 @@ npx @kulupay/cli init
 
 ## What It Does
 
-1. Prompts you to select payment providers (Stripe, Chapa, PayPal)
-2. Generates `lib/pay.ts` with the correct modular imports
-3. Creates `kulupay.json` with provider configuration
-4. Installs required npm packages
-5. Adds environment variables to `.env.local`
+1. Prompts for framework and routing setup (Next.js App/Pages Router, Express, Hono, or Elysia)
+2. Prompts for database adapter (Memory, PostgreSQL, MySQL, SQLite, Prisma, Drizzle)
+3. Generates `lib/pay.ts` with the correct adapter import and a placeholder `database`
+4. Generates `lib/pay-client.ts`
+5. Creates the framework API route file
+6. Creates `kulupay.json`
+
+The CLI does **not** ask for secrets or database URLs. After init, it prints the packages and environment variables you need to set.
 
 ## Generated File
 
 ```ts title="lib/pay.ts"
-import { kuluPay, createPgPoolDriver } from "@kulupay/kulupay";
-import { stripe } from "@kulupay/kulupay/providers/stripe";
+import { kuluPay } from "@kulupay/kulupay";
+import { pg } from "@kulupay/adapter-sql";
 import { Pool } from "pg";
 
-const database = createPgPoolDriver(
+const database = pg(
   new Pool({ connectionString: process.env.DATABASE_URL! }),
 );
 
 export const pay = kuluPay({
   database,
-  providers: [
-    stripe({
-      apiKey: process.env.STRIPE_API_KEY!,
-      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-    }),
-  ],
+  providers: [],
   baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
-  auth: {
-    getSession: async (req) => {
-      // Plug in your auth
-    },
-  },
+  debug: true,
 });
 ```
 
@@ -53,5 +47,8 @@ export const pay = kuluPay({
 
 | Option | Description |
 | --- | --- |
-| `--config <path>` | Path to kulupay.json (default: `./kulupay.json`) |
+| `-c, --cwd <cwd>` | Working directory (default: current directory) |
+| `-f, --framework <framework>` | Framework: `nextjs`, `express`, `hono`, or `elysia` |
+| `-d, --database <database>` | Database: `memory`, `postgres`, `mysql`, `sqlite`, `prisma`, or `drizzle` |
+| `--baseURL <baseURL>` | App base URL |
 | `-y, --yes` | Skip confirmation prompts |

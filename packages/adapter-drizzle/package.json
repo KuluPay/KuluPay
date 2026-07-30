@@ -1,56 +1,56 @@
 {
-  "name": "@kulupay/adapter-drizzle",
-  "version": "0.0.1",
-  "description": "Drizzle ORM adapter for KuluPay",
-  "author": "YonaniCodes",
-  "license": "MIT",
-  "keywords": [
-    "kulupay",
-    "adapter",
-    "database",
-    "drizzle",
-    "drizzle-orm"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/KuluPay/KuluPay.git",
-    "directory": "packages/adapter-drizzle"
-  },
-  "homepage": "https://github.com/KuluPay/KuluPay#readme",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "dev-source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "default": "./dist/index.mjs"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "lint": "biome lint src",
-    "prepublishOnly": "tsup"
-  },
-  "dependencies": {
-    "@farming-labs/orm-drizzle": "latest"
-  },
-  "peerDependencies": {
-    "drizzle-orm": "^0.45.2"
-  },
-  "devDependencies": {
-    "tsup": "^8.0.0",
-    "drizzle-orm": "^0.45.2"
-  }
+    "name":  "@kulupay/adapter-drizzle",
+    "version":  "0.0.2",
+    "description":  "Drizzle ORM adapter for KuluPay",
+    "author":  "YonaniCodes",
+    "license":  "MIT",
+    "keywords":  [
+                     "kulupay",
+                     "adapter",
+                     "database",
+                     "drizzle",
+                     "drizzle-orm"
+                 ],
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/KuluPay/KuluPay.git",
+                       "directory":  "packages/adapter-drizzle"
+                   },
+    "homepage":  "https://github.com/KuluPay/KuluPay#readme",
+    "main":  "./dist/index.js",
+    "module":  "./dist/index.mjs",
+    "types":  "./dist/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "dev-source":  "./src/index.ts",
+                              "types":  "./dist/index.d.ts",
+                              "import":  "./dist/index.mjs",
+                              "require":  "./dist/index.js",
+                              "default":  "./dist/index.mjs"
+                          }
+                },
+    "files":  [
+                  "dist",
+                  "README.md",
+                  "LICENSE"
+              ],
+    "publishConfig":  {
+                          "access":  "public"
+                      },
+    "scripts":  {
+                    "build":  "tsup",
+                    "dev":  "tsup --watch",
+                    "lint":  "biome lint src",
+                    "prepublishOnly":  "tsup"
+                },
+    "dependencies":  {
+                         "@farming-labs/orm-drizzle":  "latest"
+                     },
+    "peerDependencies":  {
+                             "drizzle-orm":  "^0.45.2"
+                         },
+    "devDependencies":  {
+                            "tsup":  "^8.0.0",
+                            "drizzle-orm":  "^0.45.2"
+                        }
 }

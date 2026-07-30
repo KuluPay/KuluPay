@@ -1,366 +1,213 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useCallback, useSyncExternalStore, useRef } from "react";
+import type { Store, StoreValue } from "nanostores";
 import type {
     CreateIntentData,
     PaymentIntent,
-    PaymentClientProvider,
     PaymentConfirmOptions,
 } from "@kulupay/core";
-import { KuluPayClient, KuluPayClientOptions } from "./vanilla";
+import {
+    createPayClient as createVanillaPayClient,
+    type PayClientOptions,
+    type PayClient as VanillaPayClient,
+    type PayClientPlugin,
+} from "./vanilla";
 import { KuluPayClientError } from "./error";
+import { createEVMClientProvider } from "./providers/evm";
+import { createTronClientProvider } from "./providers/tron";
 
-export interface UsePaymentOptions {
-    providerId?: string;
-    headers?: Record<string, string>;
-}
+export type { PayClientOptions, PayClientPlugin };
 
-export interface UsePaymentReturn {
-    createIntent: (data: CreateIntentData) => Promise<PaymentIntent>;
-    getIntent: (id: string) => Promise<PaymentIntent>;
-    loading: boolean;
-    error: KuluPayClientError | null;
-    intent: PaymentIntent | null;
-}
+function useStore<SomeStore extends Store>(
+    store: SomeStore,
+): StoreValue<SomeStore> {
+    const snapshotRef = useRef<StoreValue<SomeStore>>(store.get());
 
-export interface UsePaymentProviderOptions {
-    client: KuluPayClient;
-    provider: PaymentClientProvider;
-    providerId?: string;
-}
-
-export interface UsePaymentProviderReturn {
-    createIntent: (data: CreateIntentData) => Promise<PaymentIntent>;
-    confirmPayment: (options?: PaymentConfirmOptions) => Promise<PaymentIntent>;
-    getIntent: (id: string) => Promise<PaymentIntent>;
-    verifyPayment: (id?: string) => Promise<PaymentIntent>;
-    loading: boolean;
-    error: KuluPayClientError | null;
-    intent: PaymentIntent | null;
-    sdk: any | null;
-    elements: any | null;
-    createElements: (options?: any) => Promise<any>;
-}
-
-/**
- * Creates React hooks bound to a KuluPayClient instance.
- * Following the better-auth pattern where hooks are methods on the client.
- */
-export function createKuluPayReactHooks(client: KuluPayClient) {
-    const usePayment = ({ providerId, headers }: UsePaymentOptions = {}): UsePaymentReturn => {
-        const [loading, setLoading] = useState(false);
-        const [error, setError] = useState<KuluPayClientError | null>(null);
-        const [intent, setIntent] = useState<PaymentIntent | null>(null);
-
-        const clientRef = useRef<KuluPayClient | undefined>(undefined);
-        if (!clientRef.current) {
-            clientRef.current = new KuluPayClient({
-                baseURL: client.baseURL,
-                providerId: providerId || client.providerId,
-                headers: { ...client.headers, ...headers },
-            });
-        }
-
-        const createIntent = useCallback(async (data: CreateIntentData): Promise<PaymentIntent> => {
-            setLoading(true);
-            setError(null);
-            try {
-                const result = await clientRef.current!.createIntent(data);
-                setIntent(result);
-                return result;
-            } catch (err: any) {
-                const clientError = err instanceof KuluPayClientError
-                    ? err
-                    : new KuluPayClientError("UNKNOWN", err.message || "Failed to create payment intent", 500);
-                setError(clientError);
-                throw clientError;
-            } finally {
-                setLoading(false);
-            }
-        }, []);
-
-        const getIntent = useCallback(async (id: string): Promise<PaymentIntent> => {
-            setLoading(true);
-            setError(null);
-            try {
-                const result = await clientRef.current!.getIntent(id);
-                setIntent(result);
-                return result;
-            } catch (err: any) {
-                const clientError = err instanceof KuluPayClientError
-                    ? err
-                    : new KuluPayClientError("UNKNOWN", err.message || "Failed to get payment intent", 500);
-                setError(clientError);
-                throw clientError;
-            } finally {
-                setLoading(false);
-            }
-        }, []);
-
-        return {
-            createIntent,
-            getIntent,
-            loading,
-            error,
-            intent,
+    const subscribe = useCallback((onChange: () => void) => {
+        const emitChange = (value: StoreValue<SomeStore>) => {
+            if (snapshotRef.current === value) return;
+            snapshotRef.current = value;
+            onChange();
         };
-    };
+        emitChange(store.value);
+        return store.listen(emitChange);
+    }, [store]);
 
-    return { usePayment };
+    const get = () => snapshotRef.current as StoreValue<SomeStore>;
+    return useSyncExternalStore(subscribe, get, get);
 }
 
-/**
- * usePaymentProvider — full client-side payment flow hook.
- *
- * Combines KuluPayClient (API calls) with a PaymentClientProvider (SDK confirmation).
- * Gives you the complete end-to-end flow: create intent → mount elements → confirm.
- *
- * @example
- * ```tsx
- * const stripe = createStripeClientProvider({
- *   publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
- * });
- *
- * function Checkout() {
- *   const pay = usePaymentProvider({
- *     client: payClient,
- *     provider: stripe,
- *     providerId: "stripe",
- *   });
- *
- *   useEffect(() => {
- *     if (pay.intent?.clientSecret) {
- *       pay.createElements({ clientSecret: pay.intent.clientSecret });
- *     }
- *   }, [pay.intent]);
- *
- *   const handlePay = async () => {
- *     await pay.createIntent({ amount: 2500, currency: "usd", userId: "user_1", providerId: "stripe" });
- *   };
- *
- *   const handleConfirm = async () => {
- *     await pay.confirmPayment({ elements: pay.elements });
- *   };
- *
- *   return (...)
- * }
- * ```
- */
-export function usePaymentProvider({
-    client,
-    provider,
-    providerId,
-}: UsePaymentProviderOptions): UsePaymentProviderReturn {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<KuluPayClientError | null>(null);
-    const [intent, setIntent] = useState<PaymentIntent | null>(null);
-    const [sdk, setSDK] = useState<any | null>(null);
-    const [elements, setElements] = useState<any | null>(null);
+export interface UsePayReturn {
+    data: PaymentIntent | null;
+    isPending: boolean;
+    error: KuluPayClientError | null;
+    refetch: () => Promise<void>;
+}
 
-    const providerClientRef = useRef<KuluPayClient | undefined>(undefined);
-    if (!providerClientRef.current) {
-        providerClientRef.current = new KuluPayClient({
-            baseURL: client.baseURL,
-            providerId: providerId || client.providerId,
-            headers: client.headers,
+function getProviderForId(providerId: string) {
+    if (providerId.startsWith("tron")) {
+        const tw = (globalThis as any).tronWeb;
+        if (!tw) return null;
+        return createTronClientProvider({
+            id: providerId,
+            recipientAddress: "",
+            network: {
+                name: "Tron Nile",
+                chainId: 3448148188,
+                rpcUrl: "https://nile.trongrid.io",
+                explorerUrl: "https://nile.tronscan.org",
+                isTestnet: true,
+                faucetUrl: "https://nileex.io/join/getJoinPage",
+            },
+        });
+    }
+    const eth = (globalThis as any).ethereum;
+    if (!eth) return null;
+
+    if (providerId.includes("base")) {
+        return createEVMClientProvider({
+            chainId: 84532,
+            id: providerId,
+            recipientAddress: "0x0" as `0x${string}`,
+            network: {
+                name: "Base Sepolia",
+                chainId: 84532,
+                rpcUrl: "https://sepolia.base.org",
+                explorerUrl: "https://sepolia.basescan.org",
+                isTestnet: true,
+                faucetUrl: "https://www.coinbase.com/faucet/base-sepolia",
+            },
         });
     }
 
-    useEffect(() => {
-        if (provider.getSDK) {
-            provider.getSDK().then(setSDK).catch((err) => {
-                setError(
-                    err instanceof KuluPayClientError
-                        ? err
-                        : new KuluPayClientError("sdk_init_failed", err.message || "SDK initialization failed", 500),
-                );
-            });
-        }
-    }, [provider]);
+    return createEVMClientProvider({
+        chainId: 11155111,
+        id: providerId,
+        recipientAddress: "0x0" as `0x${string}`,
+        network: {
+            name: "Ethereum Sepolia",
+            chainId: 11155111,
+            rpcUrl: "https://rpc.sepolia.org",
+            explorerUrl: "https://sepolia.etherscan.io",
+            isTestnet: true,
+            faucetUrl: "https://sepoliafaucet.com",
+        },
+    });
+}
 
-    const createIntent = useCallback(async (data: CreateIntentData): Promise<PaymentIntent> => {
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await providerClientRef.current!.createIntent({
-                ...data,
-                providerId: providerId || data.providerId || provider.id,
-            });
-            setIntent(result);
-            return result;
-        } catch (err: any) {
-            const clientError = err instanceof KuluPayClientError
-                ? err
-                : new KuluPayClientError("UNKNOWN", err.message || "Failed to create payment intent", 500);
-            setError(clientError);
-            throw clientError;
-        } finally {
-            setLoading(false);
-        }
-    }, [providerId, provider.id]);
+function createUsePay(client: VanillaPayClient) {
+    return function usePay(providerId?: string): UsePayReturn {
+        const state = useStore(client.$intent);
 
-    const confirmPayment = useCallback(async (options?: PaymentConfirmOptions): Promise<PaymentIntent> => {
-        if (!intent?.clientSecret) {
-            const err = new KuluPayClientError(
-                "no_intent",
-                "No payment intent to confirm. Call createIntent first.",
-                400,
-            );
-            setError(err);
-            throw err;
-        }
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await provider.confirmPayment(intent.clientSecret, options);
-            setIntent(result);
-            return result;
-        } catch (err: any) {
-            const clientError = err instanceof KuluPayClientError
-                ? err
-                : new KuluPayClientError("confirm_failed", err.message || "Payment confirmation failed", 400);
-            setError(clientError);
-            throw clientError;
-        } finally {
-            setLoading(false);
-        }
-    }, [intent, provider]);
+        const refetch = useCallback(async () => {
+            const current = client.$intent.get().data;
+            if (current?.id) {
+                client.$intent.set({ data: current, error: null, isPending: true });
+                const { data, error } = await client.getIntent({ id: current.id, providerId });
+                client.$intent.set({ data, error: error || null, isPending: false });
+            }
+        }, [providerId]);
 
-    const getIntent = useCallback(async (id: string): Promise<PaymentIntent> => {
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await providerClientRef.current!.getIntent(id);
-            setIntent(result);
-            return result;
-        } catch (err: any) {
-            const clientError = err instanceof KuluPayClientError
-                ? err
-                : new KuluPayClientError("UNKNOWN", err.message || "Failed to get payment intent", 500);
-            setError(clientError);
-            throw clientError;
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    const verifyPayment = useCallback(async (id?: string): Promise<PaymentIntent> => {
-        const secret = id || intent?.clientSecret;
-        if (!secret) {
-            const err = new KuluPayClientError(
-                "no_intent",
-                "No payment intent to verify. Call createIntent first.",
-                400,
-            );
-            setError(err);
-            throw err;
-        }
-        if (!provider.verifyPayment) {
-            const err = new KuluPayClientError(
-                "not_supported",
-                "This provider does not support payment verification.",
-                400,
-            );
-            setError(err);
-            throw err;
-        }
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await provider.verifyPayment(secret);
-            setIntent(result);
-            return result;
-        } catch (err: any) {
-            const clientError = err instanceof KuluPayClientError
-                ? err
-                : new KuluPayClientError("verify_failed", err.message || "Payment verification failed", 400);
-            setError(clientError);
-            throw clientError;
-        } finally {
-            setLoading(false);
-        }
-    }, [intent, provider]);
-
-    const createElements = useCallback(async (options?: any): Promise<any> => {
-        if (!provider.createElements) {
-            throw new KuluPayClientError(
-                "not_supported",
-                "This provider does not support creating elements.",
-                400,
-            );
-        }
-        const els = await provider.createElements(options);
-        setElements(els);
-        return els;
-    }, [provider]);
-
-    return {
-        createIntent,
-        confirmPayment,
-        getIntent,
-        verifyPayment,
-        loading,
-        error,
-        intent,
-        sdk,
-        elements,
-        createElements,
+        return {
+            data: state.data,
+            isPending: state.isPending,
+            error: state.error,
+            refetch,
+        };
     };
 }
 
-/**
- * Standalone usePayment hook (backward compatible).
- * Prefer createKuluPayClient + usePaymentProvider for new code.
- */
-export const usePayment = (options: KuluPayClientOptions & { providerId?: string }): UsePaymentReturn => {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<KuluPayClientError | null>(null);
-    const [intent, setIntent] = useState<PaymentIntent | null>(null);
+export function createPayClient(options: PayClientOptions) {
+    const client = createVanillaPayClient(options);
+    const usePay = createUsePay(client);
 
-    const clientRef = useRef<KuluPayClient | undefined>(undefined);
-    if (!clientRef.current) {
-        clientRef.current = new KuluPayClient(options);
-    }
+    const confirmPayment = async (data: {
+        providerId: string;
+        intentId?: string;
+        options?: PaymentConfirmOptions;
+    }): Promise<{ data: PaymentIntent | null; error: KuluPayClientError | null }> => {
+        const { providerId, options: opts } = data;
 
-    const createIntent = useCallback(async (data: CreateIntentData): Promise<PaymentIntent> => {
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await clientRef.current!.createIntent(data);
-            setIntent(result);
-            return result;
-        } catch (err: any) {
-            const clientError = err instanceof KuluPayClientError
-                ? err
-                : new KuluPayClientError("UNKNOWN", err.message || "Failed to create payment intent", 500);
-            setError(clientError);
-            throw clientError;
-        } finally {
-            setLoading(false);
+        const current = client.$intent.get().data;
+
+        const secret = current?.clientSecret || current?.id;
+        if (!current || !secret) {
+            return { data: null, error: new KuluPayClientError("NO_INTENT", "Call createIntent first.", 400) };
         }
-    }, []);
 
-    const getIntent = useCallback(async (id: string): Promise<PaymentIntent> => {
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await clientRef.current!.getIntent(id);
-            setIntent(result);
-            return result;
-        } catch (err: any) {
-            const clientError = err instanceof KuluPayClientError
-                ? err
-                : new KuluPayClientError("UNKNOWN", err.message || "Failed to get payment intent", 500);
-            setError(clientError);
-            throw clientError;
-        } finally {
-            setLoading(false);
+        const provider = getProviderForId(providerId);
+        if (!provider) {
+            return { data: null, error: new KuluPayClientError("NO_PROVIDER", `No wallet found for "${providerId}".`, 400) };
         }
-    }, []);
 
-    return {
-        createIntent,
-        getIntent,
-        loading,
-        error,
-        intent,
+        client.$intent.set({ data: current, error: null, isPending: true });
+        try {
+            const result = await provider.confirmPayment(secret, {
+                ...opts,
+                paymentMethodData: current.raw,
+            });
+            client.$intent.set({ data: { ...current, ...result }, error: null, isPending: false });
+            return { data: result, error: null };
+        } catch (err: any) {
+            const e = err instanceof KuluPayClientError
+                ? err
+                : (() => {
+                    const wrapped = new KuluPayClientError(err?.code || "CONFIRM_FAILED", err?.message || "Confirmation failed", 400);
+                    if (err?.developerMessage) wrapped.developerMessage = err.developerMessage;
+                    if (err?.hint) wrapped.hint = err.hint;
+                    return wrapped;
+                })();
+            client.$intent.set({ data: current, error: e, isPending: false });
+            return { data: null, error: e };
+        }
     };
-};
+
+    const verifyPayment = async (data: {
+        providerId: string;
+        intentId?: string;
+    }): Promise<{ data: PaymentIntent | null; error: KuluPayClientError | null }> => {
+        const { providerId } = data;
+
+        const current = client.$intent.get().data;
+
+        const secret = current?.clientSecret || current?.id;
+        if (!secret) {
+            return { data: null, error: new KuluPayClientError("NO_INTENT", "Call createIntent first.", 400) };
+        }
+
+        const provider = getProviderForId(providerId);
+        if (!provider?.verifyPayment) {
+            return { data: null, error: new KuluPayClientError("NOT_SUPPORTED", "Provider doesn't support verification.", 400) };
+        }
+
+        client.$intent.set({ data: current, error: null, isPending: true });
+        try {
+            const result = await provider.verifyPayment(secret);
+            client.$intent.set({ data: result, error: null, isPending: false });
+            return { data: result, error: null };
+        } catch (err: any) {
+            const e = err instanceof KuluPayClientError
+                ? err
+                : (() => {
+                    const wrapped = new KuluPayClientError(err?.code || "VERIFY_FAILED", err?.message || "Verification failed", 400);
+                    if (err?.developerMessage) wrapped.developerMessage = err.developerMessage;
+                    if (err?.hint) wrapped.hint = err.hint;
+                    return wrapped;
+                })();
+            client.$intent.set({ data: current, error: e, isPending: false });
+            return { data: null, error: e };
+        }
+    };
+
+    return Object.assign(client, {
+        usePay,
+        confirmPayment,
+        verifyPayment,
+    });
+}
+
+export type PayClient = ReturnType<typeof createPayClient>;
+
+
+
+
+

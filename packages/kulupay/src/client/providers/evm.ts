@@ -3,6 +3,7 @@ import type {
     PaymentIntent,
     PaymentConfirmOptions,
 } from "@kulupay/core";
+import { BlockchainError, type NetworkInfo } from "@kulupay/core/payment-providers/blockchain";
 
 export interface EVMClientProviderOptions {
     /** Chain ID (e.g. 1 for Ethereum, 137 for Polygon, 8453 for Base) */
@@ -15,6 +16,8 @@ export interface EVMClientProviderOptions {
     tokenDecimals?: number;
     /** Provider ID — should match the server-side provider ID */
     id?: string;
+    /** Network info for context-aware error messages */
+    network?: NetworkInfo;
 }
 
 /**
@@ -36,9 +39,7 @@ export const createEVMClientProvider = (
         if (typeof globalThis === "undefined") return null;
         const eth = (globalThis as any).ethereum;
         if (!eth) {
-            throw new Error(
-                "No EVM wallet found. Please install MetaMask or another EIP-1193 wallet.",
-            );
+            throw new BlockchainError("WALLET_NOT_FOUND");
         }
         return eth;
     };
@@ -54,13 +55,10 @@ export const createEVMClientProvider = (
                     params: [{ chainId: chainIdHex }],
                 });
             } catch (switchError: any) {
-                // Chain not added to wallet — try to add it
                 if (switchError.code === 4902) {
-                    throw new Error(
-                        `Chain ${options.chainId} not found in wallet. Please add it first.`,
-                    );
+                    throw new BlockchainError("CHAIN_NOT_ADDED", { chainId: options.chainId, details: switchError.message }, switchError);
                 }
-                throw switchError;
+                throw BlockchainError.fromWalletError(switchError);
             }
         }
 
@@ -85,44 +83,72 @@ export const createEVMClientProvider = (
             // The actual payment data comes from the server's createIntent response
             const intent = confirmOptions?.paymentMethodData as {
                 to: string;
-                value: string;
+                value?: string;
                 data?: string;
+                isNative?: boolean;
             };
 
             if (!intent) {
-                throw new Error("Missing payment data for confirmation");
+                throw new BlockchainError("MISSING_PAYMENT_DATA");
             }
 
-            const isNative = !options.tokenContractAddress;
+            // Determine native vs ERC-20
+            // Use isNative flag from server if available, otherwise infer from value/data
+            const isNative = intent.isNative ?? (intent.value && intent.value !== "0" && intent.value !== "0x0" && (!intent.data || intent.data === "0x"));
 
             let txHash: string;
 
-            if (isNative) {
-                // Native ETH transfer
-                txHash = await eth.request({
-                    method: "eth_sendTransaction",
-                    params: [
-                        {
-                            from: fromAddress,
-                            to: intent.to,
-                            value: intent.value,
-                            data: intent.data ?? "0x",
-                        },
-                    ],
+            try {
+                if (isNative) {
+                    // Native ETH transfer — value must be hex-encoded
+                    const hexValue = "0x" + BigInt(intent.value ?? "0").toString(16);
+                    console.log("[KuluPay:EVM] Sending native:", {
+                        from: fromAddress,
+                        to: intent.to,
+                        value: hexValue,
+                    });
+                    txHash = await eth.request({
+                        method: "eth_sendTransaction",
+                        params: [
+                            {
+                                from: fromAddress,
+                                to: intent.to,
+                                value: hexValue,
+                                data: intent.data ?? "0x",
+                            },
+                        ],
+                    });
+                } else {
+                    // ERC-20 transfer — to is the contract address, data contains the transfer call
+                    console.log("[KuluPay:EVM] Sending ERC-20:", {
+                        from: fromAddress,
+                        to: intent.to,
+                        data: intent.data,
+                    });
+                    txHash = await eth.request({
+                        method: "eth_sendTransaction",
+                        params: [
+                            {
+                                from: fromAddress,
+                                to: intent.to,
+                                value: "0x0",
+                                data: intent.data,
+                            },
+                        ],
+                    });
+                }
+                console.log("[KuluPay:EVM] Transaction result:", txHash);
+            } catch (txError: any) {
+                console.error("[KuluPay:EVM] Transaction error:", {
+                    message: txError?.message,
+                    code: txError?.code,
+                    data: txError?.data,
+                    reason: txError?.reason,
+                    error: txError?.error?.message,
+                    string: String(txError),
+                    json: (() => { try { return JSON.stringify(txError, Object.getOwnPropertyNames(txError)); } catch { return undefined; } })(),
                 });
-            } else {
-                // ERC-20 transfer
-                txHash = await eth.request({
-                    method: "eth_sendTransaction",
-                    params: [
-                        {
-                            from: fromAddress,
-                            to: options.tokenContractAddress,
-                            value: "0x0",
-                            data: intent.data,
-                        },
-                    ],
-                });
+                throw BlockchainError.fromWalletError(txError, options.network);
             }
 
             return {
@@ -175,7 +201,7 @@ export const createEVMClientProvider = (
                     raw: receipt,
                 };
             } catch (error: any) {
-                throw new Error(`Failed to verify transaction: ${error.message}`);
+                throw new BlockchainError("RPC_ERROR", { details: error.message }, error);
             }
         },
 

@@ -11,17 +11,21 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@kulupay/adapter-drizzle": "workspace:*",
     "@kulupay/adapter-sql": "workspace:*",
     "@kulupay/core": "workspace:*",
     "@kulupay/kulupay": "workspace:*",
     "@neondatabase/serverless": "^1.1.0",
     "@stripe/stripe-js": "^7.0.0",
+    "better-sqlite3": "^9.0.0",
+    "drizzle-orm": "^0.45.2",
     "next": "16.2.0",
     "pg": "^8.22.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.14",

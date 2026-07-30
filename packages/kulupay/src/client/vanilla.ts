@@ -1,172 +1,145 @@
-import type { CreateIntentData, PaymentIntent } from "@kulupay/core";
+import { atom, type WritableAtom } from "nanostores";
+import { createDynamicPathProxy, type PayFetcher, type PayFetchOptions } from "./proxy";
 import { KuluPayClientError } from "./error";
 
-export interface KuluPayClientOptions {
-    baseURL: string;
-    headers?: Record<string, string>;
-    providerId?: string;
+export interface PayClientPlugin {
+    id: string;
+    getActions?: (fetcher: PayFetcher, options: PayClientOptions) => Record<string, any>;
+    getAtoms?: (fetcher: PayFetcher) => Record<string, WritableAtom<any>>;
 }
 
-/**
- * Generic KuluPay client for any payment provider.
- * Works in browser or server-side JavaScript environments.
- *
- * Following the better-auth pattern, the client is instantiated once
- * and exported. Methods are typed from the server endpoint definitions.
- */
-export class KuluPayClient {
-    private _baseURL: string;
-    private _headers: Record<string, string>;
-    private _providerId?: string;
+export interface PayClientOptions {
+    baseURL: string;
+    basePath?: string;
+    headers?: Record<string, string>;
+    plugins?: PayClientPlugin[];
+    fetchOptions?: PayFetchOptions;
+}
 
-    constructor(options: KuluPayClientOptions) {
-        this._baseURL = options.baseURL;
-        this._headers = options.headers || {};
-        this._providerId = options.providerId;
-    }
+export interface PayAtom {
+    data: any;
+    error: KuluPayClientError | null;
+    isPending: boolean;
+}
 
-    get baseURL() { return this._baseURL; }
-    get headers() { return this._headers; }
-    get providerId() { return this._providerId; }
+export const ERROR_CODES = {
+    UNKNOWN: "UNKNOWN",
+    INTERNAL_ERROR: "INTERNAL_ERROR",
+    NO_INTENT: "NO_INTENT",
+    NO_PROVIDER: "NO_PROVIDER",
+    NOT_SUPPORTED: "NOT_SUPPORTED",
+    CONFIRM_FAILED: "CONFIRM_FAILED",
+    VERIFY_FAILED: "VERIFY_FAILED",
+} as const;
 
-    private async request<T>(path: string, method: string, body?: any): Promise<T> {
-        const res = await fetch(`${this._baseURL.replace(/\/$/, '')}/${path}`, {
+const DEFAULT_KNOWN_METHODS: Record<string, "GET" | "POST"> = {
+    "/create-intent": "POST",
+    "/get-intent": "GET",
+    "/list-payments": "GET",
+    "/create-customer": "POST",
+    "/get-customer": "GET",
+    "/create-subscription": "POST",
+    "/get-subscription": "GET",
+    "/cancel-subscription": "POST",
+    "/list-subscriptions": "GET",
+    "/refund": "POST",
+    "/capture": "POST",
+    "/analytics": "GET",
+    "/confirm-payment": "POST",
+    "/verify-payment": "GET",
+};
+
+function createFetcher(options: PayClientOptions): PayFetcher {
+    const baseURL = options.baseURL.replace(/\/$/, "");
+    const basePath = (options.basePath || "/api/pay").replace(/\/$/, "");
+    const baseHeaders = options.headers || {};
+
+    return async (path: string, fetchOptions: PayFetchOptions) => {
+        const method = fetchOptions.method || "GET";
+        const url = `${baseURL}${basePath}${path}`;
+
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            ...baseHeaders,
+            ...(fetchOptions.headers || {}),
+        };
+
+        const res = await fetch(url, {
             method,
-            body: body ? JSON.stringify(body) : undefined,
-            headers: {
-                'Content-Type': 'application/json',
-                ...this._headers,
-            },
+            headers,
+            body: fetchOptions.body ? JSON.stringify(fetchOptions.body) : undefined,
+            credentials: "include",
         });
 
+        const text = await res.text();
+        let json: any;
+        try {
+            json = text ? JSON.parse(text) : {};
+        } catch {
+            json = { raw: text };
+        }
+
         if (!res.ok) {
-            const errorBody = await res.json().catch(() => ({ error: { code: "INTERNAL_ERROR", message: "Request failed" } })) as any;
-            const error = errorBody?.error || errorBody;
-            throw new KuluPayClientError(
+            const error = json?.error || json;
+            const clientError = new KuluPayClientError(
                 error?.code || "INTERNAL_ERROR",
-                error?.message || "Request failed",
+                error?.message || `Request failed with status ${res.status}`,
                 res.status,
                 error?.data,
             );
+            if (error?.developerMessage) clientError.developerMessage = error.developerMessage;
+            if (error?.hint) clientError.hint = error.hint;
+            fetchOptions.onError?.(clientError);
+            throw clientError;
         }
 
-        return res.json().catch(() => ({})) as Promise<T>;
-    }
-
-    async createIntent(data: CreateIntentData): Promise<PaymentIntent> {
-        return this.request<PaymentIntent>('create-intent', 'POST', {
-            ...data,
-            providerId: this._providerId || data.providerId
-        });
-    }
-
-    async getIntent(id: string): Promise<PaymentIntent> {
-        const query = new URLSearchParams({ id });
-        if (this._providerId) query.append('providerId', this._providerId);
-        return this.request<PaymentIntent>(`get-intent?${query.toString()}`, 'GET');
-    }
-
-    async listPayments(params?: {
-        status?: string;
-        providerId?: string;
-        limit?: number;
-        offset?: number;
-        startDate?: string;
-        endDate?: string;
-        expand?: string[];
-        all?: boolean;
-    }): Promise<{ data: any[]; total: number; limit: number; offset: number }> {
-        const query = new URLSearchParams();
-        if (params?.status) query.append('status', params.status);
-        if (params?.providerId) query.append('providerId', params.providerId);
-        else if (this._providerId) query.append('providerId', this._providerId);
-        if (params?.limit) query.append('limit', String(params.limit));
-        if (params?.offset) query.append('offset', String(params.offset));
-        if (params?.startDate) query.append('startDate', params.startDate);
-        if (params?.endDate) query.append('endDate', params.endDate);
-        if (params?.expand?.length) query.append('expand', params.expand.join(","));
-        if (params?.all) query.append('all', 'true');
-        return this.request(`list-payments?${query.toString()}`, 'GET');
-    }
-
-    async getAnalytics(params?: {
-        startDate?: string;
-        endDate?: string;
-        providerId?: string;
-        groupBy?: string;
-    }): Promise<any> {
-        const query = new URLSearchParams();
-        if (params?.startDate) query.append('startDate', params.startDate);
-        if (params?.endDate) query.append('endDate', params.endDate);
-        if (params?.providerId) query.append('providerId', params.providerId);
-        if (params?.groupBy) query.append('groupBy', params.groupBy);
-        return this.request(`analytics?${query.toString()}`, 'GET');
-    }
-
-    async createCustomer(data: {
-        email?: string;
-        name?: string;
-        metadata?: Record<string, any>;
-    }): Promise<any> {
-        return this.request('create-customer', 'POST', {
-            ...data,
-            providerId: this._providerId,
-        });
-    }
-
-    async getCustomer(id: string): Promise<any> {
-        const query = new URLSearchParams({ id });
-        if (this._providerId) query.append('providerId', this._providerId);
-        return this.request(`get-customer?${query.toString()}`, 'GET');
-    }
-
-    async createSubscription(data: {
-        customerId: string;
-        planId: string;
-        metadata?: Record<string, any>;
-    }): Promise<any> {
-        return this.request('create-subscription', 'POST', {
-            ...data,
-            providerId: this._providerId,
-        });
-    }
-
-    async getSubscription(id: string): Promise<any> {
-        const query = new URLSearchParams({ id });
-        if (this._providerId) query.append('providerId', this._providerId);
-        return this.request(`get-subscription?${query.toString()}`, 'GET');
-    }
-
-    async cancelSubscription(id: string): Promise<any> {
-        return this.request('cancel-subscription', 'POST', {
-            id,
-            providerId: this._providerId,
-        });
-    }
-
-    async listSubscriptions(params?: {
-        status?: string;
-        all?: boolean;
-    }): Promise<{ data: any[]; total: number }> {
-        const query = new URLSearchParams();
-        if (params?.status) query.append('status', params.status);
-        if (params?.all) query.append('all', 'true');
-        return this.request(`list-subscriptions?${query.toString()}`, 'GET');
-    }
-
-    async refundPayment(id: string, amount?: number): Promise<any> {
-        return this.request('refund', 'POST', {
-            id,
-            ...(amount ? { amount } : {}),
-            providerId: this._providerId,
-        });
-    }
-
-    async capturePayment(id: string, amount?: number): Promise<any> {
-        return this.request('capture', 'POST', {
-            id,
-            ...(amount ? { amount } : {}),
-            providerId: this._providerId,
-        });
-    }
+        fetchOptions.onSuccess?.(json);
+        return json;
+    };
 }
+
+export function createPayClient(options: PayClientOptions) {
+    const fetcher = createFetcher(options);
+    const knownMethods = { ...DEFAULT_KNOWN_METHODS };
+
+    // Core atoms — like better-auth's session atom
+    const $paySignal = atom(false);
+    const $intent = atom<PayAtom>({
+        data: null,
+        error: null,
+        isPending: false,
+    });
+
+    // Collect plugin atoms and actions
+    const pluginActions: Record<string, any> = {};
+    const pluginAtoms: Record<string, WritableAtom<any>> = {
+        $paySignal,
+        intent: $intent,
+    };
+
+    for (const plugin of options.plugins || []) {
+        if (plugin.getAtoms) {
+            Object.assign(pluginAtoms, plugin.getAtoms(fetcher));
+        }
+        if (plugin.getActions) {
+            Object.assign(pluginActions, plugin.getActions(fetcher, options));
+        }
+    }
+
+    const proxy = createDynamicPathProxy(fetcher, knownMethods, pluginActions);
+
+    return Object.assign(proxy, {
+        $fetch: fetcher,
+        $options: options,
+        baseURL: options.baseURL,
+        $atoms: pluginAtoms,
+        $paySignal,
+        $intent,
+        $ERROR_CODES: ERROR_CODES,
+    });
+}
+
+export type PayClient = ReturnType<typeof createPayClient>;
+export { KuluPayClientError };
+
+

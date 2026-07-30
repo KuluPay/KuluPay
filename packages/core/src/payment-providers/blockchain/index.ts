@@ -4,6 +4,17 @@ export type { EVMProviderOptions } from "./evm";
 export { tron } from "./tron";
 export type { TronProviderOptions } from "./tron";
 
+export { BlockchainError, BLOCKCHAIN_ERROR_CODES } from "./errors";
+export type { BlockchainErrorCode, BlockchainErrorContext, NetworkInfo } from "./errors";
+
+export { blockchain } from "./config";
+export type { BlockchainConfig, BlockchainChainConfig } from "./config";
+
+export { stablecoinConverter } from "./price-converter";
+
+export { NETWORKS, resolveNetwork, resolveChainKey, getDefaultTestnet, CHAIN_ALIASES } from "./networks";
+export type { NetworkConfig, ChainNetworks, ChainKey } from "./networks";
+
 export type {
     ChainFamily,
     TokenConfig,

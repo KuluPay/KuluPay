@@ -3,6 +3,7 @@ import type {
     PaymentIntent,
     PaymentConfirmOptions,
 } from "@kulupay/core";
+import { BlockchainError, type NetworkInfo } from "@kulupay/core/payment-providers/blockchain";
 
 export interface TronClientProviderOptions {
     /** Recipient address (Base58 format, e.g. "T...") */
@@ -13,6 +14,8 @@ export interface TronClientProviderOptions {
     tokenDecimals?: number;
     /** Provider ID — should match the server-side provider ID */
     id?: string;
+    /** Network info for context-aware error messages */
+    network?: NetworkInfo;
 }
 
 /**
@@ -31,11 +34,27 @@ export const createTronClientProvider = (
         if (typeof globalThis === "undefined") return null;
         const tw = (globalThis as any).tronWeb;
         if (!tw) {
-            throw new Error(
-                "No Tron wallet found. Please install TronLink extension.",
-            );
+            throw new BlockchainError("WALLET_NOT_FOUND");
         }
         return tw;
+    };
+
+    const ensureNetwork = (tw: any): void => {
+        if (!options.network) return;
+        const host = (tw.fullHost || tw.fullNode || "") as any;
+        const actual = (typeof host === "string" ? host : host?.href || host?.host || "").toLowerCase();
+        const expected = options.network.rpcUrl.toLowerCase().replace(/^https?:\/\//, "");
+
+        if (!actual.includes(expected)) {
+            throw new BlockchainError("WRONG_CHAIN", {
+                expectedChain: options.network.name,
+                actualChain: actual.includes("shasta") ? "tron-shasta"
+                    : actual.includes("nile") ? "tron-nile"
+                    : actual.includes("trongrid") && !actual.includes("shasta") ? "tron-mainnet"
+                    : "unknown",
+                network: options.network,
+            });
+        }
     };
 
     return {
@@ -49,10 +68,11 @@ export const createTronClientProvider = (
 
             // Ensure wallet is connected
             if (!tw.defaultAddress || !tw.defaultAddress.base58) {
-                throw new Error(
-                    "TronLink not connected. Please unlock TronLink and connect your account.",
-                );
+                throw new BlockchainError("WALLET_NOT_CONNECTED");
             }
+
+            // Ensure TronLink is on the correct network
+            ensureNetwork(tw);
 
             const fromAddress = tw.defaultAddress.base58;
             const intent = confirmOptions?.paymentMethodData as {
@@ -63,29 +83,75 @@ export const createTronClientProvider = (
             };
 
             if (!intent) {
-                throw new Error("Missing payment data for confirmation");
+                throw new BlockchainError("MISSING_PAYMENT_DATA");
             }
 
-            let txHash: string;
+            let txHash: any;
 
-            if (intent.isNative || !intent.contractAddress) {
-                // Native TRX transfer
-                txHash = await tw.trx.sendTransaction(
-                    options.recipientAddress,
-                    parseInt(intent.amount),
-                );
-            } else {
-                // TRC-20 transfer
-                const contract = await tw
-                    .contract()
-                    .at(intent.contractAddress);
-                txHash = await contract
-                    .transfer(options.recipientAddress, parseInt(intent.amount))
-                    .send();
+            try {
+                if (intent.isNative || !intent.contractAddress) {
+                    // Native TRX transfer
+                    console.log("[KuluPay:Tron] Sending TRX:", {
+                        to: intent.to,
+                        amount: intent.amount,
+                    });
+                    txHash = await tw.trx.sendTransaction(
+                        intent.to,
+                        parseInt(intent.amount),
+                    );
+                } else {
+                    // TRC-20 transfer — use TronLink's native contract API
+                    console.log("[KuluPay:Tron] Sending TRC-20:", {
+                        contract: intent.contractAddress,
+                        to: intent.to,
+                        amount: intent.amount,
+                    });
+
+                    // Pre-flight: verify the contract exists on this network
+                    try {
+                        const contractInfo = await tw.trx.getContract(intent.contractAddress);
+                        if (!contractInfo || !contractInfo.contract_address) {
+                            throw new BlockchainError("INVALID_CONTRACT", {
+                                details: `Contract ${intent.contractAddress} not found on this network.`,
+                                network: options.network,
+                            });
+                        }
+                        console.log("[KuluPay:Tron] Contract verified:", contractInfo.name || intent.contractAddress);
+                    } catch (verifyErr: any) {
+                        if (verifyErr instanceof BlockchainError) throw verifyErr;
+                        console.warn("[KuluPay:Tron] Contract verification failed:", verifyErr?.message);
+                    }
+
+                    // Use the high-level contract API — TronLink handles signing internally
+                    const contract = await tw.contract().at(intent.contractAddress);
+                    const result = await contract.transfer(intent.to, parseInt(intent.amount)).send({
+                        feeLimit: 100_000_000,
+                    });
+                    txHash = result;
+                }
+                console.log("[KuluPay:Tron] Transaction result:", txHash);
+
+                // Check for silent failure — sendRawTransaction returns { result: false } without throwing
+                if (txHash && typeof txHash === "object" && txHash.result === false) {
+                    throw new BlockchainError("TRANSACTION_FAILED", {
+                        details: txHash.code ? `Code: ${txHash.code}` : "Transaction rejected by network",
+                        network: options.network,
+                    });
+                }
+            } catch (txError: any) {
+                console.error("[KuluPay:Tron] Transaction error:", txError);
+                if (txError instanceof BlockchainError) throw txError;
+                throw BlockchainError.fromWalletError(txError, options.network);
             }
 
+            // Extract txHash from various possible response formats
             const hashStr: string =
-                typeof txHash === "string" ? txHash : (txHash as any)?.txID ?? "";
+                typeof txHash === "string" ? txHash
+                : (txHash as any)?.txid
+                ?? (txHash as any)?.txID
+                ?? (txHash as any)?.transaction?.txid
+                ?? (txHash as any)?.id
+                ?? "";
 
             return {
                 id: hashStr,
@@ -130,7 +196,7 @@ export const createTronClientProvider = (
                     raw: tx,
                 };
             } catch (error: any) {
-                throw new Error(`Failed to verify transaction: ${error.message}`);
+                throw new BlockchainError("RPC_ERROR", { details: error.message }, error);
             }
         },
 

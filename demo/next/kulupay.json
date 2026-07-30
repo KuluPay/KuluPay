@@ -6,10 +6,8 @@
   "clientPath": "lib/pay-client.ts",
   "routePath": "app/api/pay/[...kulupay]/route.ts",
   "baseURL": "http://localhost:3000",
-  "providers": [
-    "stripe"
-  ],
+  "providers": [],
   "database": {
-    "type": "memory"
+    "type": "drizzle"
   }
 }
