@@ -49,6 +49,9 @@ export const stripeProvider = createStripeClientProvider({
         ],
         configSnippet: ({ envPrefix }) =>
             `chapa({\n      apiKey: process.env.${envPrefix}API_KEY!,\n      webhookSecret: process.env.${envPrefix}WEBHOOK_SECRET,\n    })`,
+        clientSnippet: `import { createChapaClientProvider } from "${PKG.kulupay}/client/providers";
+
+export const chapaProvider = createChapaClientProvider();`,
     },
     paypal: {
         id: "paypal",
@@ -72,6 +75,9 @@ export const stripeProvider = createStripeClientProvider({
         ],
         configSnippet: () =>
             `evm({\n      chain: CHAINS.ethereum,\n      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as \`0x\${string}\`,\n      id: "evm-eth",\n    })`,
+        clientSnippet: `import { createEVMClientProvider } from "${PKG.kulupay}/client/providers";
+
+export const evmProvider = createEVMClientProvider();`,
     },
     "evm-base-usdc": {
         id: "evm-base-usdc",
@@ -84,6 +90,9 @@ export const stripeProvider = createStripeClientProvider({
         ],
         configSnippet: () =>
             `evm({\n      chain: CHAINS.base,\n      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as \`0x\${string}\`,\n      token: TOKENS.USDC(process.env.NEXT_PUBLIC_BASE_USDC_CONTRACT!),\n      id: "evm-base-usdc",\n    })`,
+        clientSnippet: `import { createEVMClientProvider } from "${PKG.kulupay}/client/providers";
+
+export const evmProvider = createEVMClientProvider();`,
     },
     "tron-trx": {
         id: "tron-trx",
@@ -95,6 +104,9 @@ export const stripeProvider = createStripeClientProvider({
         ],
         configSnippet: () =>
             `tron({\n      chain: CHAINS.tron,\n      recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,\n      id: "tron-trx",\n    })`,
+        clientSnippet: `import { createTronClientProvider } from "${PKG.kulupay}/client/providers";
+
+export const tronProvider = createTronClientProvider();`,
     },
     "tron-usdt": {
         id: "tron-usdt",
@@ -107,6 +119,9 @@ export const stripeProvider = createStripeClientProvider({
         ],
         configSnippet: () =>
             `tron({\n      chain: CHAINS.tron,\n      recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,\n      token: { symbol: "USDT", decimals: 6, contractAddress: process.env.NEXT_PUBLIC_TRON_USDT_CONTRACT! },\n      id: "tron-usdt",\n    })`,
+        clientSnippet: `import { createTronClientProvider } from "${PKG.kulupay}/client/providers";
+
+export const tronProvider = createTronClientProvider();`,
     },
 };
 
@@ -224,7 +239,8 @@ export async function addProviderAction(opts: any) {
         const clientPath = path.join(cwd, registry.clientPath || "lib/pay-client.ts");
         if (existsSync(clientPath)) {
             const clientContent = await fs.readFile(clientPath, "utf-8");
-            if (!clientContent.includes(`createStripeClientProvider`) && providerId === "stripe") {
+            const providerExportName = `${providerId}Provider`;
+            if (!clientContent.includes(providerExportName)) {
                 const updated = clientContent + "\n" + provider.clientSnippet + "\n";
                 await fs.writeFile(clientPath, updated);
             }

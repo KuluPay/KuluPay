@@ -453,19 +453,41 @@ function providerImportLine(providerId: string, isImport = false): string {
 
 function generateClientFile(registry: KuluPayRegistry): string {
     const hasStripe = registry.providers.includes("stripe");
+    const hasChapa = registry.providers.includes("chapa");
+    const hasEVM = registry.providers.some((p) => p.startsWith("evm-"));
+    const hasTron = registry.providers.some((p) => p.startsWith("tron-"));
+
     const stripeImport = hasStripe
         ? `import { createStripeClientProvider } from "${PKG.kulupay}/client/providers";\n`
         : "";
     const stripeExport = hasStripe
         ? `\nexport const stripeProvider = createStripeClientProvider({\n  publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "",\n});\n`
         : "";
+    const chapaImport = hasChapa
+        ? `import { createChapaClientProvider } from "${PKG.kulupay}/client/providers";\n`
+        : "";
+    const chapaExport = hasChapa
+        ? `\nexport const chapaProvider = createChapaClientProvider();\n`
+        : "";
+    const evmImport = hasEVM
+        ? `import { createEVMClientProvider } from "${PKG.kulupay}/client/providers";\n`
+        : "";
+    const evmExport = hasEVM
+        ? `\nexport const evmProvider = createEVMClientProvider();\n`
+        : "";
+    const tronImport = hasTron
+        ? `import { createTronClientProvider } from "${PKG.kulupay}/client/providers";\n`
+        : "";
+    const tronExport = hasTron
+        ? `\nexport const tronProvider = createTronClientProvider();\n`
+        : "";
 
     return `import { createKuluPayClient } from "${PKG.kulupay}/client";
-${stripeImport}
+${stripeImport}${chapaImport}${evmImport}${tronImport}
 export const payClient = createKuluPayClient({
   baseURL: "/api/pay",
 });
-${stripeExport}`;
+${stripeExport}${chapaExport}${evmExport}${tronExport}`;
 }
 
 function generateNextJsRoute(registry: KuluPayRegistry): string {

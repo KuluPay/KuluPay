@@ -44,13 +44,6 @@
                                      "require":  "./dist/client/index.js",
                                      "default":  "./dist/client/index.mjs"
                                  },
-                    "./client/stripe":  {
-                                            "dev-source":  "./src/client/stripe.ts",
-                                            "types":  "./dist/client/stripe.d.ts",
-                                            "import":  "./dist/client/stripe.mjs",
-                                            "require":  "./dist/client/stripe.js",
-                                            "default":  "./dist/client/stripe.mjs"
-                                        },
                     "./client/providers":  {
                                                "dev-source":  "./src/client/providers/index.ts",
                                                "types":  "./dist/client/providers/index.d.ts",
@@ -119,9 +112,6 @@
                                     "client":  [
                                                    "./dist/client/index.d.ts"
                                                ],
-                                    "client/stripe":  [
-                                                          "./dist/client/stripe.d.ts"
-                                                      ],
                                     "client/providers":  [
                                                              "./dist/client/providers/index.d.ts"
                                                          ],

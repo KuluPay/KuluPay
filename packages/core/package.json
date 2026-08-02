@@ -113,7 +113,14 @@
                                     "import":  "./dist/utils/index.mjs",
                                     "require":  "./dist/utils/index.js",
                                     "default":  "./dist/utils/index.mjs"
-                                }
+                                },
+                    "./test-utils":  {
+                                        "dev-source":  "./src/test-utils/test-instance.ts",
+                                        "types":  "./dist/test-utils/test-instance.d.ts",
+                                        "import":  "./dist/test-utils/test-instance.mjs",
+                                        "require":  "./dist/test-utils/test-instance.js",
+                                        "default":  "./dist/test-utils/test-instance.mjs"
+                                    }
                 },
     "typesVersions":  {
                           "*":  {
@@ -155,7 +162,10 @@
                                                  ],
                                     "utils":  [
                                                   "./dist/utils/index.d.ts"
-                                              ]
+                                              ],
+                                    "test-utils":  [
+                                                       "./dist/test-utils/test-instance.d.ts"
+                                                   ]
                                 }
                       },
     "files":  [
