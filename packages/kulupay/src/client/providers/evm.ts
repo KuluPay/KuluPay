@@ -152,10 +152,10 @@ export const createEVMClientProvider = (
             }
 
             return {
-                id: txHash,
+                id: confirmOptions?.intentId ?? txHash,
                 amount: 0,
                 currency: "",
-                status: "processing",
+                status: "pending_confirmation",
                 metadata: {
                     txHash,
                     from: fromAddress,

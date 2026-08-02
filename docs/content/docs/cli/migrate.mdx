@@ -1,49 +1,142 @@
 ---
 title: Migrate
-description: Generate database schemas and run migrations.
+description: Generate database schemas and push them to your database.
 ---
 
-# kulupay migrate
+# Schema Generation & Migration
 
-Generate database schema files and push them to your database.
+KuluPay uses a two-step process for database schema management, similar to [Better Auth](https://www.better-auth.com/):
 
-## Generate Schema
+1. **`kulupay generate`** — generates schema files in your project root
+2. **`kulupay migrate`** — delegates to your ORM's native migration tool
 
-```bash
-# Raw SQL
-npx @kulupay/cli generate --generator sql --dialect postgresql
+The generator is **auto-detected** from your `pay.ts` config — no need to specify `--generator` manually.
 
-# Prisma schema
-npx @kulupay/cli generate --generator prisma --dialect postgresql
-
-# Drizzle schema
-npx @kulupay/cli generate --generator drizzle --dialect pg
-```
-
-## Run Migration
+## kulupay generate
 
 ```bash
-npx @kulupay/cli migrate
+npx kulupay generate
 ```
 
-This reads your `kulupay.json` config, generates the schema, and applies it to your database.
+Reads your `pay.ts` config, auto-detects the database adapter type, and writes a schema file to your project root:
 
-## Options
+| Adapter | Output file | Migration tool |
+|---------|------------|----------------|
+| Drizzle | `pay-schema.ts` | `drizzle-kit push` |
+| Prisma | `prisma/schema.prisma` | `prisma db push` |
+| SQL | `pay-schema.sql` | `psql` / `mysql` / `sqlite3` |
+
+### Options
 
 | Option | Description |
 | --- | --- |
-| `--config <path>` | Path to kulupay.json (default: `./kulupay.json`) |
-| `--output <path>` | Output file path for generated schema |
-| `--generator <type>` | Schema generator: `prisma`, `drizzle`, or `sql` |
-| `--dialect <type>` | Database dialect: `postgresql`, `mysql`, or `sqlite` |
+| `--cwd <path>` | Working directory (default: `process.cwd()`) |
+| `--config <path>` | Path to your KuluPay config file |
+| `-o, --output <path>` | Custom output file path |
+| `-g, --generator <type>` | Override auto-detection: `prisma`, `drizzle`, or `sql` |
+| `-d, --dialect <type>` | Database dialect: `postgresql`, `mysql`, or `sqlite` |
 | `-y, --yes` | Skip confirmation prompts |
+
+## kulupay migrate
+
+```bash
+npx kulupay migrate
+```
+
+Detects your database adapter from the `pay.ts` runtime config, creates any required config files (e.g. `drizzle.config.ts`), and runs the ORM's native migration tool:
+
+- **Drizzle**: creates `drizzle.config.ts` → runs `npx drizzle-kit push`
+- **Prisma**: runs `npx prisma db push`
+- **SQL**: prints the SQL file path and the command to execute
+- **Memory**: no migration needed (tables created in-memory automatically)
+
+### Options
+
+| Option | Description |
+| --- | --- |
+| `--cwd <path>` | Working directory (default: `process.cwd()`) |
+| `--config <path>` | Path to your KuluPay config file |
+| `-y, --yes` | Skip confirmation and run migration immediately |
+
+## Full Flow
+
+```bash
+# 1. Initialize KuluPay in your project
+npx kulupay init
+
+# 2. Add a payment provider
+npx kulupay add-provider stripe
+
+# 3. Generate the schema file (auto-detected from your adapter)
+npx kulupay generate
+
+# 4. Push the schema to your database
+npx kulupay migrate
+```
 
 ## Generated Tables
 
-The migration creates three tables:
+The schema includes three tables:
 
-- `payment` — Payment intents and their status
-- `customer` — Provider customers linked to your users
-- `subscription` — Subscription records
+- **`payment`** — Payment intents and their status
+- **`customer`** — Provider customers linked to your users
+- **`subscription`** — Subscription records
 
-If you configured custom `modelName` or `additionalFields`, those are included in the generated schema.
+### Relations
+
+- `payment` → `customer` (belongsTo via `customerId`)
+- `customer` → `payment` (hasMany)
+- `customer` → `subscription` (hasMany)
+- `subscription` → `customer` (belongsTo via `userId`)
+
+### Indexes
+
+- `payment(userId, status)` — speeds up "user's payments by status" queries
+- `payment(providerId, providerPaymentId)` — speeds up provider webhook lookups
+- `subscription(userId, status)` — speeds up "user's active subscriptions" queries
+
+## Custom Fields
+
+You can extend any table with `additionalFields` in your `pay.ts` config:
+
+```ts title="lib/pay.ts"
+export const pay = kuluPay({
+  database: drizzleAdapter(db, { provider: "pg" }),
+  providers: [...],
+  payment: {
+    additionalFields: {
+      receiptEmail: { type: "string", required: false },
+      priority: { type: "number", required: true, defaultValue: 0 },
+      flagged: { type: "boolean", required: false, defaultValue: false },
+    }
+  }
+});
+```
+
+Supported field types: `string`, `number`, `boolean`, `datetime`, `json`.
+
+Options per field: `required`, `unique`, `defaultValue`, `input`.
+
+After adding custom fields, re-run `npx kulupay generate` and `npx kulupay migrate` to apply the changes.
+
+## Custom Table & Field Names
+
+You can rename tables and fields via the `fields` option:
+
+```ts title="lib/pay.ts"
+export const pay = kuluPay({
+  database: drizzleAdapter(db, { provider: "pg" }),
+  providers: [...],
+  payment: {
+    modelName: "payments",
+    fields: {
+      userId: "user_id",
+      txHash: "tx_hash",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    }
+  }
+});
+```
+
+All field keys are type-safe and auto-inferred from the schema definition.

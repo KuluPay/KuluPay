@@ -1,3 +1,5 @@
+import type { PaymentFieldKeys, CustomerFieldKeys, SubscriptionFieldKeys } from "../db/schema";
+
 /**
  * The base URL configuration for the KuluPay server.
  * Can be a static string or a dynamic configuration for multi-tenant setups.
@@ -212,9 +214,9 @@ export interface KuluPayOptions {
         user?: { model: string; foreignKey: string };
         product?: { model: string; foreignKey: string };
     };
-    payment?: KuluPayDBOptions<"id" | "userId" | "amount" | "currency" | "status" | "providerId" | "metadata" | "createdAt" | "updatedAt" | "type" | "description" | "customerId" | "providerPaymentId" | "clientSecret">;
-    customer?: KuluPayDBOptions<"id" | "userId" | "providerId" | "providerCustomerId" | "createdAt" | "updatedAt">;
-    subscription?: KuluPayDBOptions<"id" | "userId" | "planId" | "status" | "providerSubscriptionId" | "currentPeriodEnd" | "cancelAtPeriodEnd" | "createdAt" | "updatedAt">;
+    payment?: KuluPayDBOptions<PaymentFieldKeys>;
+    customer?: KuluPayDBOptions<CustomerFieldKeys>;
+    subscription?: KuluPayDBOptions<SubscriptionFieldKeys>;
     databaseHooks?: {
         payment?: {
             create?: DatabaseHook<any>;
@@ -246,11 +248,24 @@ export interface KuluPayContext {
 }
 
 /**
+ * The checkout flow a provider uses. Declared by the provider developer
+ * when implementing the provider — not guessed by the checkout UI.
+ *
+ * - "self-hosted": The checkout page handles wallet interaction (e.g. EVM, Tron)
+ * - "redirect":    The provider hosts its own checkout page (e.g. Stripe Checkout, Chapa, PayPal)
+ * - "embedded":    The provider's SDK is embedded in your page (e.g. Stripe Elements)
+ * - "none":        No checkout UI needed (server-only, webhooks-only)
+ */
+export type CheckoutFlow = "self-hosted" | "redirect" | "embedded" | "none";
+
+/**
  * Defines a payment provider integration (e.g. Stripe, PayPal, Chapa).
  * Implement this interface to add a new payment provider.
  */
 export interface PaymentProvider {
     id: string;
+    /** How this provider handles checkout. Defaults to "none" if not specified. */
+    checkout?: CheckoutFlow;
     createIntent: (data: CreateIntentData) => Promise<PaymentIntent>;
     getIntent: (id: string) => Promise<PaymentIntent>;
     cancelIntent: (id: string) => Promise<PaymentIntent>;
@@ -275,7 +290,7 @@ export interface PaymentProvider {
 /**
  * The status of a payment intent.
  */
-export type PaymentStatus = "pending" | "processing" | "succeeded" | "failed" | "canceled";
+export type PaymentStatus = "pending" | "processing" | "pending_confirmation" | "succeeded" | "failed" | "canceled" | "expired";
 
 /**
  * Represents a payment intent created by a provider.
@@ -538,6 +553,11 @@ export interface PaymentConfirmOptions {
      * Payment method data (for non-Elements confirmation).
      */
     paymentMethodData?: any;
+    /**
+     * The intent ID — providers should return this as `id` to preserve it.
+     * Without this, providers may return txHash as `id`, overwriting the intent ID.
+     */
+    intentId?: string;
 }
 
 export type KuluPayORM = {

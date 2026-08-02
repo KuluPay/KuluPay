@@ -4,8 +4,8 @@ import path from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
 import prompts from "prompts";
-import yoctoSpinner from "yocto-spinner";
 import type { KuluPayRegistry } from "./init";
+import { PKG } from "../utils/packages";
 
 const REGISTRY_FILE = "kulupay.json";
 
@@ -32,7 +32,7 @@ const PROVIDERS: Record<string, ProviderDefinition> = {
         ],
         configSnippet: ({ envPrefix }) =>
             `stripe({\n      apiKey: process.env.${envPrefix}API_KEY!,\n      webhookSecret: process.env.${envPrefix}WEBHOOK_SECRET,\n    })`,
-        clientSnippet: `import { createStripeClientProvider } from "@kulupay/kulupay/client/providers";
+        clientSnippet: `import { createStripeClientProvider } from "${PKG.kulupay}/client/providers";
 
 export const stripeProvider = createStripeClientProvider({
   publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "",
@@ -178,7 +178,7 @@ export async function addProviderAction(opts: any) {
 
     const envPrefix = providerId.toUpperCase() + "_";
 
-    const spinner = yoctoSpinner({ text: `Adding ${provider.name}...` }).start();
+    console.log(chalk.cyan(`  Adding ${provider.name}...`));
 
     if (!registry.providers.includes(providerId)) {
         registry.providers.push(providerId);
@@ -230,8 +230,6 @@ export async function addProviderAction(opts: any) {
             }
         }
     }
-
-    spinner.stop();
 
     console.log();
     console.log(chalk.green(`  ${provider.name} added successfully!`));
@@ -309,15 +307,15 @@ function updateConfigWithProvider(
 
 function providerImportLine(providerId: string): string {
     if (["evm-eth", "evm-base-usdc", "tron-trx", "tron-usdt"].includes(providerId)) {
-        return `import { evm, tron, CHAINS, TOKENS } from "@kulupay/kulupay/providers/blockchain";`;
+        return `import { evm, tron, CHAINS, TOKENS } from "${PKG.kulupay}/providers/blockchain";`;
     }
     switch (providerId) {
         case "stripe":
-            return `import { stripe } from "@kulupay/kulupay/providers/stripe";`;
+            return `import { stripe } from "${PKG.kulupay}/providers/stripe";`;
         case "chapa":
-            return `import { chapa } from "@kulupay/kulupay/providers/chapa";`;
+            return `import { chapa } from "${PKG.kulupay}/providers/chapa";`;
         case "paypal":
-            return `import { paypal } from "@kulupay/kulupay/providers/paypal";`;
+            return `import { paypal } from "${PKG.kulupay}/providers/paypal";`;
         default:
             return "";
     }

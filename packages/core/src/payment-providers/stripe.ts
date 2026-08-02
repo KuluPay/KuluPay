@@ -89,6 +89,7 @@ const mapStatus = (status: string): PaymentStatus => {
 export const stripe = (options: StripeOptions) => {
     return {
         id: "stripe",
+        checkout: "redirect",
         createIntent: async (data: CreateIntentData): Promise<PaymentIntent> => {
             try {
                 const stripeClient = await getStripeClient(options.apiKey);

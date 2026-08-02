@@ -4,7 +4,6 @@ import path from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
 import prompts from "prompts";
-import yoctoSpinner from "yocto-spinner";
 import { getKuluPayTables } from "@kulupay/core/db";
 import { renderPrismaSchema, renderDrizzleSchema, renderSafeSql } from "@farming-labs/orm";
 import { getConfig } from "../utils/get-config";
@@ -13,17 +12,46 @@ type Generator = "prisma" | "drizzle" | "sql";
 
 const defaultOutput: Record<Generator, string> = {
     prisma: "prisma/schema.prisma",
-    drizzle: "db/schema.ts",
-    sql: "sql/kulupay.sql",
+    drizzle: "pay-schema.ts",
+    sql: "pay-schema.sql",
 };
 
 /**
  * Generates database schema files (Prisma, Drizzle, or SQL) from the KuluPay config.
- * Reads the user's `pay.ts` config, builds the schema via `getKuluPayTables()`,
- * and writes the generated schema to a file.
+ * Reads the user's `pay.ts` config, auto-detects the database adapter type,
+ * builds the schema via `getKuluPayTables()`, and writes the generated schema
+ * to a file in the project root.
+ *
+ * The generator is auto-detected from the runtime database adapter:
+ * - Drizzle adapter → generates `pay-schema.ts` (Drizzle table definitions)
+ * - Prisma adapter  → generates `prisma/schema.prisma`
+ * - SQL adapter     → generates `pay-schema.sql`
+ *
+ * You can override with --generator drizzle|prisma|sql.
+ *
+ * After generating, run `npx kulupay migrate` to push the schema to your database
+ * using your ORM's native migration tool (drizzle-kit push, prisma db push, etc.).
  *
  * @param opts - Command options including cwd, generator type, output path, and dialect.
  */
+async function detectGenerator(options: any): Promise<Generator> {
+    if (options.generator && options.generator !== "prisma") {
+        return options.generator as Generator;
+    }
+    const config = await getConfig({
+        cwd: path.resolve(options.cwd),
+        configPath: options.config,
+    });
+    if (config?.options?.database) {
+        const driver = config.options.database?.handle || config.options.database;
+        const kind = driver?.kind || "";
+        if (kind === "drizzle") return "drizzle";
+        if (kind === "prisma") return "prisma";
+        if (kind === "postgres" || kind === "mysql" || kind === "sqlite") return "sql";
+    }
+    return "prisma";
+}
+
 export async function generateAction(opts: any) {
     const options = opts;
     const cwd = path.resolve(options.cwd);
@@ -40,7 +68,7 @@ export async function generateAction(opts: any) {
         return;
     }
 
-    const generator = (options.generator || "prisma") as Generator;
+    const generator = await detectGenerator(options);
     if (!["prisma", "drizzle", "sql"].includes(generator)) {
         console.error(`Unsupported generator: ${generator}. Use prisma, drizzle, or sql.`);
         process.exit(1);
@@ -49,7 +77,7 @@ export async function generateAction(opts: any) {
     const dialect = options.dialect || "postgresql";
     const outputFile = options.output || defaultOutput[generator];
 
-    const spinner = yoctoSpinner({ text: "Generating schema..." }).start();
+    console.log(chalk.cyan("  Generating schema..."));
 
     const schema = getKuluPayTables(config.options);
 
@@ -70,12 +98,9 @@ export async function generateAction(opts: any) {
             });
         }
     } catch (e: any) {
-        spinner.stop();
         console.error("Failed to generate schema:", e?.message || e);
         process.exit(1);
     }
-
-    spinner.stop();
 
     if (!code) {
         console.log("Schema is empty. Nothing to generate.");
@@ -111,18 +136,19 @@ export async function generateAction(opts: any) {
 
     await fs.writeFile(fullPath, code);
     console.log(`🚀 Schema generated successfully at ${chalk.green(outputFile)}`);
+    console.log();
+    console.log(chalk.gray(`  Next: run ${chalk.cyan("npx kulupay migrate")} to push the schema to your database.`));
     process.exit(0);
 }
 
 export const generate = new Command("generate")
-    .description("Generate database schema files (Prisma, Drizzle, or SQL)")
+    .description("Generate database schema files (Prisma, Drizzle, or SQL) from your KuluPay config")
     .option("-c, --cwd <cwd>", "the working directory", process.cwd())
     .option("--config <config>", "path to your KuluPay config file")
     .option("-o, --output <output>", "output file path")
     .option(
         "-g, --generator <generator>",
-        "schema generator: prisma, drizzle, or sql",
-        "prisma",
+        "schema generator: prisma, drizzle, or sql (auto-detected from your database adapter)",
     )
     .option(
         "-d, --dialect <dialect>",

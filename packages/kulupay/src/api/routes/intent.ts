@@ -220,3 +220,229 @@ export const getIntent = createKuluPayEndpoint(
         return intent;
     }
 );
+
+/**
+ * Endpoint to confirm a payment intent with a transaction hash.
+ * Called by the client after the user sends the on-chain transaction.
+ * Uses clientSecret for auth — no session required (payment page may not have login).
+ */
+export const confirmIntent = createKuluPayEndpoint(
+    "/confirm-intent",
+    {
+        method: "POST",
+        use: [originCheckMiddleware] as any,
+    },
+    async (ctx) => {
+        const { orm, logger } = ctx.context;
+        const body = ctx.body as any;
+
+        const { intentId, txHash, clientSecret } = body;
+
+        if (!intentId || !txHash || !clientSecret) {
+            throw KuluPayAPIError.fromCode("MISSING_FIELD");
+        }
+
+        if (!orm) {
+            throw KuluPayAPIError.fromCode("DATABASE_ERROR");
+        }
+
+        const payment = await orm.payment.findFirst({ where: { id: intentId } });
+        if (!payment) {
+            throw KuluPayAPIError.fromCode("PAYMENT_NOT_FOUND");
+        }
+
+        if (payment.clientSecret !== clientSecret) {
+            throw KuluPayAPIError.fromCode("CLIENT_SECRET_INVALID");
+        }
+
+        if (payment.status === "succeeded") {
+            throw KuluPayAPIError.fromCode("PAYMENT_ALREADY_SUCCEEDED");
+        }
+
+        if (payment.status === "canceled" || payment.status === "expired") {
+            throw KuluPayAPIError.fromCode("INTENT_NOT_PENDING");
+        }
+
+        if (payment.txHash && payment.txHash !== txHash) {
+            throw KuluPayAPIError.fromCode("TX_HASH_ALREADY_USED");
+        }
+
+        const existingTx = await orm.payment.findFirst({ where: { txHash } });
+        if (existingTx && existingTx.id !== intentId) {
+            throw KuluPayAPIError.fromCode("TX_HASH_ALREADY_USED");
+        }
+
+        const now = new Date();
+        await orm.payment.update({
+            where: { id: intentId },
+            data: {
+                txHash,
+                status: "pending_confirmation",
+                updatedAt: now,
+            },
+        });
+
+        logger.debug(`Intent ${intentId} confirmed with txHash: ${txHash}`);
+
+        return {
+            id: intentId,
+            status: "pending_confirmation",
+            txHash,
+        };
+    }
+);
+
+/**
+ * Endpoint to verify a payment intent's on-chain status.
+ * Called by the client to poll for confirmation status.
+ * Uses clientSecret for auth — no session required.
+ */
+export const verifyIntent = createKuluPayEndpoint(
+    "/verify-intent",
+    {
+        method: "GET",
+    },
+    async (ctx) => {
+        const { providers, orm, logger } = ctx.context;
+        const query = ctx.query as any;
+
+        const { intentId, clientSecret } = query;
+
+        if (!intentId || !clientSecret) {
+            throw KuluPayAPIError.fromCode("MISSING_FIELD");
+        }
+
+        if (!orm) {
+            throw KuluPayAPIError.fromCode("DATABASE_ERROR");
+        }
+
+        const payment = await orm.payment.findFirst({ where: { id: intentId } });
+        if (!payment) {
+            throw KuluPayAPIError.fromCode("PAYMENT_NOT_FOUND");
+        }
+
+        if (payment.clientSecret !== clientSecret) {
+            throw KuluPayAPIError.fromCode("CLIENT_SECRET_INVALID");
+        }
+
+        if (payment.status === "succeeded" || payment.status === "failed" || payment.status === "expired") {
+            return {
+                id: intentId,
+                status: payment.status,
+                txHash: payment.txHash,
+            };
+        }
+
+        if (!payment.txHash) {
+            return {
+                id: intentId,
+                status: payment.status,
+                txHash: null,
+            };
+        }
+
+        const provider = providers.get(payment.providerId);
+        if (!provider) {
+            throw KuluPayAPIError.fromCode("PROVIDER_NOT_FOUND");
+        }
+
+        try {
+            const intent = await provider.getIntent(intentId);
+
+            if (intent.status !== payment.status) {
+                const now = new Date();
+                await orm.payment.update({
+                    where: { id: intentId },
+                    data: {
+                        status: intent.status,
+                        updatedAt: now,
+                    },
+                });
+
+                logger.debug(`Intent ${intentId} status updated: ${payment.status} → ${intent.status}`);
+            }
+
+            const metadata = intent.metadata as any;
+            const confirmations = metadata?.confirmations;
+            const requiredConfirmations = metadata?.requiredConfirmations;
+
+            return {
+                id: intentId,
+                status: intent.status,
+                txHash: payment.txHash,
+                confirmations: confirmations !== undefined
+                    ? { current: confirmations, required: requiredConfirmations ?? 0 }
+                    : undefined,
+            };
+        } catch (error: any) {
+            if (error instanceof ProviderError) {
+                throw KuluPayAPIError.from(502, {
+                    code: error.code || "PROVIDER_ERROR",
+                    message: error.message,
+                }, error.raw);
+            }
+            throw KuluPayAPIError.fromCode("INTERNAL_ERROR");
+        }
+    }
+);
+
+/**
+ * Endpoint to get full intent details for checkout page rendering.
+ * Uses clientSecret for auth — no session required.
+ * Returns the raw payment data needed to render the checkout UI (amount, recipient, token, etc.)
+ */
+export const checkoutIntent = createKuluPayEndpoint(
+    "/checkout-intent",
+    {
+        method: "GET",
+    },
+    async (ctx) => {
+        const { orm } = ctx.context;
+        const query = ctx.query as any;
+
+        const { intentId, clientSecret } = query;
+
+        if (!intentId || !clientSecret) {
+            throw KuluPayAPIError.fromCode("MISSING_FIELD");
+        }
+
+        if (!orm) {
+            throw KuluPayAPIError.fromCode("DATABASE_ERROR");
+        }
+
+        const payment = await orm.payment.findFirst({ where: { id: intentId } });
+        if (!payment) {
+            throw KuluPayAPIError.fromCode("PAYMENT_NOT_FOUND");
+        }
+
+        if (payment.clientSecret !== clientSecret) {
+            throw KuluPayAPIError.fromCode("CLIENT_SECRET_INVALID");
+        }
+
+        const metadata = payment.metadata as any;
+
+        const provider = ctx.context.providers.get(payment.providerId);
+        const checkoutFlow = provider?.checkout || "none";
+
+        return {
+            id: payment.id,
+            amount: payment.amount,
+            currency: payment.currency,
+            status: payment.status,
+            providerId: payment.providerId,
+            checkoutFlow,
+            clientSecret: payment.clientSecret,
+            txHash: payment.txHash,
+            metadata: metadata,
+            type: payment.type,
+            description: payment.description,
+            raw: metadata?.raw || null,
+            deadline: metadata?.deadline || null,
+            recipient: metadata?.recipient || metadata?.to || null,
+            token: metadata?.token || null,
+            network: metadata?.network || null,
+            signature: metadata?.signature || null,
+            contractAddress: metadata?.contractAddress || null,
+        };
+    }
+);

@@ -55,6 +55,16 @@ export const KULUPAY_ERROR_CODES = defineErrorCodes({
 	INVALID_REQUEST_BODY: "Invalid request body",
 	BODY_MUST_BE_AN_OBJECT: "Body must be an object",
 
+	// Blockchain
+	TX_HASH_ALREADY_USED: "Transaction hash has already been used for another payment",
+	TX_AMOUNT_MISMATCH: "Transaction amount does not match the payment intent",
+	TX_RECIPIENT_MISMATCH: "Transaction recipient does not match the payment intent",
+	TX_NOT_FOUND: "Transaction not found on-chain",
+	TX_INSUFFICIENT_CONFIRMATIONS: "Transaction has insufficient confirmations",
+	INTENT_EXPIRED: "Payment intent has expired",
+	INTENT_NOT_PENDING: "Payment intent is not in a pending state",
+	CLIENT_SECRET_INVALID: "Invalid or expired client secret",
+
 	// Server
 	DATABASE_ERROR: "Database operation failed",
 	INTERNAL_ERROR: "Internal server error",

@@ -1,4 +1,47 @@
-import { defineSchema, model, id, string, decimal, datetime, boolean, json } from "@farming-labs/orm";
+import { defineSchema, model, id, string, decimal, datetime, boolean, json, belongsTo, hasMany } from "@farming-labs/orm";
+
+const paymentFields = {
+    id: id(),
+    userId: string(),
+    amount: decimal(),
+    currency: string(),
+    status: string(),
+    providerId: string(),
+    metadata: json(),
+    type: string(),
+    description: string().nullable(),
+    customerId: string().nullable(),
+    providerPaymentId: string().nullable(),
+    clientSecret: string().nullable(),
+    txHash: string().nullable(),
+    createdAt: datetime(),
+    updatedAt: datetime(),
+};
+
+const customerFields = {
+    id: id(),
+    userId: string().unique(),
+    providerId: string(),
+    providerCustomerId: string(),
+    createdAt: datetime(),
+    updatedAt: datetime(),
+};
+
+const subscriptionFields = {
+    id: id(),
+    userId: string(),
+    planId: string(),
+    status: string(),
+    providerSubscriptionId: string().unique(),
+    currentPeriodEnd: datetime(),
+    cancelAtPeriodEnd: boolean(),
+    createdAt: datetime(),
+    updatedAt: datetime(),
+};
+
+export type PaymentFieldKeys = keyof typeof paymentFields;
+export type CustomerFieldKeys = keyof typeof customerFields;
+export type SubscriptionFieldKeys = keyof typeof subscriptionFields;
 
 /**
  * The static base schema for KuluPay.
@@ -8,47 +51,36 @@ import { defineSchema, model, id, string, decimal, datetime, boolean, json } fro
 export const kuluPaySchema = defineSchema({
     payment: model({
         table: "payment",
-        fields: {
-            id: id(),
-            userId: string(),
-            amount: decimal(),
-            currency: string(),
-            status: string(), // pending, succeeded, failed, etc.
-            providerId: string(),
-            metadata: json(),
-            type: string(), // one_time, subscription_initial, topup, refund
-            description: string().nullable(),
-            customerId: string().nullable(),
-            providerPaymentId: string().nullable(),
-            clientSecret: string().nullable(),
-            createdAt: datetime(),
-            updatedAt: datetime(),
-        }
+        fields: paymentFields,
+        constraints: {
+            indexes: [
+                ["userId", "status"],
+                ["providerId", "providerPaymentId"],
+            ],
+        },
+        relations: {
+            customer: belongsTo("customer", { foreignKey: "customerId" }),
+        },
     }),
     customer: model({
         table: "customer",
-        fields: {
-            id: id(),
-            userId: string().unique(),
-            providerId: string(),
-            providerCustomerId: string(),
-            createdAt: datetime(),
-            updatedAt: datetime(),
-        }
+        fields: customerFields,
+        relations: {
+            payments: hasMany("payment", { foreignKey: "customerId" }),
+            subscriptions: hasMany("subscription", { foreignKey: "userId" }),
+        },
     }),
     subscription: model({
         table: "subscription",
-        fields: {
-            id: id(),
-            userId: string(),
-            planId: string(),
-            status: string(),
-            providerSubscriptionId: string().unique(),
-            currentPeriodEnd: datetime(),
-            cancelAtPeriodEnd: boolean(),
-            createdAt: datetime(),
-            updatedAt: datetime(),
-        }
+        fields: subscriptionFields,
+        constraints: {
+            indexes: [
+                ["userId", "status"],
+            ],
+        },
+        relations: {
+            customer: belongsTo("customer", { foreignKey: "userId" }),
+        },
     })
 });
 

@@ -1,4 +1,5 @@
-import { pgTable, text, boolean, numeric, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, numeric, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 export const payment = pgTable("payment", {
   id: text("id").primaryKey(),
@@ -13,9 +14,13 @@ export const payment = pgTable("payment", {
   customerId: text("customerId"),
   providerPaymentId: text("providerPaymentId"),
   clientSecret: text("clientSecret"),
+  txHash: text("txHash"),
   createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }).notNull(),
   updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }).notNull()
-});
+}, (table) => ({
+  paymentUseridStatusIdx: index("payment_userid_status_idx").on(table.userId, table.status),
+  paymentProvideridProviderpaymentidIdx: index("payment_providerid_providerpaymentid_idx").on(table.providerId, table.providerPaymentId)
+}));
 
 export const customer = pgTable("customer", {
   id: text("id").primaryKey(),
@@ -36,4 +41,19 @@ export const subscription = pgTable("subscription", {
   cancelAtPeriodEnd: boolean("cancelAtPeriodEnd").notNull(),
   createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }).notNull(),
   updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }).notNull()
-});
+}, (table) => ({
+  subscriptionUseridStatusIdx: index("subscription_userid_status_idx").on(table.userId, table.status)
+}));
+
+export const paymentRelations = relations(payment, ({ one, many }) => ({
+  customer: one(customer, { fields: [payment.customerId], references: [customer.id] })
+}));
+
+export const customerRelations = relations(customer, ({ one, many }) => ({
+  payments: many(payment),
+  subscriptions: many(subscription)
+}));
+
+export const subscriptionRelations = relations(subscription, ({ one, many }) => ({
+  customer: one(customer, { fields: [subscription.userId], references: [customer.id] })
+}));

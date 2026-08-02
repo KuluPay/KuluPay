@@ -50,6 +50,7 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
 
     return {
         id: providerId,
+        checkout: "self-hosted",
 
         createIntent: async (data: CreateIntentData): Promise<PaymentIntent> => {
             const reference =

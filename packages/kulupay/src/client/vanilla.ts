@@ -47,6 +47,9 @@ const DEFAULT_KNOWN_METHODS: Record<string, "GET" | "POST"> = {
     "/analytics": "GET",
     "/confirm-payment": "POST",
     "/verify-payment": "GET",
+    "/confirm-intent": "POST",
+    "/verify-intent": "GET",
+    "/checkout-intent": "GET",
 };
 
 function createFetcher(options: PayClientOptions): PayFetcher {

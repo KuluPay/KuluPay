@@ -13,6 +13,7 @@ export default defineConfig({
     "src/payment-providers/chapa.ts",
     "src/payment-providers/paypal.ts",
     "src/payment-providers/blockchain/index.ts",
+    "src/checkout/index.ts",
     "src/utils/index.ts",
   ],
   format: ["cjs", "esm"],

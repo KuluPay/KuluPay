@@ -26,6 +26,7 @@ export const paypal = (options: PayPalOptions) => {
 
     return {
         id: "paypal",
+        checkout: "redirect",
         createIntent: async (data: CreateIntentData): Promise<PaymentIntent> => {
             const { data: auth, error: authError } = await betterFetch<any>(`${baseURL}/v1/oauth2/token`, {
                 method: "POST",

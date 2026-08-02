@@ -6,6 +6,7 @@ import { Command } from "commander";
 import prompts from "prompts";
 import yoctoSpinner from "yocto-spinner";
 import type { KuluPayRegistry } from "./init";
+import { PKG } from "../utils/packages";
 
 const REGISTRY_FILE = "kulupay.json";
 
@@ -22,13 +23,13 @@ const PROVIDER_ENV_VARS: Record<string, string[]> = {
 };
 
 const PROVIDER_IMPORTS: Record<string, string> = {
-    stripe: `import { stripe } from "@kulupay/kulupay/providers";`,
-    chapa: `import { chapa } from "@kulupay/kulupay/providers";`,
-    paypal: `import { paypal } from "@kulupay/kulupay/providers";`,
+    stripe: `import { stripe } from "${PKG.kulupay}/providers";`,
+    chapa: `import { chapa } from "${PKG.kulupay}/providers";`,
+    paypal: `import { paypal } from "${PKG.kulupay}/providers";`,
 };
 
 const PROVIDER_CLIENT_IMPORTS: Record<string, string> = {
-    stripe: `import { createStripeClientProvider } from "@kulupay/kulupay/client/providers";`,
+    stripe: `import { createStripeClientProvider } from "${PKG.kulupay}/client/providers";`,
 };
 
 const PROVIDER_CLIENT_EXPORTS: Record<string, RegExp> = {

@@ -65,6 +65,7 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
 
     return {
         id: providerId,
+        checkout: "self-hosted",
 
         createIntent: async (data: CreateIntentData): Promise<PaymentIntent> => {
             const reference =

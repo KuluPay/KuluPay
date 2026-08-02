@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ES2020"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "moduleResolution": "bundler",
     "customConditions": ["dev-source"],
     "resolveJsonModule": true,
     "allowJs": true,
     "checkJs": false,
+    "jsx": "react-jsx",
     "outDir": "./dist",
     "rootDir": "./src",
     "declaration": true,
@@ -17,7 +18,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "types": ["node"]
   },
   "include": ["src/**/*"],

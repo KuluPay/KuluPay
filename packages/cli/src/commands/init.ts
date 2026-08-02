@@ -4,7 +4,7 @@ import path from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
 import prompts from "prompts";
-import yoctoSpinner from "yocto-spinner";
+import { PKG } from "../utils/packages";
 
 export interface KuluPayRegistry {
     $schema: string;
@@ -230,7 +230,7 @@ export async function initAction(opts: any) {
         }
     }
 
-    const spinner = yoctoSpinner({ text: "Initializing KuluPay..." }).start();
+    console.log(chalk.cyan("  Initializing KuluPay..."));
 
     const registry: KuluPayRegistry = {
         $schema: "https://kulupay.dev/schema.json",
@@ -274,8 +274,6 @@ export async function initAction(opts: any) {
         await fs.writeFile(routeFullPath, generateServerRoute(registry));
     }
 
-    spinner.stop();
-
     console.log();
     console.log(chalk.green("  KuluPay initialized successfully!"));
     console.log();
@@ -306,20 +304,20 @@ export async function initAction(opts: any) {
     if (db !== "memory") {
         console.log(`    ${chalk.white("1.")} Install database dependencies:`);
         if (db === "postgres") {
-            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-sql pg")}`);
-            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-sql pg")}`);
+            console.log(`       ${chalk.cyan(`npm install ${PKG.adapterSql} pg`)}`);
+            console.log(`       ${chalk.gray(`# or: pnpm add ${PKG.adapterSql} pg`)}`);
         } else if (db === "mysql") {
-            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-sql mysql2")}`);
-            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-sql mysql2")}`);
+            console.log(`       ${chalk.cyan(`npm install ${PKG.adapterSql} mysql2`)}`);
+            console.log(`       ${chalk.gray(`# or: pnpm add ${PKG.adapterSql} mysql2`)}`);
         } else if (db === "sqlite") {
-            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-sql better-sqlite3")}`);
-            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-sql better-sqlite3")}`);
+            console.log(`       ${chalk.cyan(`npm install ${PKG.adapterSql} better-sqlite3`)}`);
+            console.log(`       ${chalk.gray(`# or: pnpm add ${PKG.adapterSql} better-sqlite3`)}`);
         } else if (db === "prisma") {
-            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-prisma @prisma/client")}`);
-            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-prisma @prisma/client")}`);
+            console.log(`       ${chalk.cyan(`npm install ${PKG.adapterPrisma} @prisma/client`)}`);
+            console.log(`       ${chalk.gray(`# or: pnpm add ${PKG.adapterPrisma} @prisma/client`)}`);
         } else if (db === "drizzle") {
-            console.log(`       ${chalk.cyan("npm install @kulupay/adapter-drizzle drizzle-orm pg")}`);
-            console.log(`       ${chalk.gray("# or: pnpm add @kulupay/adapter-drizzle drizzle-orm pg")}`);
+            console.log(`       ${chalk.cyan(`npm install ${PKG.adapterDrizzle} drizzle-orm pg`)}`);
+            console.log(`       ${chalk.gray(`# or: pnpm add ${PKG.adapterDrizzle} drizzle-orm pg`)}`);
         }
         console.log();
         console.log(`    ${chalk.white("2.")} Set environment variables:`);
@@ -406,23 +404,23 @@ function generateConfigFile(registry: KuluPayRegistry): string {
         dbImport = `import { database } from "./db";`;
         dbLine = `  database,`;
     } else if (db === "postgres") {
-        dbImport = `import { pg } from "@kulupay/adapter-sql";\nimport { pool } from "./db";`;
+        dbImport = `import { pg } from "${PKG.adapterSql}";\nimport { pool } from "./db";`;
         dbLine = `  database: pg(pool),`;
     } else if (db === "mysql") {
-        dbImport = `import { mysql } from "@kulupay/adapter-sql";\nimport { connection } from "./db";`;
+        dbImport = `import { mysql } from "${PKG.adapterSql}";\nimport { connection } from "./db";`;
         dbLine = `  database: mysql(connection),`;
     } else if (db === "sqlite") {
-        dbImport = `import { sqlite } from "@kulupay/adapter-sql";\nimport { sqliteDb } from "./db";`;
+        dbImport = `import { sqlite } from "${PKG.adapterSql}";\nimport { sqliteDb } from "./db";`;
         dbLine = `  database: sqlite(sqliteDb),`;
     } else if (db === "prisma") {
-        dbImport = `import { prismaAdapter } from "@kulupay/adapter-prisma";\nimport { prisma } from "./db";`;
+        dbImport = `import { prismaAdapter } from "${PKG.adapterPrisma}";\nimport { prisma } from "./db";`;
         dbLine = `  database: prismaAdapter(prisma, { provider: "postgresql" }),`;
     } else if (db === "drizzle") {
-        dbImport = `import { drizzleAdapter } from "@kulupay/adapter-drizzle";\nimport { db } from "./db";`;
+        dbImport = `import { drizzleAdapter } from "${PKG.adapterDrizzle}";\nimport { db } from "./db";`;
         dbLine = `  database: drizzleAdapter(db, { provider: "pg" }),`;
     }
 
-    return `import { kuluPay } from "@kulupay/kulupay";
+    return `import { kuluPay } from "${PKG.kulupay}";
 ${dbImport}
 ${registry.providers.map(p => providerImportLine(p, true)).join("\n")}
 export const pay = kuluPay({
@@ -438,15 +436,15 @@ function providerImportLine(providerId: string, isImport = false): string {
     switch (providerId) {
         case "stripe":
             return isImport
-                ? `import { stripe } from "@kulupay/kulupay/providers/stripe";`
+                ? `import { stripe } from "${PKG.kulupay}/providers/stripe";`
                 : `stripe({\n      apiKey: process.env.STRIPE_API_KEY!,\n      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,\n    })`;
         case "chapa":
             return isImport
-                ? `import { chapa } from "@kulupay/kulupay/providers/chapa";`
+                ? `import { chapa } from "${PKG.kulupay}/providers/chapa";`
                 : `chapa({\n      apiKey: process.env.CHAPA_API_KEY!,\n      webhookSecret: process.env.CHAPA_WEBHOOK_SECRET,\n    })`;
         case "paypal":
             return isImport
-                ? `import { paypal } from "@kulupay/kulupay/providers/paypal";`
+                ? `import { paypal } from "${PKG.kulupay}/providers/paypal";`
                 : `paypal({\n      clientId: process.env.PAYPAL_CLIENT_ID!,\n      clientSecret: process.env.PAYPAL_CLIENT_SECRET!,\n    })`;
         default:
             return isImport ? "" : `// Unknown provider: ${providerId}`;
@@ -456,13 +454,13 @@ function providerImportLine(providerId: string, isImport = false): string {
 function generateClientFile(registry: KuluPayRegistry): string {
     const hasStripe = registry.providers.includes("stripe");
     const stripeImport = hasStripe
-        ? `import { createStripeClientProvider } from "@kulupay/kulupay/client/providers";\n`
+        ? `import { createStripeClientProvider } from "${PKG.kulupay}/client/providers";\n`
         : "";
     const stripeExport = hasStripe
         ? `\nexport const stripeProvider = createStripeClientProvider({\n  publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "",\n});\n`
         : "";
 
-    return `import { createKuluPayClient } from "@kulupay/kulupay/client";
+    return `import { createKuluPayClient } from "${PKG.kulupay}/client";
 ${stripeImport}
 export const payClient = createKuluPayClient({
   baseURL: "/api/pay",
@@ -472,7 +470,7 @@ ${stripeExport}`;
 
 function generateNextJsRoute(registry: KuluPayRegistry): string {
     const importPath = registry.configPath.replace(/\.(ts|tsx)$/, "").replace(/\\/g, "/");
-    return `import { toNextJsHandler } from "@kulupay/kulupay/next-js";
+    return `import { toNextJsHandler } from "${PKG.kulupay}/next-js";
 import { pay } from "@/${importPath}";
 
 export const { GET, POST, PUT, PATCH, DELETE } = toNextJsHandler(pay);
@@ -485,7 +483,7 @@ function generateServerRoute(registry: KuluPayRegistry): string {
 
     if (registry.framework === "express") {
         return `import { Router } from "express";
-import { toExpressHandler } from "@kulupay/kulupay";
+import { toExpressHandler } from "${PKG.kulupay}";
 import { pay } from "${relativePath}";
 
 export const payRoute = Router();
@@ -495,7 +493,7 @@ payRoute.all("/*", toExpressHandler(pay));
 
     if (registry.framework === "hono") {
         return `import { Hono } from "hono";
-import { toHonoHandler } from "@kulupay/kulupay";
+import { toHonoHandler } from "${PKG.kulupay}";
 import { pay } from "${relativePath}";
 
 export const payRoute = new Hono();
@@ -504,7 +502,7 @@ payRoute.all("/*", toHonoHandler(pay));
     }
 
     return `import { Elysia } from "elysia";
-import { toElysiaHandler } from "@kulupay/kulupay";
+import { toElysiaHandler } from "${PKG.kulupay}";
 import { pay } from "${relativePath}";
 
 export const payRoute = new Elysia();

@@ -6,6 +6,7 @@ import { migrate } from "./commands/migrate";
 import { init } from "./commands/init";
 import { addProvider } from "./commands/add-provider";
 import { removeProvider } from "./commands/remove-provider";
+import { add, list } from "./commands/add";
 
 import dotenv from "dotenv";
 
@@ -24,8 +25,10 @@ async function main() {
         .addCommand(removeProvider)
         .addCommand(generate)
         .addCommand(migrate)
+        .addCommand(add)
+        .addCommand(list)
         .version("0.0.5")
-        .description("KuluPay CLI - init project, add providers, generate schemas, and migrate your database")
+        .description("KuluPay CLI - init project, add providers, add checkout, generate schemas, and migrate your database")
         .action(() => program.help());
 
     program.parse();

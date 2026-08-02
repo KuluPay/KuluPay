@@ -110,15 +110,20 @@ const database = createMemoryDriver();
 
 ## Schema Generation
 
-Generate SQL or ORM schemas using the CLI:
+Generate schema files using the CLI. The generator is auto-detected from your `pay.ts` config:
 
 ```bash
-# Raw SQL
-npx @kulupay/cli generate --generator sql --dialect postgresql
+# Auto-detected from your database adapter
+npx kulupay generate
 
-# Prisma
-npx @kulupay/cli generate --generator prisma --dialect postgresql
+# Or override manually
+npx kulupay generate --generator drizzle --dialect postgresql
+npx kulupay generate --generator prisma --dialect postgresql
+npx kulupay generate --generator sql --dialect postgresql
+```
 
-# Drizzle
-npx @kulupay/cli generate --generator drizzle --dialect pg
+Then push to your database:
+
+```bash
+npx kulupay migrate
 ```

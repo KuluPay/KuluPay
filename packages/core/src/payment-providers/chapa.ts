@@ -21,6 +21,7 @@ export interface ChapaOptions {
 export const chapa = (options: ChapaOptions) => {
     return {
         id: "chapa",
+        checkout: "redirect",
         createIntent: async (data: CreateIntentData): Promise<PaymentIntent> => {
             const { data: res, error } = await betterFetch<{
                 status: string;

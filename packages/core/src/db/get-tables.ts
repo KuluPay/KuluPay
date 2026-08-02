@@ -1,4 +1,4 @@
-import { defineSchema, model, id, string, decimal, datetime, boolean, json, integer } from "@farming-labs/orm";
+import { defineSchema, model, id, string, decimal, datetime, boolean, json, integer, belongsTo, hasMany } from "@farming-labs/orm";
 import type { KuluPayOptions, AdditionalField } from "../types";
 
 const fieldTypeMap = {
@@ -65,10 +65,20 @@ export const getKuluPayTables = (options: KuluPayOptions) => {
                 customerId: string().nullable(),
                 providerPaymentId: string().nullable(),
                 clientSecret: string().nullable(),
+                txHash: string().nullable(),
                 createdAt: datetime(),
                 updatedAt: datetime(),
                 ...buildAdditionalFields(options.payment?.additionalFields),
-            }
+            },
+            constraints: {
+                indexes: [
+                    ["userId", "status"],
+                    ["providerId", "providerPaymentId"],
+                ],
+            },
+            relations: {
+                customer: belongsTo("customer", { foreignKey: "customerId" }),
+            },
         }),
         customer: model({
             table: customerModelName,
@@ -80,7 +90,11 @@ export const getKuluPayTables = (options: KuluPayOptions) => {
                 createdAt: datetime(),
                 updatedAt: datetime(),
                 ...buildAdditionalFields(options.customer?.additionalFields),
-            }
+            },
+            relations: {
+                payments: hasMany("payment", { foreignKey: "customerId" }),
+                subscriptions: hasMany("subscription", { foreignKey: "userId" }),
+            },
         }),
         subscription: model({
             table: subscriptionModelName,
@@ -95,7 +109,15 @@ export const getKuluPayTables = (options: KuluPayOptions) => {
                 createdAt: datetime(),
                 updatedAt: datetime(),
                 ...buildAdditionalFields(options.subscription?.additionalFields),
-            }
+            },
+            constraints: {
+                indexes: [
+                    ["userId", "status"],
+                ],
+            },
+            relations: {
+                customer: belongsTo("customer", { foreignKey: "userId" }),
+            },
         })
     });
 };

@@ -144,9 +144,27 @@ export function createPayClient(options: PayClientOptions) {
             const result = await provider.confirmPayment(secret, {
                 ...opts,
                 paymentMethodData: current.raw,
+                intentId: current.id,
             });
-            client.$intent.set({ data: { ...current, ...result }, error: null, isPending: false });
-            return { data: result, error: null };
+
+            const txHash = result.metadata?.txHash;
+            if (txHash) {
+                try {
+                    const confirmResult = await client.confirmIntent({
+                        body: { intentId: current.id, txHash, clientSecret: secret },
+                    });
+                    if (confirmResult?.data) {
+                        client.$intent.set({ data: { ...current, ...result, ...confirmResult.data, id: current.id }, error: null, isPending: false });
+                    } else {
+                        client.$intent.set({ data: { ...current, ...result, id: current.id }, error: null, isPending: false });
+                    }
+                } catch (confirmErr) {
+                    client.$intent.set({ data: { ...current, ...result, id: current.id }, error: null, isPending: false });
+                }
+            } else {
+                client.$intent.set({ data: { ...current, ...result, id: current.id }, error: null, isPending: false });
+            }
+            return { data: { ...result, id: current.id }, error: null };
         } catch (err: any) {
             const e = err instanceof KuluPayClientError
                 ? err
@@ -165,25 +183,29 @@ export function createPayClient(options: PayClientOptions) {
         providerId: string;
         intentId?: string;
     }): Promise<{ data: PaymentIntent | null; error: KuluPayClientError | null }> => {
-        const { providerId } = data;
-
         const current = client.$intent.get().data;
 
         const secret = current?.clientSecret || current?.id;
-        if (!secret) {
+        const intentId = data.intentId || current?.id;
+        if (!secret || !intentId) {
             return { data: null, error: new KuluPayClientError("NO_INTENT", "Call createIntent first.", 400) };
-        }
-
-        const provider = getProviderForId(providerId);
-        if (!provider?.verifyPayment) {
-            return { data: null, error: new KuluPayClientError("NOT_SUPPORTED", "Provider doesn't support verification.", 400) };
         }
 
         client.$intent.set({ data: current, error: null, isPending: true });
         try {
-            const result = await provider.verifyPayment(secret);
-            client.$intent.set({ data: result, error: null, isPending: false });
-            return { data: result, error: null };
+            const result = await client.verifyIntent({
+                intentId,
+                clientSecret: secret,
+            });
+
+            if (result?.data) {
+                const verified = result.data as PaymentIntent;
+                client.$intent.set({ data: { ...current, ...verified, id: current?.id || verified.id }, error: null, isPending: false });
+                return { data: { ...verified, id: current?.id || verified.id }, error: null };
+            } else {
+                client.$intent.set({ data: current, error: null, isPending: false });
+                return { data: current, error: null };
+            }
         } catch (err: any) {
             const e = err instanceof KuluPayClientError
                 ? err

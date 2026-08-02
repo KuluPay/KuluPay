@@ -100,6 +100,13 @@
                                                            "require":  "./dist/payment-providers/blockchain/index.js",
                                                            "default":  "./dist/payment-providers/blockchain/index.mjs"
                                                        },
+                    "./checkout":  {
+                                       "dev-source":  "./src/checkout/index.ts",
+                                       "types":  "./dist/checkout/index.d.ts",
+                                       "import":  "./dist/checkout/index.mjs",
+                                       "require":  "./dist/checkout/index.js",
+                                       "default":  "./dist/checkout/index.mjs"
+                                   },
                     "./utils":  {
                                     "dev-source":  "./src/utils/index.ts",
                                     "types":  "./dist/utils/index.d.ts",
@@ -143,6 +150,9 @@
                                     "payment-providers/blockchain":  [
                                                                          "./dist/payment-providers/blockchain/index.d.ts"
                                                                      ],
+                                    "checkout":  [
+                                                     "./dist/checkout/index.d.ts"
+                                                 ],
                                     "utils":  [
                                                   "./dist/utils/index.d.ts"
                                               ]
@@ -168,6 +178,7 @@
                          "zod":  "^4.0.0",
                          "better-call":  "latest",
                          "@farming-labs/orm":  "latest",
+                         "@farming-labs/orm-sql":  "latest",
                          "@better-fetch/fetch":  "latest"
                      },
     "peerDependencies":  {

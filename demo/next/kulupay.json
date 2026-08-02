@@ -6,7 +6,9 @@
   "clientPath": "lib/pay-client.ts",
   "routePath": "app/api/pay/[...kulupay]/route.ts",
   "baseURL": "http://localhost:3000",
-  "providers": [],
+  "providers": [
+    "evm-eth"
+  ],
   "database": {
     "type": "drizzle"
   }

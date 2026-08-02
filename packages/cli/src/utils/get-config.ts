@@ -2,6 +2,27 @@ import fs, { existsSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 
+function loadEnvFiles(cwd: string) {
+    const envFiles = [".env", ".env.local"];
+    for (const file of envFiles) {
+        const envPath = path.join(cwd, file);
+        if (existsSync(envPath)) {
+            const content = fs.readFileSync(envPath, "utf-8");
+            for (const line of content.split("\n")) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith("#")) continue;
+                const eqIndex = trimmed.indexOf("=");
+                if (eqIndex === -1) continue;
+                const key = trimmed.slice(0, eqIndex).trim();
+                const value = trimmed.slice(eqIndex + 1).trim();
+                if (!process.env[key]) {
+                    process.env[key] = value;
+                }
+            }
+        }
+    }
+}
+
 let possiblePaths = [
     "pay.ts",
     "pay.js",
@@ -36,6 +57,7 @@ export async function getConfig({
     cwd: string;
     configPath?: string;
 }): Promise<KuluPayConfigResult | null> {
+    loadEnvFiles(cwd);
     try {
         if (configPath) {
             const resolvedPath = path.resolve(cwd, configPath);
