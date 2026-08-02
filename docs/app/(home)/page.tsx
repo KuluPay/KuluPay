@@ -35,19 +35,18 @@ export default function HomePage() {
                     lib/pay.ts
                   </div>
                   <pre className="px-4 py-3 text-[12px] font-mono leading-relaxed overflow-x-auto">
-                    <code>
-                      <span className="text-purple-600 dark:text-purple-400">import</span>{' '}
-                      <span className="text-neutral-700 dark:text-neutral-300">{'{ kuluPay, createPgPoolDriver }'}</span>{' '}
-                      <span className="text-purple-600 dark:text-purple-400">from</span>{' '}
-                      <span className="text-emerald-600 dark:text-emerald-400">'@kulupay/kulupay'</span>;{'\n\n'}
-                      <span className="text-purple-600 dark:text-purple-400">export const</span>{' '}
-                      <span className="text-neutral-700 dark:text-neutral-300">pay</span> ={' '}
-                      <span className="text-blue-600 dark:text-blue-400">kuluPay</span>({'{'}
-                      {'\n  '}
-                      providers: {'{'} stripe, paypal, chapa {'}'},{'\n  '}
-                      database: <span className="text-blue-600 dark:text-blue-400">createPgPoolDriver</span>(process.env.DATABASE_URL!),{'\n  '}
-                      {'\}'});
-                    </code>
+                    <code>{`import { kuluPay } from '@kulupay/kulupay';
+import { pg } from '@kulupay/adapter-sql';
+import { stripe, chapa } from '@kulupay/kulupay/providers';
+import { Pool } from 'pg';
+
+export const pay = kuluPay({
+  providers: [
+    stripe({ apiKey: process.env.STRIPE_API_KEY! }),
+    chapa({ apiKey: process.env.CHAPA_API_KEY! }),
+  ],
+  database: pg(new Pool({ connectionString: process.env.DATABASE_URL! })),
+});`}</code>
                   </pre>
                 </div>
               </div>
