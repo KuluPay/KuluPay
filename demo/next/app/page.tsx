@@ -8,7 +8,7 @@ export default function Home() {
   const router = useRouter();
   const [amount, setAmount] = useState("10.00");
   const [currency, setCurrency] = useState("USD");
-  const [providerId, setProviderId] = useState("evm-eth");
+  const [providerId, setProviderId] = useState("ethereum-usdc");
   const [description, setDescription] = useState("Test payment");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +91,25 @@ export default function Home() {
             onChange={(e) => setProviderId(e.target.value)}
             style={inputStyle}
           >
-            <option value="evm-eth">Ethereum (ETH)</option>
+            <optgroup label="Ethereum">
+              <option value="ethereum-usdc">Ethereum (USDC)</option>
+              <option value="ethereum-usdt">Ethereum (USDT)</option>
+            </optgroup>
+            <optgroup label="Base">
+              <option value="base-usdc">Base (USDC)</option>
+              <option value="base-usdt">Base (USDT)</option>
+            </optgroup>
+            <optgroup label="Polygon">
+              <option value="polygon-usdc">Polygon (USDC)</option>
+              <option value="polygon-usdt">Polygon (USDT)</option>
+            </optgroup>
+            <optgroup label="Arbitrum">
+              <option value="arbitrum-usdc">Arbitrum (USDC)</option>
+              <option value="arbitrum-usdt">Arbitrum (USDT)</option>
+            </optgroup>
+            <optgroup label="Tron">
+              <option value="tron-usdt">Tron (USDT)</option>
+            </optgroup>
           </select>
         </div>
 

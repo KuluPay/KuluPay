@@ -99,6 +99,20 @@
                                       "import":  "./dist/checkout/index.mjs",
                                       "require":  "./dist/checkout/index.js",
                                       "default":  "./dist/checkout/index.mjs"
+                                  },
+                    "./checkout/react":  {
+                                      "dev-source":  "./src/checkout/react/index.tsx",
+                                      "types":  "./dist/checkout/react/index.d.ts",
+                                      "import":  "./dist/checkout/react/index.mjs",
+                                      "require":  "./dist/checkout/react/index.js",
+                                      "default":  "./dist/checkout/react/index.mjs"
+                                  },
+                    "./checkout/vue":  {
+                                      "dev-source":  "./src/checkout/vue/index.ts",
+                                      "types":  "./dist/checkout/vue/index.d.ts",
+                                      "import":  "./dist/checkout/vue/index.mjs",
+                                      "require":  "./dist/checkout/vue/index.js",
+                                      "default":  "./dist/checkout/vue/index.mjs"
                                   }
                 },
     "typesVersions":  {
@@ -135,6 +149,12 @@
                                                              ],
                                     "checkout":  [
                                                      "./dist/checkout/index.d.ts"
+                                                 ],
+                                    "checkout/react":  [
+                                                     "./dist/checkout/react/index.d.ts"
+                                                 ],
+                                    "checkout/vue":  [
+                                                     "./dist/checkout/vue/index.d.ts"
                                                  ]
                                 }
                       },
@@ -160,15 +180,20 @@
                          "nanostores": "^0.11.0"
                      },
     "peerDependencies":  {
-                             "react":  "^18.0.0 || ^19.0.0"
+                             "react":  "^18.0.0 || ^19.0.0",
+                             "vue":  "^3.0.0"
                          },
     "peerDependenciesMeta":  {
                                  "react":  {
                                                "optional":  true
-                                           }
+                                           },
+                                 "vue":  {
+                                             "optional":  true
+                                         }
                              },
     "devDependencies":  {
                             "tsup":  "^8.0.0",
-                            "@types/react":  "^18.0.0 || ^19.0.0"
+                            "@types/react":  "^18.0.0 || ^19.0.0",
+                            "vue":  "^3.5.0"
                         }
 }

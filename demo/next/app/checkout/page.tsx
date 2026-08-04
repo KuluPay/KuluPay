@@ -1,7 +1,7 @@
 "use client";
 
 import { use, Suspense } from "react";
-import { CheckoutPage } from "@kulupay/kulupay/checkout";
+import { CheckoutPage } from "@kulupay/kulupay/checkout/react";
 import { payClient } from "@/lib/pay-client";
 
 function CheckoutContent({ searchParams }: { searchParams: Promise<{ intentId?: string; clientSecret?: string }> }) {
@@ -25,6 +25,8 @@ function CheckoutContent({ searchParams }: { searchParams: Promise<{ intentId?: 
       intentId={intentId}
       clientSecret={clientSecret}
       client={payClient as any}
+      merchantName="KuluPay Demo"
+      theme="light"
     />
   );
 }

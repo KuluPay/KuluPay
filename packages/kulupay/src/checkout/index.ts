@@ -1,8 +1,20 @@
-export { CheckoutPage } from "./checkout-page";
-export type { CheckoutPageProps } from "./checkout-page";
-export type { CheckoutIntentData, CheckoutProps, PayClientLike } from "./types";
+// Framework-agnostic checkout core.
+// React binding: @kulupay/kulupay/checkout/react
+// Vue binding:   @kulupay/kulupay/checkout/vue
+export {
+    createCheckout,
+    mountCheckout,
+    detectWallets,
+    connectWallet,
+    sendPayment,
+    type CheckoutController,
+    type CheckoutState,
+    type CheckoutStep,
+    type CreateCheckoutOptions,
+    type MountCheckoutOptions,
+    type CheckoutHandle,
+    type WalletInfo,
+} from "./core";
+export type { CheckoutIntentData, PayClientLike } from "./types";
 export type { CheckoutFlow } from "@kulupay/core";
 export { formatAmount, formatTokenAmount, shortenAddress, timeRemaining } from "./types";
-export { EVMCheckout } from "./evm-checkout";
-export { TronCheckout } from "./tron-checkout";
-export { RedirectCheckout } from "./redirect-checkout";

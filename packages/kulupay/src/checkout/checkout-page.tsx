@@ -74,7 +74,7 @@ export function CheckoutPage({ intentId, clientSecret, client }: CheckoutPagePro
       <div style={centerStyle}>
         <div style={{ textAlign: "center" }}>
           <div style={spinnerStyle} />
-          <p style={{ color: "#888" }}>Loading checkout...</p>
+          <p style={{ color: "#a1a1aa", fontSize: 15 }}>Loading checkout...</p>
         </div>
       </div>
     );
@@ -83,9 +83,10 @@ export function CheckoutPage({ intentId, clientSecret, client }: CheckoutPagePro
   if (error) {
     return (
       <div style={centerStyle}>
-        <div style={{ textAlign: "center", maxWidth: 400 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Checkout Error</h1>
-          <p style={{ color: "#888" }}>{error}</p>
+        <div style={{ ...cardStyle, textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚠</div>
+          <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: "#fafafa" }}>Checkout Error</h1>
+          <p style={{ color: "#a1a1aa", fontSize: 14, lineHeight: 1.5 }}>{error}</p>
         </div>
       </div>
     );
@@ -96,11 +97,15 @@ export function CheckoutPage({ intentId, clientSecret, client }: CheckoutPagePro
   if (intent.status === "succeeded") {
     return (
       <div style={centerStyle}>
-        <div style={{ textAlign: "center", maxWidth: 400 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>✓</div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Payment Succeeded</h1>
-          <p style={{ color: "#888", fontSize: 14 }}>{formatAmount(intent.amount, intent.currency)} paid via {intent.providerId}</p>
-          {intent.txHash && <p style={{ color: "#555", fontSize: 12, marginTop: 8, wordBreak: "break-all" }}>TX: {intent.txHash}</p>}
+        <div style={{ ...cardStyle, textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16, color: "#22c55e" }}>✓</div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#fafafa" }}>Payment Succeeded</h1>
+          <p style={{ color: "#a1a1aa", fontSize: 15 }}>{formatAmount(intent.amount, intent.currency)} paid via {intent.providerId}</p>
+          {intent.txHash && (
+            <p style={{ color: "#71717a", fontSize: 12, marginTop: 12, wordBreak: "break-all", fontFamily: "monospace" }}>
+              TX: {intent.txHash}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -109,10 +114,10 @@ export function CheckoutPage({ intentId, clientSecret, client }: CheckoutPagePro
   if (intent.status === "expired") {
     return (
       <div style={centerStyle}>
-        <div style={{ textAlign: "center", maxWidth: 400 }}>
+        <div style={{ ...cardStyle, textAlign: "center" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>⏰</div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Payment Expired</h1>
-          <p style={{ color: "#888", fontSize: 14 }}>This payment link has expired. Please create a new one.</p>
+          <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#fafafa" }}>Payment Expired</h1>
+          <p style={{ color: "#a1a1aa", fontSize: 14, lineHeight: 1.5 }}>This payment link has expired. Please create a new one.</p>
         </div>
       </div>
     );
@@ -130,11 +135,13 @@ export function CheckoutPage({ intentId, clientSecret, client }: CheckoutPagePro
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 16 }}>
-      <div style={{ width: "100%", maxWidth: 420, background: "#141414", borderRadius: 16, border: "1px solid #262626", padding: 24 }}>
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Pay {formatAmount(intent.amount, intent.currency)}</h1>
-          {intent.description && <p style={{ fontSize: 14, color: "#888" }}>{intent.description}</p>}
+    <div style={centerStyle}>
+      <div style={cardStyle}>
+        <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid #27272a" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4, color: "#fafafa" }}>
+            Pay {formatAmount(intent.amount, intent.currency)}
+          </h1>
+          {intent.description && <p style={{ fontSize: 14, color: "#a1a1aa" }}>{intent.description}</p>}
         </div>
 
         {flow === "self-hosted" && isEVM && <EVMCheckout {...sharedProps} />}
@@ -142,12 +149,12 @@ export function CheckoutPage({ intentId, clientSecret, client }: CheckoutPagePro
         {flow === "redirect" && <RedirectCheckout {...sharedProps} />}
         {flow === "embedded" && (
           <div style={{ textAlign: "center", padding: 24 }}>
-            <p style={{ color: "#888" }}>Embedded checkout not yet supported for {intent.providerId}</p>
+            <p style={{ color: "#a1a1aa", fontSize: 14 }}>Embedded checkout not yet supported for {intent.providerId}</p>
           </div>
         )}
         {flow === "none" && (
           <div style={{ textAlign: "center", padding: 24 }}>
-            <p style={{ color: "#888" }}>No checkout UI available for {intent.providerId}</p>
+            <p style={{ color: "#a1a1aa", fontSize: 14 }}>No checkout UI available for {intent.providerId}</p>
           </div>
         )}
       </div>
@@ -160,12 +167,24 @@ const centerStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   minHeight: "100vh",
+  background: "#09090b",
+  padding: 16,
+};
+
+const cardStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 440,
+  background: "#18181b",
+  borderRadius: 16,
+  border: "1px solid #27272a",
+  padding: 28,
+  boxShadow: "0 0 0 1px rgba(255,255,255,0.02), 0 8px 32px rgba(0,0,0,0.4)",
 };
 
 const spinnerStyle: React.CSSProperties = {
   width: 32,
   height: 32,
-  border: "3px solid #333",
+  border: "3px solid #27272a",
   borderTopColor: "#fafafa",
   borderRadius: "50%",
   margin: "0 auto 16px",

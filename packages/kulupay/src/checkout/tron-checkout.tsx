@@ -126,10 +126,15 @@ export function TronCheckout({ intent, client, onStartPolling, onUpdateStatus }:
 
   if (intent.status === "pending_confirmation") {
     return (
-      <div style={{ padding: 16, background: "#1a1a2e", borderRadius: 12, border: "1px solid #3030a0", textAlign: "center", marginBottom: 16 }}>
-        <div style={{ fontSize: 14, color: "#a0a0ff", marginBottom: 4 }}>Waiting for confirmations</div>
+      <div style={pendingStyle}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, justifyContent: "center" }}>
+          <div style={{ width: 16, height: 16, border: "2px solid #a0a0ff", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+          <span style={{ fontSize: 15, color: "#a0a0ff", fontWeight: 600 }}>Waiting for confirmations</span>
+        </div>
         {txHash && (
-          <div style={{ fontSize: 12, color: "#666", wordBreak: "break-all" }}>TX: {shortenAddress(txHash, 10)}</div>
+          <div style={{ fontSize: 12, color: "#71717a", wordBreak: "break-all", fontFamily: "monospace", textAlign: "center" }}>
+            TX: {shortenAddress(txHash, 10)}
+          </div>
         )}
       </div>
     );
@@ -137,48 +142,147 @@ export function TronCheckout({ intent, client, onStartPolling, onUpdateStatus }:
 
   return (
     <div>
-      <div style={{ marginBottom: 16, padding: 12, background: "#1a1a1a", borderRadius: 8, fontSize: 13 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-          <span style={{ color: "#888" }}>Network</span>
-          <span style={{ fontWeight: 600 }}>{intent.network?.name || "Tron"}</span>
+      <div style={infoCardStyle}>
+        <div style={infoRowStyle}>
+          <span style={infoLabelStyle}>Network</span>
+          <span style={infoValueStyle}>{intent.network?.name || "Tron"}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ color: "#888" }}>Recipient</span>
-          <span style={{ fontFamily: "monospace", fontSize: 12 }}>{shortenAddress(intent.recipient || intent.raw?.to || "")}</span>
+        <div style={infoRowStyle}>
+          <span style={infoLabelStyle}>Recipient</span>
+          <span style={{ ...infoValueStyle, fontFamily: "monospace", fontSize: 12 }}>{shortenAddress(intent.recipient || intent.raw?.to || "")}</span>
         </div>
         {intent.token?.symbol && (
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-            <span style={{ color: "#888" }}>Token</span>
-            <span style={{ fontWeight: 600 }}>{intent.token.symbol}</span>
+          <div style={infoRowStyle}>
+            <span style={infoLabelStyle}>Token</span>
+            <span style={infoValueStyle}>{intent.token.symbol}</span>
           </div>
         )}
       </div>
 
       {!connected ? (
         <div>
-          <p style={{ fontSize: 14, color: "#888", marginBottom: 12 }}>Connect TronLink to pay</p>
-          <button onClick={connect} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1px solid #eb2f2f", background: "#1a0a0a", color: "#eb2f2f", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+          <p style={{ fontSize: 14, color: "#a1a1aa", marginBottom: 14, fontWeight: 500 }}>Connect TronLink to pay</p>
+          <button onClick={connect} style={tronConnectBtnStyle}>
             Connect TronLink
           </button>
         </div>
       ) : (
         <div>
-          <div style={{ padding: 12, background: "#0d1f0d", borderRadius: 8, border: "1px solid #1a3a1a", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ color: "#22c55e", fontSize: 14, fontWeight: 600 }}>TronLink connected</span>
-            <span style={{ fontFamily: "monospace", fontSize: 12, color: "#888" }}>{shortenAddress(address || "")}</span>
+          <div style={connectedBoxStyle}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
+              <span style={{ color: "#22c55e", fontSize: 14, fontWeight: 600 }}>TronLink connected</span>
+            </div>
+            <span style={{ fontFamily: "monospace", fontSize: 12, color: "#a1a1aa" }}>{shortenAddress(address || "")}</span>
           </div>
-          <button onClick={pay} disabled={paying} style={{ width: "100%", padding: "14px 24px", borderRadius: 10, border: "none", background: paying ? "#333" : "#fafafa", color: paying ? "#888" : "#0a0a0a", fontSize: 16, fontWeight: 600, cursor: paying ? "not-allowed" : "pointer" }}>
+          <button onClick={pay} disabled={paying} style={payBtnStyle(paying)}>
             {paying ? "Confirm in TronLink..." : `Pay ${formatAmount(intent.amount, intent.currency)}`}
           </button>
         </div>
       )}
 
       {error && (
-        <div style={{ marginTop: 16, padding: 12, background: "#2a0d0d", borderRadius: 8, border: "1px solid #5a1a1a", fontSize: 13, color: "#ff6b6b" }}>
-          {error}
-        </div>
+        <div style={errorBoxStyle}>{error}</div>
       )}
-      <p style={{ marginTop: 16, fontSize: 11, color: "#555" }}>Send the exact amount in USDT. No refunds for wrong amounts or wrong chains.</p>
+      <div style={warningStyle}>
+        <span style={{ marginRight: 6 }}>⚠</span>
+        Send the exact amount in USDT. No refunds for wrong amounts or wrong chains.
+      </div>
     </div>
   );
 }
+
+const infoCardStyle: React.CSSProperties = {
+  marginBottom: 20,
+  padding: 16,
+  background: "#09090b",
+  borderRadius: 12,
+  border: "1px solid #27272a",
+};
+
+const infoRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "6px 0",
+};
+
+const infoLabelStyle: React.CSSProperties = {
+  color: "#71717a",
+  fontSize: 13,
+  fontWeight: 500,
+};
+
+const infoValueStyle: React.CSSProperties = {
+  fontWeight: 600,
+  fontSize: 13,
+  color: "#fafafa",
+};
+
+const pendingStyle: React.CSSProperties = {
+  padding: 20,
+  background: "#0a0a1a",
+  borderRadius: 12,
+  border: "1px solid #27273a",
+  textAlign: "center",
+  marginBottom: 16,
+};
+
+const tronConnectBtnStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "14px 16px",
+  borderRadius: 12,
+  border: "1px solid #eb2f2f",
+  background: "#1a0a0a",
+  color: "#eb2f2f",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 600,
+};
+
+const connectedBoxStyle: React.CSSProperties = {
+  padding: 14,
+  background: "#0a1f0a",
+  borderRadius: 12,
+  border: "1px solid #1a3a1a",
+  marginBottom: 16,
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const payBtnStyle = (disabled: boolean): React.CSSProperties => ({
+  width: "100%",
+  padding: "16px 24px",
+  borderRadius: 12,
+  border: "none",
+  background: disabled ? "#3f3f46" : "#fafafa",
+  color: disabled ? "#71717a" : "#09090b",
+  fontSize: 16,
+  fontWeight: 700,
+  cursor: disabled ? "not-allowed" : "pointer",
+});
+
+const errorBoxStyle: React.CSSProperties = {
+  marginTop: 16,
+  padding: 14,
+  background: "#2a0d0d",
+  borderRadius: 12,
+  border: "1px solid #5a1a1a",
+  fontSize: 13,
+  color: "#ff6b6b",
+  lineHeight: 1.5,
+};
+
+const warningStyle: React.CSSProperties = {
+  marginTop: 20,
+  padding: "12px 14px",
+  background: "#1a1505",
+  borderRadius: 10,
+  border: "1px solid #3a3010",
+  fontSize: 12,
+  color: "#a8a060",
+  lineHeight: 1.5,
+  display: "flex",
+  alignItems: "flex-start",
+};
