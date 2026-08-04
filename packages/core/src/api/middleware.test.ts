@@ -117,7 +117,7 @@ describe("Middleware", () => {
                 await sessionMiddleware(mockCtx);
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
-                expect((error as KuluPayAPIError).status).toBe(401);
+                expect((error as KuluPayAPIError).statusCode).toBe(401);
                 expect((error as KuluPayAPIError).code).toBe("UNAUTHORIZED");
             }
         });
@@ -161,7 +161,7 @@ describe("Middleware", () => {
                 expect.fail("Should have thrown");
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
-                expect((error as KuluPayAPIError).status).toBe(403);
+                expect((error as KuluPayAPIError).statusCode).toBe(403);
                 expect((error as KuluPayAPIError).code).toBe("INVALID_ORIGIN");
             }
         });
@@ -266,7 +266,7 @@ describe("Middleware", () => {
                 expect.fail("Should have thrown");
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
-                expect((error as KuluPayAPIError).status).toBe(403);
+                expect((error as KuluPayAPIError).statusCode).toBe(403);
                 expect((error as KuluPayAPIError).code).toBe("FORBIDDEN");
             }
         });
@@ -286,7 +286,7 @@ describe("Middleware", () => {
                 expect.fail("Should have thrown");
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
-                expect((error as KuluPayAPIError).status).toBe(404);
+                expect((error as KuluPayAPIError).statusCode).toBe(404);
                 expect((error as KuluPayAPIError).code).toBe("PAYMENT_NOT_FOUND");
             }
         });
@@ -303,7 +303,7 @@ describe("Middleware", () => {
                 expect.fail("Should have thrown");
             } catch (error) {
                 expect(error instanceof KuluPayAPIError).toBe(true);
-                expect((error as KuluPayAPIError).status).toBe(401);
+                expect((error as KuluPayAPIError).statusCode).toBe(401);
                 expect((error as KuluPayAPIError).code).toBe("UNAUTHORIZED");
             }
         });

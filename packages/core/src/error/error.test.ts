@@ -128,7 +128,7 @@ describe("KuluPayAPIError", () => {
             expect(error.status).toBe(400);
             expect(error.code).toBe("TEST_ERROR");
             expect(error.message).toBe("Test message");
-            expect(error.name).toBe("KuluPayAPIError");
+            expect(error.name).toBe("APIError");
             expect(error instanceof Error).toBe(true);
         });
 

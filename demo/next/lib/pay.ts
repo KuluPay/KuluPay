@@ -7,12 +7,22 @@ export const pay = kuluPay({
   providers: {
     ethereum: {
       recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
-      tokens: ["USDC"],
+      tokens: ["USDC", "USDT"],
       testnet: false,
     },
     base: {
       recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
-      tokens: ["USDC"],
+      tokens: ["USDC", "USDT"],
+      testnet: false,
+    },
+    polygon: {
+      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
+      tokens: ["USDC", "USDT"],
+      testnet: false,
+    },
+    arbitrum: {
+      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
+      tokens: ["USDC", "USDT"],
       testnet: false,
     },
     tron: {

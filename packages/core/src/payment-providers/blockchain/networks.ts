@@ -74,11 +74,72 @@ export const NETWORKS: Record<string, ChainNetworks> = {
         nativeToken: { symbol: "ETH", decimals: 18 },
         wellKnownTokens: {
             USDC: { symbol: "USDC", decimals: 6, contractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
+            USDT: { symbol: "USDT", decimals: 6, contractAddress: "0xfde4C96c8593536E48F009057c3506A64e3BEC0A" },
         },
         testnetTokens: {
             "base-sepolia": {
                 USDC: { symbol: "USDC", decimals: 6, contractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
             },
+        },
+    },
+    polygon: {
+        family: "evm",
+        displayName: "Polygon",
+        mainnet: {
+            chainId: 137,
+            name: "polygon",
+            rpcUrl: "https://polygon-rpc.com",
+            explorerUrl: "https://polygonscan.com",
+            isTestnet: false,
+        },
+        testnets: {
+            amoy: {
+                chainId: 80002,
+                name: "polygon-amoy",
+                rpcUrl: "https://rpc-amoy.polygon.technology",
+                explorerUrl: "https://amoy.polygonscan.com",
+                isTestnet: true,
+                faucetUrl: "https://faucet.polygon.technology",
+            },
+        },
+        nativeToken: { symbol: "MATIC", decimals: 18 },
+        wellKnownTokens: {
+            USDC: { symbol: "USDC", decimals: 6, contractAddress: "0x3c499c542cEF5E3811e1192ce70d8cC0325B11B8" },
+            USDT: { symbol: "USDT", decimals: 6, contractAddress: "0xc2132D05D31c914a87C6611C10748AEb04B8e2Fb" },
+        },
+        testnetTokens: {
+            amoy: {
+                USDC: { symbol: "USDC", decimals: 6, contractAddress: "0x41E94Eb019C0762f9Bfcf9Fb1E587cB53aF3F647" },
+            },
+        },
+    },
+    arbitrum: {
+        family: "evm",
+        displayName: "Arbitrum",
+        mainnet: {
+            chainId: 42161,
+            name: "arbitrum",
+            rpcUrl: "https://arb1.arbitrum.io/rpc",
+            explorerUrl: "https://arbiscan.io",
+            isTestnet: false,
+        },
+        testnets: {
+            sepolia: {
+                chainId: 421614,
+                name: "arbitrum-sepolia",
+                rpcUrl: "https://sepolia-rollup.arbitrum.io/rpc",
+                explorerUrl: "https://sepolia.arbiscan.io",
+                isTestnet: true,
+                faucetUrl: "https://www.alchemy.com/faucets/arbitrum-sepolia",
+            },
+        },
+        nativeToken: { symbol: "ETH", decimals: 18 },
+        wellKnownTokens: {
+            USDC: { symbol: "USDC", decimals: 6, contractAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" },
+            USDT: { symbol: "USDT", decimals: 6, contractAddress: "0xFd086bC7CD5C481DCC9C85bE478A1C0b69FCbb9f" },
+        },
+        testnetTokens: {
+            sepolia: {},
         },
     },
     tron: {
@@ -128,7 +189,12 @@ export type ChainKey = keyof typeof NETWORKS;
 
 export const CHAIN_ALIASES: Record<string, ChainKey> = {
     eth: "ethereum",
+    ethereum: "ethereum",
     base: "base",
+    polygon: "polygon",
+    matic: "polygon",
+    arbitrum: "arbitrum",
+    arb: "arbitrum",
     tron: "tron",
 };
 

@@ -80,12 +80,12 @@ export const createKuluPayEndpoint = <
                 const apiError =
                     error instanceof KuluPayAPIError
                         ? error
-                        : error && typeof error === "object" && "status" in error && "code" in error
+                        : error && typeof error === "object" && "statusCode" in error && "body" in error
                             ? (error as KuluPayAPIError)
                             : null;
                 if (apiError) {
-                    return new Response(JSON.stringify(apiError.toJSON()), {
-                        status: apiError.status,
+                    return new Response(JSON.stringify(apiError.body), {
+                        status: apiError.statusCode,
                         headers: { "Content-Type": "application/json" },
                     });
                 }

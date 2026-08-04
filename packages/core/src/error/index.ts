@@ -1,3 +1,4 @@
+import { APIError } from "better-call";
 import { KULUPAY_ERROR_CODES } from "./codes";
 import type { KuluPayErrorCode } from "./codes";
 
@@ -25,15 +26,22 @@ export class ValidationError extends KuluPayError {
     }
 }
 
-export class KuluPayAPIError extends Error {
+export class KuluPayAPIError extends APIError {
     constructor(
-        public status: number,
+        status: number,
         public code: string,
         message: string,
         public data?: any,
     ) {
-        super(message);
-        this.name = "KuluPayAPIError";
+        super(status as any, {
+            message,
+            error: {
+                code,
+                message,
+                ...(data ? { data } : {}),
+            },
+        });
+        this.name = "APIError";
     }
 
     static from(
@@ -96,11 +104,7 @@ export class KuluPayAPIError extends Error {
 
     toJSON() {
         return {
-            error: {
-                code: this.code,
-                message: this.message,
-                ...(this.data ? { data: this.data } : {}),
-            },
+            error: (this.body as { error: { code: string; message: string; data?: any } }).error,
         };
     }
 }
