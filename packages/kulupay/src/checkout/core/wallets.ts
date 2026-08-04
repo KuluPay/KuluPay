@@ -80,7 +80,9 @@ export async function sendPayment(
     address: string,
     intent: CheckoutIntentData,
 ): Promise<string> {
-    const recipient = intent.recipient || intent.raw?.to;
+    // raw might be at top-level or nested inside metadata (depending on DB serialization)
+    const raw = intent.raw || (intent.metadata as any)?.raw;
+    const recipient = intent.recipient || raw?.to;
     if (!recipient) throw new Error("Missing recipient address");
     const token = intent.token;
 
@@ -89,11 +91,11 @@ export async function sendPayment(
         if (!tw) throw new Error("TronWeb not available");
         const from = tw.defaultAddress.base58;
 
-        if (token?.address) {
+        if (token?.contractAddress) {
             const decimals = token.decimals || 6;
             const rawAmount = Math.floor((intent.amount / 100) * Math.pow(10, decimals));
             const { transaction } = await tw.transactionBuilder.triggerSmartContract(
-                token.address,
+                token.contractAddress,
                 "transfer(address,uint256)",
                 { feeLimit: 100_000_000 },
                 [
@@ -113,19 +115,34 @@ export async function sendPayment(
     const provider = getEvmProvider(wallet.id);
     if (!provider) throw new Error("Wallet provider not available");
 
-    if (intent.raw?.data && intent.raw.data !== "0x") {
+    // ERC-20 token transfer — raw.data contains the encoded transfer call
+    if (raw?.data && raw.data !== "0x") {
         return provider.request({
             method: "eth_sendTransaction",
             params: [{
                 from: address,
-                to: intent.raw.to,
-                value: "0x" + BigInt(intent.raw.value || 0).toString(16),
-                data: intent.raw.data,
+                to: raw.to,
+                value: "0x" + BigInt(raw.value || 0).toString(16),
+                data: raw.data,
             }],
         });
     }
 
-    if (token?.address) {
+    // Native ETH transfer — simple value transfer to recipient
+    if (raw?.to && raw?.value) {
+        return provider.request({
+            method: "eth_sendTransaction",
+            params: [{
+                from: address,
+                to: raw.to,
+                value: "0x" + BigInt(raw.value).toString(16),
+                data: "0x",
+            }],
+        });
+    }
+
+    // Fallback: ERC-20 transfer constructed from token metadata
+    if (token?.contractAddress) {
         const decimals = token.decimals || 6;
         const rawAmount = BigInt(intent.amount) * BigInt(10 ** (decimals - 2));
         const transferData =
@@ -134,9 +151,9 @@ export async function sendPayment(
             rawAmount.toString(16).padStart(64, "0");
         return provider.request({
             method: "eth_sendTransaction",
-            params: [{ from: address, to: token.address, value: "0x0", data: transferData }],
+            params: [{ from: address, to: token.contractAddress, value: "0x0", data: transferData }],
         });
     }
 
-    throw new Error("Native token payments require raw transaction data");
+    throw new Error("No valid payment method found in intent data");
 }
