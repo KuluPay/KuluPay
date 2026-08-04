@@ -113,7 +113,7 @@ export const createIntent = createKuluPayEndpoint(
                 currency: intent.currency,
                 status: intent.status,
                 providerId,
-                metadata: intent.metadata || body.metadata || {},
+                metadata: { ...(intent.metadata || body.metadata || {}), raw: intent.raw },
                 type: intent.type || body.type || "one_time",
                 description: intent.description || body.description || null,
                 customerId: customerId || body.customerId || null,
@@ -440,7 +440,7 @@ export const checkoutIntent = createKuluPayEndpoint(
             deadline: metadata?.deadline || null,
             recipient: metadata?.recipient || metadata?.to || null,
             token: metadata?.token || null,
-            network: metadata?.network || null,
+            network: metadata?.network || (metadata?.chain ? { name: metadata.chain, family: metadata.family } : null),
             signature: metadata?.signature || null,
             contractAddress: metadata?.contractAddress || null,
         };

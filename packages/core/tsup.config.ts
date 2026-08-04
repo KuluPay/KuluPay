@@ -15,6 +15,7 @@ export default defineConfig({
     "src/payment-providers/blockchain/index.ts",
     "src/checkout/index.ts",
     "src/utils/index.ts",
+    "src/test-utils/test-instance.ts",
   ],
   format: ["cjs", "esm"],
   dts: true,

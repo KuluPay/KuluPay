@@ -76,7 +76,18 @@ export function EVMCheckout({ intent, client, onStartPolling, onUpdateStatus }: 
 
       let hash: string;
 
-      if (token?.address) {
+      if (intent.raw?.data && intent.raw.data !== "0x") {
+        // Use the exact transaction data computed by the provider
+        hash = await eth.request({
+          method: "eth_sendTransaction",
+          params: [{
+            from,
+            to: intent.raw.to,
+            value: "0x" + BigInt(intent.raw.value || 0).toString(16),
+            data: intent.raw.data,
+          }],
+        });
+      } else if (token?.address) {
         const decimals = token.decimals || 6;
         const rawAmount = BigInt(intent.amount) * BigInt(10 ** (decimals - 2));
         const transferData =
@@ -89,11 +100,7 @@ export function EVMCheckout({ intent, client, onStartPolling, onUpdateStatus }: 
           params: [{ from, to: token.address, value: "0x0", data: transferData }],
         });
       } else {
-        const rawAmount = BigInt(intent.amount) * BigInt(10 ** 16);
-        hash = await eth.request({
-          method: "eth_sendTransaction",
-          params: [{ from, to: recipient, value: "0x" + rawAmount.toString(16) }],
-        });
+        throw new Error("Native token payments require raw transaction data");
       }
 
       setTxHash(hash);

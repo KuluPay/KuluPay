@@ -88,6 +88,7 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                 amount: data.amount,
                 currency: data.currency,
                 status: "pending",
+                clientSecret: reference,
                 metadata: {
                     ...data.metadata,
                     ...metadata,

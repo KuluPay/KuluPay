@@ -5,10 +5,10 @@ import { useState, useLayoutEffect, useRef } from 'react';
 import { cn } from '@/lib/cn';
 
 const installCommands = [
-  { label: 'pnpm', command: 'pnpm add @kulupay/core @kulupay/kulupay' },
-  { label: 'npm', command: 'npm install @kulupay/core @kulupay/kulupay' },
-  { label: 'yarn', command: 'yarn add @kulupay/core @kulupay/kulupay' },
-  { label: 'bun', command: 'bun add @kulupay/core @kulupay/kulupay' },
+  { label: 'pnpm', command: 'pnpm add @kulupay/kulupay' },
+  { label: 'npm', command: 'npm install @kulupay/kulupay' },
+  { label: 'yarn', command: 'yarn add @kulupay/kulupay' },
+  { label: 'bun', command: 'bun add @kulupay/kulupay' },
 ];
 
 export function InstallBlock() {

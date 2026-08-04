@@ -482,10 +482,11 @@ function generateClientFile(registry: KuluPayRegistry): string {
         ? `\nexport const tronProvider = createTronClientProvider();\n`
         : "";
 
-    return `import { createKuluPayClient } from "${PKG.kulupay}/client";
+    return `import { createPayClient } from "${PKG.kulupay}/client";
 ${stripeImport}${chapaImport}${evmImport}${tronImport}
-export const payClient = createKuluPayClient({
-  baseURL: "/api/pay",
+export const payClient = createPayClient({
+  baseURL: "",
+  basePath: "/api/pay",
 });
 ${stripeExport}${chapaExport}${evmExport}${tronExport}`;
 }

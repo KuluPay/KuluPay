@@ -9,7 +9,7 @@ describe("migrate", () => {
         vi.spyOn(config, "getConfig").mockImplementation(async () => ({
             options: {
                 database: createMemoryDriver(),
-                providers: [],
+                providers: {},
             },
             configPath: "test/pay.ts",
         }));
@@ -28,7 +28,7 @@ describe("migrate", () => {
         vi.spyOn(config, "getConfig").mockImplementation(async () => ({
             options: {
                 database: null,
-                providers: [],
+                providers: {},
             },
             configPath: "test/pay.ts",
         }));

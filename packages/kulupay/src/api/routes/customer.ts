@@ -30,6 +30,24 @@ export const createCustomer = createKuluPayEndpoint(
             throw KuluPayAPIError.fromCode("PROVIDER_METHOD_NOT_SUPPORTED");
         }
 
+        // Deduplication: check if a customer already exists for this user + provider
+        if (orm) {
+            const existing = await orm.customer.findFirst({
+                where: { userId: session.user.id, providerId },
+            });
+            if (existing) {
+                // Return existing customer instead of creating a duplicate
+                return {
+                    id: existing.id,
+                    userId: existing.userId,
+                    providerId: existing.providerId,
+                    providerCustomerId: existing.providerCustomerId,
+                    createdAt: existing.createdAt,
+                    updatedAt: existing.updatedAt,
+                };
+            }
+        }
+
         const customer = await provider.createCustomer({
             ...body,
             userId: session.user.id,

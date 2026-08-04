@@ -14,6 +14,7 @@ import {
 } from "better-call";
 import { KuluPayContext } from "../types";
 import { kuluPayContextStore } from "../async_hooks";
+import { KuluPayAPIError } from "../error";
 
 /**
  * Normalized method type for better-call
@@ -73,7 +74,23 @@ export const createKuluPayEndpoint = <
 		path,
 		options as any,
 		async (ctx: any) => {
-            return kuluPayContextStore.run(ctx.context, () => handler(ctx));
+            try {
+                return await kuluPayContextStore.run(ctx.context, () => handler(ctx));
+            } catch (error) {
+                const apiError =
+                    error instanceof KuluPayAPIError
+                        ? error
+                        : error && typeof error === "object" && "status" in error && "code" in error
+                            ? (error as KuluPayAPIError)
+                            : null;
+                if (apiError) {
+                    return new Response(JSON.stringify(apiError.toJSON()), {
+                        status: apiError.status,
+                        headers: { "Content-Type": "application/json" },
+                    });
+                }
+                throw error;
+            }
         }
 	) as any;
 };

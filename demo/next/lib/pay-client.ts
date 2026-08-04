@@ -1,5 +1,6 @@
-import { createKuluPayClient } from "@kulupay/kulupay/client";
+import { createPayClient } from "@kulupay/kulupay/client";
 
-export const payClient = createKuluPayClient({
-  baseURL: "/api/pay",
+export const payClient = createPayClient({
+  baseURL: "",
+  basePath: "/api/pay",
 });

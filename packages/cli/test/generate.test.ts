@@ -11,7 +11,7 @@ import * as config from "../src/utils/get-config";
 
 const mockOptions: KuluPayOptions = {
     database: createMemoryDriver() as any,
-    providers: [],
+    providers: {},
     payment: {
         additionalFields: {
             description: { type: "string" as const, required: false },

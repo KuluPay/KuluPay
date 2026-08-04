@@ -36,8 +36,8 @@ const mockProvider: PaymentProvider = {
 };
 
 async function createTestPay() {
-    const { options } = await getTestInstance({ providers: [mockProvider] });
-    return kuluPay({
+    const { options } = await getTestInstance();
+    const pay = kuluPay({
         ...options,
         auth: {
             getSession: async (request: Request) => {
@@ -49,8 +49,12 @@ async function createTestPay() {
                 };
             },
         },
-        providers: [mockProvider],
+        providers: {},
     });
+    const ctx = await pay.$context;
+    ctx.providers.clear();
+    ctx.providers.set(mockProvider.id, mockProvider);
+    return pay;
 }
 
 function createRequest(

@@ -1,6 +1,6 @@
 import type { KuluPayContext, KuluPayOptions } from "@kulupay/core";
 import { init, getTrustedOrigins } from "@kulupay/core/context";
-import { KuluPayError } from "@kulupay/core/error";
+import { KuluPayError, KuluPayAPIError } from "@kulupay/core/error";
 import {
     getOrigin,
     isDynamicBaseURLConfig,
@@ -96,7 +96,23 @@ export const createKuluPay = <Options extends KuluPayOptions>(
 
             // Route the request using the better-call router
 			const { handler } = router(handlerCtx);
-			return handler(request);
+			try {
+				return await handler(request);
+			} catch (error) {
+				const apiError =
+					error instanceof KuluPayAPIError
+						? error
+						: error && typeof error === "object" && "status" in error && "code" in error
+							? (error as KuluPayAPIError)
+							: null;
+				if (apiError) {
+					return new Response(JSON.stringify(apiError.toJSON()), {
+						status: apiError.status,
+						headers: { "Content-Type": "application/json" },
+					});
+				}
+				throw error;
+			}
 		},
         /**
          * The server-side API object.

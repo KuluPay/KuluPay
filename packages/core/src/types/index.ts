@@ -1,4 +1,5 @@
 import type { PaymentFieldKeys, CustomerFieldKeys, SubscriptionFieldKeys } from "../db/schema";
+import type { BlockchainConfig } from "../payment-providers/blockchain/config";
 
 /**
  * The base URL configuration for the KuluPay server.
@@ -79,24 +80,12 @@ export type KuluPayDBOptions<Keys extends string = string> = {
  * import { Pool } from "pg";
  * const pay = kuluPay({
  *   database: pg(new Pool({ connectionString: process.env.DATABASE_URL })),
- *   providers: [stripe({ apiKey: "sk_..." })],
- * });
- *
- * // Neon (serverless, HTTP-based)
- * import { pg } from "@kulupay/adapter-sql";
- * import { Pool } from "@neondatabase/serverless";
- * const pay = kuluPay({
- *   database: pg(new Pool({ connectionString: process.env.DATABASE_URL })),
- *   providers: [stripe({ apiKey: "sk_..." })],
- * });
- *
- * // Prisma
- * import { prismaAdapter } from "@kulupay/adapter-prisma";
- * import { PrismaClient } from "@prisma/client";
- * const prisma = new PrismaClient();
- * const pay = kuluPay({
- *   database: prismaAdapter(prisma, { provider: "postgresql" }),
- *   providers: [stripe({ apiKey: "sk_..." })],
+ *   providers: {
+ *     ethereum: {
+ *       recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
+ *       tokens: ["USDC"],
+ *     },
+ *   },
  * });
  *
  * // Drizzle
@@ -104,14 +93,28 @@ export type KuluPayDBOptions<Keys extends string = string> = {
  * import { drizzle } from "drizzle-orm/node-postgres";
  * const pay = kuluPay({
  *   database: drizzleAdapter(drizzle(pool), { provider: "pg" }),
- *   providers: [stripe({ apiKey: "sk_..." })],
+ *   providers: {
+ *     base: {
+ *       recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
+ *       tokens: ["USDC"],
+ *     },
+ *     tron: {
+ *       recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,
+ *       tokens: ["USDT"],
+ *     },
+ *   },
  * });
  *
  * // Memory (for testing)
  * import { createMemoryDriver } from "@farming-labs/orm";
  * const pay = kuluPay({
  *   database: createMemoryDriver(),
- *   providers: [stripe({ apiKey: "sk_..." })],
+ *   providers: {
+ *     base: {
+ *       recipientAddress: "0x0000000000000000000000000000000000000000",
+ *       tokens: ["USDC"],
+ *     },
+ *   },
  * });
  * ```
  */
@@ -124,7 +127,7 @@ export interface KuluPayOptions {
      * Drizzle, MongoDB, and other supported databases.
      */
     database: any;
-    providers?: PaymentProvider[];
+    providers?: BlockchainConfig;
     baseURL?: BaseURLConfig;
     basePath?: string;
     debug?: boolean;

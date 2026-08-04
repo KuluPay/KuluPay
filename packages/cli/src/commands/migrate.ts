@@ -47,7 +47,11 @@ export default defineConfig({
         return {
             toolName: "drizzle-kit",
             description: "Drizzle ORM uses drizzle-kit for migrations",
-            commands: [`npx drizzle-kit push`],
+            commands: [
+                `npx drizzle-kit generate`,
+                `# Review the generated SQL in ./drizzle/`,
+                `npx drizzle-kit migrate`,
+            ],
             configFiles,
         };
     }
@@ -56,7 +60,11 @@ export default defineConfig({
         return {
             toolName: "prisma",
             description: "Prisma uses prisma migrate for migrations",
-            commands: [`npx prisma db push`],
+            commands: [
+                `npx prisma migrate dev --name kulupay`,
+                `# Review the generated SQL in prisma/migrations/`,
+                `npx prisma migrate deploy`,
+            ],
         };
     }
 

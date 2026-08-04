@@ -13,7 +13,7 @@ import { stablecoinConverter } from "./price-converter";
 
 export interface BlockchainChainConfig {
     recipientAddress: string;
-    token?: string | string[];
+    tokens?: string | string[];
     testnet?: boolean | string;
     network?: Partial<NetworkConfig>;
     /** Custom price converter (overrides built-in stablecoin logic) */
@@ -58,11 +58,11 @@ export function blockchain(config: BlockchainConfig): PaymentProvider[] {
         }
 
         const tokenList: string[] = [];
-        if (chainConfig.token) {
-            if (Array.isArray(chainConfig.token)) {
-                tokenList.push(...chainConfig.token);
+        if (chainConfig.tokens) {
+            if (Array.isArray(chainConfig.tokens)) {
+                tokenList.push(...chainConfig.tokens);
             } else {
-                tokenList.push(chainConfig.token);
+                tokenList.push(chainConfig.tokens);
             }
         }
         if (tokenList.length === 0) {
