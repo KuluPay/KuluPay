@@ -1,0 +1,249 @@
+---
+title: Checkout UI
+description: Framework-agnostic checkout component with built-in wallet support for React, Vue, and vanilla JS.
+---
+
+# Checkout UI
+
+KuluPay provides a **framework-agnostic checkout component** that handles the entire payment flow — wallet detection, connection, transaction submission, and on-chain confirmation polling — with a single mount call.
+
+## Architecture
+
+```
+@kulupay/kulupay/checkout          ← headless core (vanilla TS)
+  ├─ createCheckout()              ← state machine: load → connect → pay → poll
+  ├─ mountCheckout()               ← renders the full UI into a container element
+  └─ Wallet detection              ← MetaMask, Coinbase, Phantom, Trust, Rabby, Rainbow, OKX, TronLink
+
+@kulupay/kulupay/checkout/react    ← thin React wrapper (~30 lines)
+@kulupay/kulupay/checkout/vue      ← thin Vue wrapper (~35 lines, Nuxt compatible)
+```
+
+All payment logic lives in the headless core. Each framework binding is just a thin wrapper that mounts the core into a DOM element. Fixing a bug or adding a wallet updates every framework at once.
+
+<Callout type="info">
+  The checkout UI supports both **light** and **dark** themes. Pass `theme="light"` or `theme="dark"` to any binding.
+</Callout>
+
+---
+
+## React (Next.js)
+
+```tsx title="app/checkout/page.tsx"
+"use client";
+
+import { use, Suspense } from "react";
+import { CheckoutPage } from "@kulupay/kulupay/checkout/react";
+import { payClient } from "@/lib/pay-client";
+
+function CheckoutContent({ searchParams }: { searchParams: Promise<{ intentId?: string; clientSecret?: string }> }) {
+  const params = use(searchParams);
+
+  if (!params.intentId || !params.clientSecret) {
+    return <div>Missing parameters</div>;
+  }
+
+  return (
+    <CheckoutPage
+      intentId={params.intentId}
+      clientSecret={params.clientSecret}
+      client={payClient}
+      merchantName="Acme Inc"
+      theme="light"
+    />
+  );
+}
+
+export default function CheckoutRoute({ searchParams }: { searchParams: Promise<{ intentId?: string; clientSecret?: string }> }) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CheckoutContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+```
+
+### Props
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `intentId` | `string` | Yes | Payment intent ID from `createIntent` |
+| `clientSecret` | `string` | Yes | Client secret from the intent response |
+| `client` | `PayClientLike` | Yes | Pay client instance from `createPayClient()` |
+| `merchantName` | `string` | No | Shown in the checkout header |
+| `theme` | `"light" \| "dark"` | No | Default `"light"` |
+
+---
+
+## Vue (Nuxt)
+
+```vue title="pages/checkout.vue"
+<script setup lang="ts">
+import { CheckoutPage } from "@kulupay/kulupay/checkout/vue";
+import { payClient } from "~/lib/pay-client";
+
+const route = useRoute();
+const intentId = computed(() => route.query.intentId as string);
+const clientSecret = computed(() => route.query.clientSecret as string);
+</script>
+
+<template>
+  <CheckoutPage
+    v-if="intentId && clientSecret"
+    :intentId="intentId"
+    :clientSecret="clientSecret"
+    :client="payClient"
+    merchantName="Acme Inc"
+    theme="light"
+  />
+</template>
+```
+
+---
+
+## Vanilla JS (any framework)
+
+For frameworks without a dedicated binding — Angular, SolidJS, Svelte, or plain HTML:
+
+```ts title="checkout.ts"
+import { mountCheckout } from "@kulupay/kulupay/checkout";
+import { createPayClient } from "@kulupay/kulupay/client";
+
+const client = createPayClient({ baseURL: "/api/pay" });
+
+const handle = mountCheckout(document.getElementById("checkout")!, {
+  intentId: "pi_12345",
+  clientSecret: "pi_12345_secret_abc",
+  client,
+  merchantName: "Acme Inc",
+  theme: "light",
+});
+
+// Clean up when done
+handle.unmount();
+```
+
+<Callout type="info">
+  `mountCheckout` returns a `CheckoutHandle` with a `controller` property (for programmatic access) and an `unmount()` method.
+</Callout>
+
+---
+
+## Headless Usage
+
+If you want to build your own UI entirely, use `createCheckout()` to get the state machine without any rendering:
+
+```ts
+import { createCheckout } from "@kulupay/kulupay/checkout";
+import { createPayClient } from "@kulupay/kulupay/client";
+
+const client = createPayClient({ baseURL: "/api/pay" });
+
+const checkout = createCheckout({
+  intentId: "pi_12345",
+  clientSecret: "pi_12345_secret_abc",
+  client,
+  pollInterval: 5000,
+});
+
+// Subscribe to state changes
+checkout.state.subscribe((state) => {
+  console.log("Step:", state.step);
+  console.log("Intent:", state.intent);
+  console.log("Wallets:", state.wallets);
+  console.log("Error:", state.error);
+});
+
+// Initialize — loads intent and detects wallets
+await checkout.init();
+
+// Programmatic control
+await checkout.connect();    // connect to selected wallet
+await checkout.pay();        // send payment transaction
+checkout.destroy();          // stop polling and clean up
+```
+
+### CheckoutState
+
+```ts
+interface CheckoutState {
+  step: "loading" | "error" | "select-wallet" | "connected"
+      | "paying" | "pending-confirmation" | "succeeded"
+      | "failed" | "expired" | "redirect";
+  intent: CheckoutIntentData | null;
+  wallets: WalletInfo[];
+  selectedWallet: WalletInfo | null;
+  address: string | null;
+  txHash: string | null;
+  error: string | null;
+}
+```
+
+### Controller Methods
+
+| Method | Description |
+|--------|-------------|
+| `init()` | Load the intent and detect available wallets |
+| `selectWallet(id)` | Select a wallet from the detected list |
+| `connect()` | Connect to the selected wallet |
+| `pay()` | Send the payment transaction via the connected wallet |
+| `redirect()` | For redirect providers (Stripe, Chapa, PayPal) — navigate to hosted page |
+| `destroy()` | Stop polling and clean up resources |
+
+---
+
+## Supported Wallets
+
+### EVM (Ethereum, Base, Polygon, Arbitrum)
+
+| Wallet | Detection |
+|--------|-----------|
+| MetaMask | `isMetaMask` |
+| Coinbase Wallet | `isCoinbaseWallet` |
+| Phantom | `isPhantom` |
+| Trust Wallet | `isTrust` / `isTrustWallet` |
+| Rabby | `isRabby` |
+| Rainbow | `isRainbow` |
+| OKX Wallet | `isOKExWallet` / `isOkxWallet` |
+
+### Tron
+
+| Wallet | Detection |
+|--------|-----------|
+| TronLink | `window.tronWeb` / `window.tronLink` |
+
+---
+
+## The Payment Flow
+
+1. **Client** calls `createIntent` → receives `intentId` and `clientSecret`
+2. **Client** navigates to checkout page with those params
+3. **Checkout core** loads the intent via `checkoutIntent` API
+4. **Checkout core** detects installed wallets in the browser
+5. **User** selects a wallet and clicks "Launch extension"
+6. **Checkout core** calls `connectWallet()` → wallet prompts user to connect
+7. **User** clicks "Pay" → checkout core calls `sendPayment()` → wallet prompts transaction
+8. **Checkout core** calls `confirmIntent` API with the tx hash
+9. **Checkout core** polls `verifyIntent` every 5 seconds until status is `succeeded`/`failed`/`expired`
+10. **UI** updates to show success/failure state
+
+<Callout type="warn" title="Important">
+  The checkout UI requires the intent to have a `checkoutFlow` of `"self-hosted"` for blockchain payments. Redirect providers (Stripe, Chapa, PayPal) use the `"redirect"` flow and show a "Continue with [Provider]" button instead.
+</Callout>
+
+---
+
+## Redirect Providers
+
+For Stripe, Chapa, and PayPal, the checkout shows a simple redirect button instead of wallet connection:
+
+```tsx
+<CheckoutPage
+  intentId={intentId}
+  clientSecret={clientSecret}
+  client={payClient}
+  merchantName="Acme Inc"
+/>
+```
+
+The component automatically detects the checkout flow from the intent data and renders the appropriate UI.

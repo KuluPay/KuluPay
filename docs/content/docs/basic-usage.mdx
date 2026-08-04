@@ -132,3 +132,21 @@ const intent = await client.createIntent({
   providerId: "stripe",
 });
 ```
+
+## Checkout UI
+
+KuluPay provides a ready-made checkout component that handles wallet connection, payment submission, and confirmation polling. It works with React, Vue, and vanilla JS:
+
+```tsx
+import { CheckoutPage } from "@kulupay/kulupay/checkout/react";
+
+<CheckoutPage
+  intentId={intent.data.id}
+  clientSecret={intent.data.clientSecret}
+  client={payClient}
+  merchantName="Acme Inc"
+  theme="light"
+/>
+```
+
+See the [Checkout UI guide](/docs/concepts/checkout) for full documentation.

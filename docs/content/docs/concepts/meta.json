@@ -5,6 +5,7 @@
     "database",
     "pricing",
     "customers",
-    "webhooks"
+    "webhooks",
+    "checkout"
   ]
 }
