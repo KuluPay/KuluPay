@@ -55,7 +55,7 @@ export const KULUPAY_ERROR_CODES = defineErrorCodes({
 	INVALID_REQUEST_BODY: "Invalid request body",
 	BODY_MUST_BE_AN_OBJECT: "Body must be an object",
 
-	// Blockchain
+	// Onchain
 	TX_HASH_ALREADY_USED: "Transaction hash has already been used for another payment",
 	TX_AMOUNT_MISMATCH: "Transaction amount does not match the payment intent",
 	TX_RECIPIENT_MISMATCH: "Transaction recipient does not match the payment intent",

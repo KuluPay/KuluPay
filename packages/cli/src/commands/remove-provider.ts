@@ -31,19 +31,17 @@ const PROVIDER_IMPORTS: Record<string, string> = {
 const PROVIDER_CLIENT_IMPORTS: Record<string, string> = {
     stripe: `import { createStripeClientProvider } from "${PKG.kulupay}/client/providers";`,
     chapa: `import { createChapaClientProvider } from "${PKG.kulupay}/client/providers";`,
-    "evm-eth": `import { createEVMClientProvider } from "${PKG.kulupay}/client/providers";`,
-    "evm-base-usdc": `import { createEVMClientProvider } from "${PKG.kulupay}/client/providers";`,
-    "tron-trx": `import { createTronClientProvider } from "${PKG.kulupay}/client/providers";`,
-    "tron-usdt": `import { createTronClientProvider } from "${PKG.kulupay}/client/providers";`,
+    ethereum: `import { createEVMClientProvider } from "${PKG.kulupay}/client/providers";`,
+    base: `import { createEVMClientProvider } from "${PKG.kulupay}/client/providers";`,
+    tron: `import { createTronClientProvider } from "${PKG.kulupay}/client/providers";`,
 };
 
 const PROVIDER_CLIENT_EXPORTS: Record<string, RegExp> = {
     stripe: /export\s+const\s+stripeProvider\s*=\s*createStripeClientProvider\([\s\S]*?\);\s*/g,
     chapa: /export\s+const\s+chapaProvider\s*=\s*createChapaClientProvider\([\s\S]*?\);\s*/g,
-    "evm-eth": /export\s+const\s+evmProvider\s*=\s*createEVMClientProvider\([\s\S]*?\);\s*/g,
-    "evm-base-usdc": /export\s+const\s+evmProvider\s*=\s*createEVMClientProvider\([\s\S]*?\);\s*/g,
-    "tron-trx": /export\s+const\s+tronProvider\s*=\s*createTronClientProvider\([\s\S]*?\);\s*/g,
-    "tron-usdt": /export\s+const\s+tronProvider\s*=\s*createTronClientProvider\([\s\S]*?\);\s*/g,
+    ethereum: /export\s+const\s+evmProvider\s*=\s*createEVMClientProvider\([\s\S]*?\);\s*/g,
+    base: /export\s+const\s+evmProvider\s*=\s*createEVMClientProvider\([\s\S]*?\);\s*/g,
+    tron: /export\s+const\s+tronProvider\s*=\s*createTronClientProvider\([\s\S]*?\);\s*/g,
 };
 
 export async function removeProviderAction(opts: any) {

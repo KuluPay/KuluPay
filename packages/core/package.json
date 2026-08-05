@@ -93,6 +93,13 @@
                                                        "require":  "./dist/payment-providers/paypal.js",
                                                        "default":  "./dist/payment-providers/paypal.mjs"
                                                    },
+                    "./payment-providers/onchain":  {
+                                                           "dev-source":  "./src/payment-providers/onchain/index.ts",
+                                                           "types":  "./dist/payment-providers/onchain/index.d.ts",
+                                                           "import":  "./dist/payment-providers/onchain/index.mjs",
+                                                           "require":  "./dist/payment-providers/onchain/index.js",
+                                                           "default":  "./dist/payment-providers/onchain/index.mjs"
+                                                       },
                     "./payment-providers/blockchain":  {
                                                            "dev-source":  "./src/payment-providers/blockchain/index.ts",
                                                            "types":  "./dist/payment-providers/blockchain/index.d.ts",
@@ -154,6 +161,9 @@
                                     "payment-providers/paypal":  [
                                                                      "./dist/payment-providers/paypal.d.ts"
                                                                  ],
+                                    "payment-providers/onchain":  [
+                                                                         "./dist/payment-providers/onchain/index.d.ts"
+                                                                     ],
                                     "payment-providers/blockchain":  [
                                                                          "./dist/payment-providers/blockchain/index.d.ts"
                                                                      ],

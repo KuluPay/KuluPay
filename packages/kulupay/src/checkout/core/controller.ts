@@ -1,13 +1,11 @@
 import { atom, type ReadableAtom } from "nanostores";
 import type { CheckoutIntentData, PayClientLike } from "../types";
-import { detectWallets, connectWallet, sendPayment, type WalletInfo } from "./wallets";
+import { getProviderType } from "../types";
 
 export type CheckoutStep =
     | "loading"
     | "error"
-    | "select-wallet"
-    | "connected"
-    | "paying"
+    | "onchain"
     | "pending-confirmation"
     | "succeeded"
     | "failed"
@@ -17,9 +15,6 @@ export type CheckoutStep =
 export interface CheckoutState {
     step: CheckoutStep;
     intent: CheckoutIntentData | null;
-    wallets: WalletInfo[];
-    selectedWallet: WalletInfo | null;
-    address: string | null;
     txHash: string | null;
     error: string | null;
 }
@@ -27,14 +22,8 @@ export interface CheckoutState {
 export interface CheckoutController {
     /** Reactive state store. Use `.get()` for the current value, `.subscribe(fn)` for updates. */
     state: ReadableAtom<CheckoutState>;
-    /** Load the intent and initialize wallet detection. */
+    /** Load the intent and determine checkout flow. */
     init(): Promise<void>;
-    /** Select a wallet from the list. */
-    selectWallet(walletId: string): void;
-    /** Connect the selected wallet. */
-    connect(): Promise<void>;
-    /** Send the payment via the connected wallet. */
-    pay(): Promise<void>;
     /** For redirect providers: navigate to the provider's hosted page. */
     redirect(): void;
     /** Stop polling and clean up. */
@@ -55,9 +44,6 @@ export function createCheckout(options: CreateCheckoutOptions): CheckoutControll
     const $state = atom<CheckoutState>({
         step: "loading",
         intent: null,
-        wallets: [],
-        selectedWallet: null,
-        address: null,
         txHash: null,
         error: null,
     });
@@ -117,54 +103,20 @@ export function createCheckout(options: CreateCheckoutOptions): CheckoutControll
                     startPolling();
                     return;
                 }
-                if (intent.checkoutFlow === "redirect") {
+
+                const providerType = getProviderType(intent.providerId, intent.checkoutFlow);
+                if (providerType === "redirect") {
                     patch({ intent, step: "redirect" });
                     return;
                 }
+                if (providerType === "evm" || providerType === "tron") {
+                    patch({ intent, step: "onchain" });
+                    return;
+                }
 
-                const family = intent.raw?.family === "evm" || intent.metadata?.family === "evm" ? "evm" : "tron";
-                const wallets = detectWallets(family);
-                const preferred = wallets.find((w) => w.installed) || wallets[0] || null;
-                patch({ intent, step: "select-wallet", wallets, selectedWallet: preferred });
+                patch({ step: "error", error: `Unknown provider: ${intent.providerId}` });
             } catch (err: any) {
                 patch({ step: "error", error: err.message || "Failed to load checkout" });
-            }
-        },
-
-        selectWallet(walletId: string) {
-            const wallet = $state.get().wallets.find((w) => w.id === walletId);
-            if (wallet) patch({ selectedWallet: wallet, error: null });
-        },
-
-        async connect() {
-            const { selectedWallet } = $state.get();
-            if (!selectedWallet) return;
-            patch({ error: null });
-            try {
-                const address = await connectWallet(selectedWallet);
-                patch({ address, step: "connected" });
-            } catch (err: any) {
-                patch({ error: err.message || "Failed to connect wallet" });
-            }
-        },
-
-        async pay() {
-            const { selectedWallet, address, intent } = $state.get();
-            if (!selectedWallet || !address || !intent) return;
-            patch({ step: "paying", error: null });
-
-            try {
-                const txHash = await sendPayment(selectedWallet, address, intent);
-                patch({ txHash, step: "pending-confirmation" });
-
-                const { error: confirmError } = await client.confirmIntent({
-                    body: { intentId: intent.id, txHash, clientSecret: intent.clientSecret },
-                });
-                if (confirmError) throw new Error(confirmError.message || "Failed to confirm with server");
-
-                startPolling();
-            } catch (err: any) {
-                patch({ step: "connected", error: err.message || "Payment failed" });
             }
         },
 

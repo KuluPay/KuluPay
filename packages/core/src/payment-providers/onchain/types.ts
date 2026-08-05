@@ -1,11 +1,11 @@
 /**
- * Supported blockchain family types.
+ * Supported onchain family types.
  * Each family has its own provider implementation.
  */
 export type ChainFamily = "evm" | "tron";
 
 /**
- * Token configuration for a blockchain payment.
+ * Token configuration for an onchain payment.
  * Supports both native tokens (ETH, TRX) and stablecoins (USDC, USDT).
  */
 export interface TokenConfig {
@@ -18,7 +18,7 @@ export interface TokenConfig {
 }
 
 /**
- * Chain configuration for a blockchain provider.
+ * Chain configuration for an onchain provider.
  */
 export interface ChainConfig {
     /** Chain family — determines which SDK to use */
@@ -59,9 +59,9 @@ export type PriceConverter = (
 ) => Promise<PriceConversion>;
 
 /**
- * Blockchain payment intent metadata — stored alongside the standard PaymentIntent.
+ * Onchain payment intent metadata — stored alongside the standard PaymentIntent.
  */
-export interface BlockchainPaymentMetadata {
+export interface OnchainPaymentMetadata {
     /** Chain family */
     family: ChainFamily;
     /** Chain name */

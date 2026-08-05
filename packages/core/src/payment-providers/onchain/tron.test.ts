@@ -44,25 +44,28 @@ describe("tron provider — construction", () => {
             tron({
                 chain: CHAINS.ethereum, // wrong family
                 recipientAddress: RECIPIENT,
+                tokens: { native: TOKENS.TRX },
             }),
         ).toThrow();
     });
 
-    it("defaults to native TRX when no token specified", () => {
+    it("defaults provider id to chain name", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
-        expect(provider.id).toBe("tron-tron");
+        expect(provider.id).toBe("tron");
     });
 
     it("uses custom provider id when provided", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
-            id: "tron-usdt",
+            tokens: { native: TOKENS.TRX, USDT: { symbol: "USDT", decimals: 6, contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" } },
+            id: "tron",
         });
-        expect(provider.id).toBe("tron-usdt");
+        expect(provider.id).toBe("tron");
     });
 });
 
@@ -70,13 +73,14 @@ describe("tron provider — createIntent", () => {
     const provider = tron({
         chain: CHAINS.tron,
         recipientAddress: RECIPIENT,
+        tokens: { native: TOKENS.TRX },
     });
 
     const baseData: CreateIntentData = {
         amount: 1000000,
         currency: "usd",
         userId: "user_123",
-        providerId: "tron-tron",
+        providerId: "tron",
     };
 
     it("returns pending status", async () => {
@@ -108,13 +112,12 @@ describe("tron provider — createIntent", () => {
         const trc20Provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
-            token: {
-                symbol: "USDT",
-                decimals: 6,
-                contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+            tokens: {
+                native: TOKENS.TRX,
+                USDT: { symbol: "USDT", decimals: 6, contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" },
             },
         });
-        const intent = await trc20Provider.createIntent(baseData);
+        const intent = await trc20Provider.createIntent({ ...baseData, token: "USDT" });
         expect((intent.raw as any).to).toBe(RECIPIENT);
         expect((intent.raw as any).isNative).toBe(false);
         expect((intent.raw as any).contractAddress).toBe(
@@ -122,7 +125,7 @@ describe("tron provider — createIntent", () => {
         );
     });
 
-    it("includes blockchain metadata with tron family", async () => {
+    it("includes onchain metadata with tron family", async () => {
         const intent = await provider.createIntent(baseData);
         expect((intent.metadata as any).family).toBe("tron");
         expect((intent.metadata as any).chain).toBe("tron");
@@ -141,15 +144,14 @@ describe("tron provider — createIntent", () => {
         const providerWithConverter = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
-            token: {
-                symbol: "USDT",
-                decimals: 6,
-                contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+            tokens: {
+                native: TOKENS.TRX,
+                USDT: { symbol: "USDT", decimals: 6, contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" },
             },
             priceConverter: mockConverter,
         });
 
-        const intent = await providerWithConverter.createIntent(baseData);
+        const intent = await providerWithConverter.createIntent({ ...baseData, token: "USDT" });
         expect(mockConverter).toHaveBeenCalledWith(
             1000000,
             "usd",
@@ -176,6 +178,7 @@ describe("tron provider — getIntent (tx hash)", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         const result = await provider.getIntent(TX_HASH);
@@ -191,6 +194,7 @@ describe("tron provider — getIntent (tx hash)", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         const result = await provider.getIntent(TX_HASH);
@@ -205,6 +209,7 @@ describe("tron provider — getIntent (tx hash)", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         const result = await provider.getIntent(TX_HASH);
@@ -217,6 +222,7 @@ describe("tron provider — getIntent (tx hash)", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         const result = await provider.getIntent("ref_123_abc");
@@ -231,6 +237,7 @@ describe("tron provider — getIntent (tx hash)", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         await expect(provider.getIntent(TX_HASH)).rejects.toThrow(
@@ -244,6 +251,7 @@ describe("tron provider — cancelIntent", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         const result = await provider.cancelIntent("ref_123");
@@ -264,6 +272,7 @@ describe("tron provider — refund", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         await expect(provider.refund!(TX_HASH)).rejects.toThrow(
@@ -279,6 +288,7 @@ describe("tron provider — refund", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         await expect(provider.refund!("ref_123")).rejects.toThrow(
@@ -308,6 +318,7 @@ describe("tron provider — refund", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         const result = await provider.refund!(TX_HASH);
@@ -325,6 +336,7 @@ describe("tron provider — refund", () => {
         const provider = tron({
             chain: CHAINS.tron,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.TRX },
         });
 
         await expect(provider.refund!(TX_HASH)).rejects.toThrow("sender");

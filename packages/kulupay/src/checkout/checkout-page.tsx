@@ -2,9 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { CheckoutIntentData, PayClientLike } from "./types";
-import { formatAmount } from "./types";
-import { EVMCheckout } from "./evm-checkout";
-import { TronCheckout } from "./tron-checkout";
+import { getProviderType, formatAmount } from "./types";
+import { KuluPayCheckout } from "./appkit-checkout";
 import { RedirectCheckout } from "./redirect-checkout";
 
 export interface CheckoutPageProps {
@@ -123,8 +122,8 @@ export function CheckoutPage({ intentId, clientSecret, client }: CheckoutPagePro
     );
   }
 
-  const flow = intent.checkoutFlow || "none";
-  const isEVM = intent.raw?.family === "evm" || intent.metadata?.family === "evm";
+  const providerType = getProviderType(intent.providerId, intent.checkoutFlow);
+  const isOnchain = providerType === "evm" || providerType === "tron";
   const sharedProps = {
     intent,
     client,
@@ -144,17 +143,23 @@ export function CheckoutPage({ intentId, clientSecret, client }: CheckoutPagePro
           {intent.description && <p style={{ fontSize: 14, color: "#a1a1aa" }}>{intent.description}</p>}
         </div>
 
-        {flow === "self-hosted" && isEVM && <EVMCheckout {...sharedProps} />}
-        {flow === "self-hosted" && !isEVM && <TronCheckout {...sharedProps} />}
-        {flow === "redirect" && <RedirectCheckout {...sharedProps} />}
-        {flow === "embedded" && (
-          <div style={{ textAlign: "center", padding: 24 }}>
-            <p style={{ color: "#a1a1aa", fontSize: 14 }}>Embedded checkout not yet supported for {intent.providerId}</p>
-          </div>
+        {isOnchain && (
+          <KuluPayCheckout
+            intent={intent}
+            client={client as any}
+            onStatusChange={(status, txHash) => {
+              setIntent((prev) => (prev ? { ...prev, status, txHash: txHash || prev.txHash } : prev));
+              if (status === "pending_confirmation") startPolling();
+            }}
+            onConfirmed={() => {
+              setIntent((prev) => (prev ? { ...prev, status: "succeeded" } : prev));
+            }}
+          />
         )}
-        {flow === "none" && (
+        {providerType === "redirect" && <RedirectCheckout {...sharedProps} />}
+        {providerType === "unknown" && (
           <div style={{ textAlign: "center", padding: 24 }}>
-            <p style={{ color: "#a1a1aa", fontSize: 14 }}>No checkout UI available for {intent.providerId}</p>
+            <p style={{ color: "#888" }}>Unknown provider: {intent.providerId}</p>
           </div>
         )}
       </div>

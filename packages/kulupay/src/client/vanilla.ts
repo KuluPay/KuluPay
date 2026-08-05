@@ -1,4 +1,5 @@
 import { atom, type WritableAtom } from "nanostores";
+import { createFetch } from "@better-fetch/fetch";
 import { createDynamicPathProxy, type PayFetcher, type PayFetchOptions } from "./proxy";
 import { KuluPayClientError } from "./error";
 
@@ -14,6 +15,13 @@ export interface PayClientOptions {
     headers?: Record<string, string>;
     plugins?: PayClientPlugin[];
     fetchOptions?: PayFetchOptions;
+    /**
+     * Reown WalletConnect project ID.
+     * Public — like a Stripe publishable key. Get one at https://dashboard.reown.com.
+     * Required when onchain providers (EVM, Tron) are configured.
+     * Ignored when only offchain providers (Stripe, Chapa, PayPal) are used.
+     */
+    walletConnectProjectId?: string;
 }
 
 export interface PayAtom {
@@ -32,78 +40,62 @@ export const ERROR_CODES = {
     VERIFY_FAILED: "VERIFY_FAILED",
 } as const;
 
-const DEFAULT_KNOWN_METHODS: Record<string, "GET" | "POST"> = {
-    "/create-intent": "POST",
-    "/get-intent": "GET",
-    "/list-payments": "GET",
-    "/create-customer": "POST",
-    "/get-customer": "GET",
-    "/create-subscription": "POST",
-    "/get-subscription": "GET",
-    "/cancel-subscription": "POST",
-    "/list-subscriptions": "GET",
-    "/refund": "POST",
-    "/capture": "POST",
-    "/analytics": "GET",
-    "/confirm-payment": "POST",
-    "/verify-payment": "GET",
-    "/confirm-intent": "POST",
-    "/verify-intent": "GET",
-    "/checkout-intent": "GET",
-};
-
 function createFetcher(options: PayClientOptions): PayFetcher {
     const baseURL = options.baseURL.replace(/\/$/, "");
     const basePath = (options.basePath || "/api/pay").replace(/\/$/, "");
-    const baseHeaders = options.headers || {};
+
+    const $fetch = createFetch({
+        baseURL: `${baseURL}${basePath}`,
+        headers: {
+            "Content-Type": "application/json",
+            ...options.headers,
+        },
+        credentials: "include",
+    });
 
     return async (path: string, fetchOptions: PayFetchOptions) => {
-        const method = fetchOptions.method || "GET";
-        const url = `${baseURL}${basePath}${path}`;
+        const method = (fetchOptions.method || "GET") as any;
 
-        const headers: Record<string, string> = {
-            "Content-Type": "application/json",
-            ...baseHeaders,
-            ...(fetchOptions.headers || {}),
-        };
-
-        const res = await fetch(url, {
+        const { data, error } = await $fetch(path, {
             method,
-            headers,
-            body: fetchOptions.body ? JSON.stringify(fetchOptions.body) : undefined,
-            credentials: "include",
+            body: fetchOptions.body,
+            headers: fetchOptions.headers,
+            onSuccess: (ctx: any) => {
+                fetchOptions.onSuccess?.(ctx.data);
+            },
+            onError: (ctx: any) => {
+                const err = ctx.error;
+                const clientError = new KuluPayClientError(
+                    err?.code || "INTERNAL_ERROR",
+                    err?.message || `Request failed`,
+                    err?.status || 500,
+                    err?.data,
+                );
+                if (err?.developerMessage) clientError.developerMessage = err.developerMessage;
+                if (err?.hint) clientError.hint = err.hint;
+                fetchOptions.onError?.(clientError);
+            },
         });
 
-        const text = await res.text();
-        let json: any;
-        try {
-            json = text ? JSON.parse(text) : {};
-        } catch {
-            json = { raw: text };
-        }
-
-        if (!res.ok) {
-            const error = json?.error || json;
+        if (error) {
+            const err = error as any;
             const clientError = new KuluPayClientError(
-                error?.code || "INTERNAL_ERROR",
-                error?.message || `Request failed with status ${res.status}`,
-                res.status,
-                error?.data,
+                err?.code || "INTERNAL_ERROR",
+                err?.message || `Request failed`,
+                err?.status || 500,
+                err?.data,
             );
-            if (error?.developerMessage) clientError.developerMessage = error.developerMessage;
-            if (error?.hint) clientError.hint = error.hint;
-            fetchOptions.onError?.(clientError);
+            if (err?.developerMessage) clientError.developerMessage = err.developerMessage;
+            if (err?.hint) clientError.hint = err.hint;
             throw clientError;
         }
 
-        fetchOptions.onSuccess?.(json);
-        return json;
+        return data;
     };
 }
 
 export function createPayClient(options: PayClientOptions) {
     const fetcher = createFetcher(options);
-    const knownMethods = { ...DEFAULT_KNOWN_METHODS };
 
     // Core atoms — like better-auth's session atom
     const $paySignal = atom(false);
@@ -129,7 +121,7 @@ export function createPayClient(options: PayClientOptions) {
         }
     }
 
-    const proxy = createDynamicPathProxy(fetcher, knownMethods, pluginActions);
+    const proxy = createDynamicPathProxy(fetcher, pluginActions);
 
     return Object.assign(proxy, {
         $fetch: fetcher,

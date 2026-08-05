@@ -12,7 +12,7 @@ export default defineConfig({
     "src/payment-providers/stripe.ts",
     "src/payment-providers/chapa.ts",
     "src/payment-providers/paypal.ts",
-    "src/payment-providers/blockchain/index.ts",
+    "src/payment-providers/onchain/index.ts",
     "src/checkout/index.ts",
     "src/utils/index.ts",
     "src/test-utils/test-instance.ts",

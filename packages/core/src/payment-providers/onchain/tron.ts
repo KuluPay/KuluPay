@@ -8,7 +8,7 @@ import type {
     ChainConfig,
     TokenConfig,
     PriceConverter,
-    BlockchainPaymentMetadata,
+    OnchainPaymentMetadata,
 } from "./types";
 
 export interface TronProviderOptions {
@@ -16,11 +16,11 @@ export interface TronProviderOptions {
     chain: ChainConfig;
     /** Recipient wallet address (Base58 or hex) */
     recipientAddress: string;
-    /** Token to accept (defaults to native TRX) */
-    token?: TokenConfig;
+    /** Tokens accepted on this chain (key = token symbol or "native") */
+    tokens: Record<string, TokenConfig>;
     /** Optional price converter for fiat → crypto */
     priceConverter?: PriceConverter;
-    /** Custom provider ID (defaults to `tron-{chain.name}`) */
+    /** Provider ID (defaults to chain name) */
     id?: string;
     /** TronGrid API key (optional, for higher rate limits) */
     apiKey?: string;
@@ -41,23 +41,41 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
         );
     }
 
-    const token: TokenConfig = options.token ?? {
-        symbol: "TRX",
-        decimals: 6,
-    };
+    const providerId = options.id ?? options.chain.name;
 
-    const providerId = options.id ?? `tron-${options.chain.name}`;
+    // Resolve which token to use for this intent
+    function resolveToken(data: CreateIntentData): TokenConfig {
+        const tokenKey = (data.token ?? data.metadata?.token ?? "native") as string;
+        const token = options.tokens[tokenKey];
+        if (!token) {
+            throw new ProviderError(
+                `Token "${tokenKey}" not supported on chain "${options.chain.name}". Available: ${Object.keys(options.tokens).join(", ")}`,
+                providerId,
+            );
+        }
+        return token;
+    }
 
     return {
         id: providerId,
         checkout: "self-hosted",
+        chainConfig: {
+            family: options.chain.family,
+            chainId: options.chain.chainId,
+            name: options.chain.name,
+            rpcUrl: options.chain.rpcUrl,
+            explorerUrl: options.chain.explorerUrl,
+            tokens: options.tokens,
+        },
 
         createIntent: async (data: CreateIntentData): Promise<PaymentIntent> => {
             const reference =
                 (data.metadata?.reference as string) || generateReference();
 
+            const token = resolveToken(data);
+
             let cryptoAmount: string;
-            let priceConversion: BlockchainPaymentMetadata["priceConversion"];
+            let priceConversion: OnchainPaymentMetadata["priceConversion"];
 
             if (options.priceConverter) {
                 const result = await options.priceConverter(
@@ -74,7 +92,7 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
 
             const isNative = !token.contractAddress;
 
-            const metadata: BlockchainPaymentMetadata = {
+            const metadata: OnchainPaymentMetadata = {
                 family: "tron",
                 chain: options.chain.name,
                 recipient: options.recipientAddress,
@@ -123,14 +141,14 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                         return {
                             id,
                             amount: 0,
-                            currency: token.symbol,
+                            currency: options.tokens["native"]?.symbol ?? "TRX",
                             status: "failed",
                             metadata: {
                                 family: "tron",
                                 chain: options.chain.name,
                                 recipient: options.recipientAddress,
                                 reference: id,
-                                token,
+                                token: options.tokens["native"]!,
                                 txHash: id,
                             },
                             raw: tx,
@@ -138,6 +156,12 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                     }
 
                     const confirmed = tx.ret?.[0]?.contractRet === "success";
+
+                    // Determine token from tx contract
+                    const contractAddress = tx.raw_data?.contract?.[0]?.parameter?.value?.contract_address;
+                    const token = contractAddress
+                        ? Object.values(options.tokens).find(t => t.contractAddress === contractAddress) ?? options.tokens["native"]!
+                        : options.tokens["native"]!;
 
                     return {
                         id,
@@ -157,10 +181,11 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                 }
 
                 // If id is a reference, check for incoming transactions
-                // For TRC-20: query Transfer events to recipient
-                if (token.contractAddress) {
+                // For TRC-20: query Transfer events to recipient for each token
+                const trc20Tokens = Object.values(options.tokens).filter(t => t.contractAddress);
+                for (const token of trc20Tokens) {
                     const contract = await tw.contract().at(
-                        token.contractAddress,
+                        token.contractAddress!,
                     );
                     const events = await contract
                         .Transfer({
@@ -195,8 +220,10 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                             };
                         }
                     }
-                } else {
-                    // Native TRX: check recent transactions to recipient
+                }
+
+                // Native TRX: check recent transactions to recipient
+                if (options.tokens["native"]) {
                     const txs = await tw.trx.getTransactionsRelated(
                         options.recipientAddress,
                         "to",
@@ -211,14 +238,14 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                         return {
                             id,
                             amount: 0,
-                            currency: token.symbol,
+                            currency: options.tokens["native"].symbol,
                             status: confirmed ? "succeeded" : "pending",
                             metadata: {
                                 family: "tron",
                                 chain: options.chain.name,
                                 recipient: options.recipientAddress,
                                 reference: id,
-                                token,
+                                token: options.tokens["native"],
                                 txHash: latestTx.txID,
                             },
                             raw: latestTx,
@@ -229,14 +256,14 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                 return {
                     id,
                     amount: 0,
-                    currency: token.symbol,
+                    currency: options.tokens["native"]?.symbol ?? "TRX",
                     status: "pending",
                     metadata: {
                         family: "tron",
                         chain: options.chain.name,
                         recipient: options.recipientAddress,
                         reference: id,
-                        token,
+                        token: options.tokens["native"]!,
                     },
                 };
             } catch (error: any) {
@@ -248,14 +275,14 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
             return {
                 id,
                 amount: 0,
-                currency: token.symbol,
+                currency: options.tokens["native"]?.symbol ?? "TRX",
                 status: "canceled",
                 metadata: {
                     family: "tron",
                     chain: options.chain.name,
                     recipient: options.recipientAddress,
                     reference: id,
-                    token,
+                    token: options.tokens["native"]!,
                 },
             };
         },
@@ -300,7 +327,13 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                 }
 
                 const senderBase58 = TronWeb.address.fromHex(sender);
-                const isNative = !token.contractAddress;
+
+                // Determine token from tx contract address
+                const contractAddress = tx.raw_data?.contract?.[0]?.parameter?.value?.contract_address;
+                const isNative = !contractAddress;
+                const token = isNative
+                    ? options.tokens["native"]!
+                    : Object.values(options.tokens).find(t => t.contractAddress === contractAddress) ?? options.tokens["native"]!;
 
                 if (isNative) {
                     const refundAmount =

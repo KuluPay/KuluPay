@@ -2,14 +2,14 @@ import { KuluPayContext, KuluPayOptions, PaymentProvider, KuluPayORM } from "../
 import { createOrm } from "@farming-labs/orm";
 import { getKuluPayTables } from "../db/get-tables";
 import { resolveDatabaseDriver } from "../db/resolve-database";
-import { blockchain } from "../payment-providers/blockchain/config";
+import { onchain } from "../payment-providers/onchain/config";
 
 export const createKuluPayContext = async (
     options: KuluPayOptions
 ): Promise<KuluPayContext> => {
     const providers = new Map<string, PaymentProvider>();
     if (options.providers) {
-        const resolvedProviders = blockchain(options.providers);
+        const resolvedProviders = onchain(options.providers);
         for (const provider of resolvedProviders) {
             providers.set(provider.id, provider);
         }

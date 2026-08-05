@@ -113,7 +113,21 @@
                                       "import":  "./dist/checkout/vue/index.mjs",
                                       "require":  "./dist/checkout/vue/index.js",
                                       "default":  "./dist/checkout/vue/index.mjs"
-                                  }
+                                  },
+                    "./client/appkit":  {
+                                         "dev-source":  "./src/client/appkit/index.ts",
+                                         "types":  "./dist/client/appkit/index.d.ts",
+                                         "import":  "./dist/client/appkit/index.mjs",
+                                         "require":  "./dist/client/appkit/index.js",
+                                         "default":  "./dist/client/appkit/index.mjs"
+                                     },
+                    "./appkit/react":  {
+                                         "dev-source":  "./src/integrations/appkit-react.tsx",
+                                         "types":  "./dist/integrations/appkit-react.d.ts",
+                                         "import":  "./dist/integrations/appkit-react.mjs",
+                                         "require":  "./dist/integrations/appkit-react.js",
+                                         "default":  "./dist/integrations/appkit-react.mjs"
+                                     }
                 },
     "typesVersions":  {
                           "*":  {
@@ -155,7 +169,13 @@
                                                  ],
                                     "checkout/vue":  [
                                                      "./dist/checkout/vue/index.d.ts"
-                                                 ]
+                                                 ],
+                                    "client/appkit":  [
+                                                         "./dist/client/appkit/index.d.ts"
+                                                     ],
+                                    "appkit/react":  [
+                                                        "./dist/integrations/appkit-react.d.ts"
+                                                    ]
                                 }
                       },
     "files":  [
@@ -177,11 +197,20 @@
     "dependencies":  {
                          "@kulupay/core":  "workspace:*",
                          "@stripe/stripe-js":  "^3.0.0",
+                         "@better-fetch/fetch":  "^1.0.0",
                          "nanostores": "^0.11.0"
                      },
     "peerDependencies":  {
                              "react":  "^18.0.0 || ^19.0.0",
-                             "vue":  "^3.0.0"
+                             "vue":  "^3.0.0",
+                             "@reown/appkit":  "^1.0.0",
+                             "@reown/appkit-adapter-wagmi":  "^1.0.0",
+                             "@reown/appkit-adapter-tron":  "^1.0.0",
+                             "@tronweb3/tronwallet-adapter-tronlink":  "^1.0.0",
+                             "wagmi":  "^2.0.0",
+                             "@wagmi/core":  "^2.0.0",
+                             "viem":  "^2.0.0",
+                             "@tanstack/react-query":  "^5.0.0"
                          },
     "peerDependenciesMeta":  {
                                  "react":  {
@@ -189,7 +218,31 @@
                                            },
                                  "vue":  {
                                              "optional":  true
-                                         }
+                                         },
+                                 "@reown/appkit":  {
+                                                       "optional":  true
+                                                   },
+                                 "@reown/appkit-adapter-wagmi":  {
+                                                                   "optional":  true
+                                                               },
+                                 "@reown/appkit-adapter-tron":  {
+                                                                 "optional":  true
+                                                             },
+                                 "@tronweb3/tronwallet-adapter-tronlink":  {
+                                                                              "optional":  true
+                                                                          },
+                                 "wagmi":  {
+                                              "optional":  true
+                                          },
+                                 "@wagmi/core":  {
+                                                   "optional":  true
+                                               },
+                                 "viem":  {
+                                              "optional":  true
+                                          },
+                                 "@tanstack/react-query":  {
+                                                               "optional":  true
+                                                           }
                              },
     "devDependencies":  {
                             "tsup":  "^8.0.0",

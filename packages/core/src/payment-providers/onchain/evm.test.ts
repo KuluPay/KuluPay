@@ -37,33 +37,37 @@ describe("evm provider — construction", () => {
             evm({
                 chain: CHAINS.tron, // wrong family
                 recipientAddress: RECIPIENT,
+                tokens: { native: { symbol: "TRX", decimals: 6 } },
             }),
         ).toThrow();
     });
 
-    it("defaults to native ETH when no token specified", () => {
+    it("defaults provider id to chain name", () => {
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
         });
-        expect(provider.id).toBe("evm-ethereum");
+        expect(provider.id).toBe("ethereum");
     });
 
     it("uses custom provider id when provided", () => {
         const provider = evm({
             chain: CHAINS.base,
             recipientAddress: RECIPIENT,
-            id: "evm-base-usdc",
+            tokens: { native: TOKENS.ETH, USDC: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") },
+            id: "base",
         });
-        expect(provider.id).toBe("evm-base-usdc");
+        expect(provider.id).toBe("base");
     });
 
-    it("defaults provider id to evm-{chain.name}", () => {
+    it("defaults provider id to chain name for polygon", () => {
         const provider = evm({
             chain: CHAINS.polygon,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.MATIC },
         });
-        expect(provider.id).toBe("evm-polygon");
+        expect(provider.id).toBe("polygon");
     });
 });
 
@@ -71,13 +75,14 @@ describe("evm provider — createIntent", () => {
     const provider = evm({
         chain: CHAINS.ethereum,
         recipientAddress: RECIPIENT,
+        tokens: { native: TOKENS.ETH },
     });
 
     const baseData: CreateIntentData = {
         amount: 1000000,
         currency: "usd",
         userId: "user_123",
-        providerId: "evm-ethereum",
+        providerId: "ethereum",
     };
 
     it("returns pending status", async () => {
@@ -109,9 +114,9 @@ describe("evm provider — createIntent", () => {
         const erc20Provider = evm({
             chain: CHAINS.base,
             recipientAddress: RECIPIENT,
-            token: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"),
+            tokens: { native: TOKENS.ETH, USDC: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") },
         });
-        const intent = await erc20Provider.createIntent(baseData);
+        const intent = await erc20Provider.createIntent({ ...baseData, token: "USDC", providerId: "base" });
         expect((intent.raw as any).to).toBe(
             "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         );
@@ -123,9 +128,9 @@ describe("evm provider — createIntent", () => {
         const erc20Provider = evm({
             chain: CHAINS.base,
             recipientAddress: RECIPIENT,
-            token: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"),
+            tokens: { native: TOKENS.ETH, USDC: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") },
         });
-        const intent = await erc20Provider.createIntent(baseData);
+        const intent = await erc20Provider.createIntent({ ...baseData, token: "USDC", providerId: "base" });
         const data = (intent.raw as any).data as string;
         // transfer(address,uint256) selector = 0xa9059cbb
         expect(data.startsWith("0xa9059cbb")).toBe(true);
@@ -138,7 +143,7 @@ describe("evm provider — createIntent", () => {
         expect((intent.raw as any).value).toBe("1000000");
     });
 
-    it("includes blockchain metadata", async () => {
+    it("includes onchain metadata", async () => {
         const intent = await provider.createIntent(baseData);
         expect((intent.metadata as any).family).toBe("evm");
         expect((intent.metadata as any).chain).toBe("ethereum");
@@ -157,11 +162,11 @@ describe("evm provider — createIntent", () => {
         const providerWithConverter = evm({
             chain: CHAINS.base,
             recipientAddress: RECIPIENT,
-            token: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"),
+            tokens: { native: TOKENS.ETH, USDC: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") },
             priceConverter: mockConverter,
         });
 
-        const intent = await providerWithConverter.createIntent(baseData);
+        const intent = await providerWithConverter.createIntent({ ...baseData, token: "USDC", providerId: "base" });
         expect(mockConverter).toHaveBeenCalledWith(
             1000000,
             "usd",
@@ -199,6 +204,7 @@ describe("evm provider — getIntent (tx hash)", () => {
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
         });
 
         const result = await provider.getIntent(TX_HASH);
@@ -215,6 +221,7 @@ describe("evm provider — getIntent (tx hash)", () => {
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
         });
 
         const result = await provider.getIntent(TX_HASH);
@@ -230,6 +237,7 @@ describe("evm provider — getIntent (tx hash)", () => {
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
             confirmations: 3,
         });
 
@@ -243,6 +251,7 @@ describe("evm provider — getIntent (tx hash)", () => {
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
         });
 
         const result = await provider.getIntent("ref_123_abc");
@@ -255,6 +264,7 @@ describe("evm provider — getIntent (tx hash)", () => {
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
         });
 
         await expect(provider.getIntent(TX_HASH)).rejects.toThrow("RPC down");
@@ -266,6 +276,7 @@ describe("evm provider — cancelIntent", () => {
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
         });
 
         const result = await provider.cancelIntent("ref_123");
@@ -299,6 +310,7 @@ describe("evm provider — refund", () => {
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
         });
 
         await expect(provider.refund(TX_HASH)).rejects.toThrow(
@@ -315,6 +327,7 @@ describe("evm provider — refund", () => {
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
         });
 
         await expect(provider.refund("ref_123")).rejects.toThrow(
@@ -329,12 +342,14 @@ describe("evm provider — refund", () => {
         mockGetTransaction.mockResolvedValue({
             from: "0xSender123",
             value: 1000000n,
+            data: "0x",
         });
         mockSendTransaction.mockResolvedValue("0xRefundTxHash");
 
         const provider = evm({
             chain: CHAINS.ethereum,
             recipientAddress: RECIPIENT,
+            tokens: { native: TOKENS.ETH },
         });
 
         const result = await provider.refund(TX_HASH);
@@ -354,13 +369,15 @@ describe("evm provider — refund", () => {
         mockGetTransaction.mockResolvedValue({
             from: "0xSender123",
             value: 0n,
+            data: "0xa9059cbb...",
+            to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         });
         mockSendTransaction.mockResolvedValue("0xRefundTxHash");
 
         const provider = evm({
             chain: CHAINS.base,
             recipientAddress: RECIPIENT,
-            token: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"),
+            tokens: { native: TOKENS.ETH, USDC: TOKENS.USDC("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") },
         });
 
         const result = await provider.refund(TX_HASH, 500000);

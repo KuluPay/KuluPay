@@ -454,8 +454,8 @@ function providerImportLine(providerId: string, isImport = false): string {
 function generateClientFile(registry: KuluPayRegistry): string {
     const hasStripe = registry.providers.includes("stripe");
     const hasChapa = registry.providers.includes("chapa");
-    const hasEVM = registry.providers.some((p) => p.startsWith("evm-"));
-    const hasTron = registry.providers.some((p) => p.startsWith("tron-"));
+    const hasEVM = registry.providers.some((p) => ["ethereum", "base", "polygon", "arbitrum", "optimism", "avalanche", "bsc", "fantom", "gnosis", "scroll", "linea", "blast", "zksync", "mantle"].includes(p));
+    const hasTron = registry.providers.includes("tron");
 
     const stripeImport = hasStripe
         ? `import { createStripeClientProvider } from "${PKG.kulupay}/client/providers";\n`

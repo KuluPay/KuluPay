@@ -8,7 +8,7 @@ import type {
     ChainConfig,
     TokenConfig,
     PriceConverter,
-    BlockchainPaymentMetadata,
+    OnchainPaymentMetadata,
 } from "./types";
 
 export interface EVMProviderOptions {
@@ -16,13 +16,13 @@ export interface EVMProviderOptions {
     chain: ChainConfig;
     /** Recipient wallet address (0x...) */
     recipientAddress: `0x${string}`;
-    /** Token to accept (defaults to native ETH) */
-    token?: TokenConfig;
+    /** Tokens accepted on this chain (key = token symbol or "native") */
+    tokens: Record<string, TokenConfig>;
     /** Optional price converter for fiat → crypto */
     priceConverter?: PriceConverter;
     /** Number of confirmations to wait for (default: 1) */
     confirmations?: number;
-    /** Custom provider ID (defaults to `evm-{chain.name}`) */
+    /** Provider ID (defaults to chain name) */
     id?: string;
 }
 
@@ -55,24 +55,42 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
         );
     }
 
-    const token: TokenConfig = options.token ?? {
-        symbol: "ETH",
-        decimals: 18,
-    };
-
-    const providerId = options.id ?? `evm-${options.chain.name}`;
+    const providerId = options.id ?? options.chain.name;
     const confirmations = options.confirmations ?? 1;
+
+    // Resolve which token to use for this intent
+    function resolveToken(data: CreateIntentData): TokenConfig {
+        const tokenKey = (data.token ?? data.metadata?.token ?? "native") as string;
+        const token = options.tokens[tokenKey];
+        if (!token) {
+            throw new ProviderError(
+                `Token "${tokenKey}" not supported on chain "${options.chain.name}". Available: ${Object.keys(options.tokens).join(", ")}`,
+                providerId,
+            );
+        }
+        return token;
+    }
 
     return {
         id: providerId,
         checkout: "self-hosted",
+        chainConfig: {
+            family: options.chain.family,
+            chainId: options.chain.chainId,
+            name: options.chain.name,
+            rpcUrl: options.chain.rpcUrl,
+            explorerUrl: options.chain.explorerUrl,
+            tokens: options.tokens,
+        },
 
         createIntent: async (data: CreateIntentData): Promise<PaymentIntent> => {
             const reference =
                 (data.metadata?.reference as string) || generateReference();
 
+            const token = resolveToken(data);
+
             let cryptoAmount: string;
-            let priceConversion: BlockchainPaymentMetadata["priceConversion"];
+            let priceConversion: OnchainPaymentMetadata["priceConversion"];
 
             if (options.priceConverter) {
                 const result = await options.priceConverter(
@@ -92,7 +110,7 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
 
             const isNative = !token.contractAddress;
 
-            const metadata: BlockchainPaymentMetadata = {
+            const metadata: OnchainPaymentMetadata = {
                 family: "evm",
                 chain: options.chain.name,
                 recipient: options.recipientAddress,
@@ -163,6 +181,9 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                         receipt.status === "success" &&
                         receipt.confirmations >= confirmations;
 
+                    // Try to determine which token from the receipt
+                    const token = Object.values(options.tokens).find(t => t.contractAddress === receipt.to) ?? options.tokens["native"]!;
+
                     return {
                         id,
                         amount: 0,
@@ -181,58 +202,63 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                 }
 
                 // If id is a reference, search for matching transfer events
-                // This handles the case where we don't know the tx hash yet
-                const logs = await client.getLogs({
-                    address: token.contractAddress as `0x${string}` | undefined,
-                    event: parseAbiItem(
-                        "event Transfer(address indexed from, address indexed to, uint256 value)",
-                    ),
-                    args: {
-                        to: options.recipientAddress,
-                    },
-                    fromBlock: "latest",
-                    toBlock: "latest",
-                });
+                const erc20Tokens = Object.values(options.tokens).filter(t => t.contractAddress);
+                for (const token of erc20Tokens) {
+                    const logs = await client.getLogs({
+                        address: token.contractAddress as `0x${string}`,
+                        event: parseAbiItem(
+                            "event Transfer(address indexed from, address indexed to, uint256 value)",
+                        ),
+                        args: {
+                            to: options.recipientAddress,
+                        },
+                        fromBlock: "latest",
+                        toBlock: "latest",
+                    });
 
-                for (const log of logs) {
-                    // Check if this transfer has our reference in memo or matching amount
-                    // On EVM, references are typically matched via off-chain indexing
-                    // or by encoding the reference in additional data
-                    if (log.transactionHash) {
-                        const receipt = await client.getTransactionReceipt({
-                            hash: log.transactionHash,
-                        });
-                        if (receipt.status === "success") {
-                            return {
-                                id,
-                                amount: 0,
-                                currency: token.symbol,
-                                status: "succeeded",
-                                metadata: {
-                                    family: "evm",
-                                    chain: options.chain.name,
-                                    recipient: options.recipientAddress,
-                                    reference: id,
-                                    token,
-                                    txHash: log.transactionHash,
-                                },
-                                raw: receipt,
-                            };
+                    for (const log of logs) {
+                        if (log.transactionHash) {
+                            const receipt = await client.getTransactionReceipt({
+                                hash: log.transactionHash,
+                            });
+                            if (receipt.status === "success") {
+                                return {
+                                    id,
+                                    amount: 0,
+                                    currency: token.symbol,
+                                    status: "succeeded",
+                                    metadata: {
+                                        family: "evm",
+                                        chain: options.chain.name,
+                                        recipient: options.recipientAddress,
+                                        reference: id,
+                                        token,
+                                        txHash: log.transactionHash,
+                                    },
+                                    raw: receipt,
+                                };
+                            }
                         }
                     }
+                }
+
+                // Check native transfers
+                const nativeToken = options.tokens["native"];
+                if (nativeToken) {
+                    // Native transfers don't have logs — would need off-chain indexing
                 }
 
                 return {
                     id,
                     amount: 0,
-                    currency: token.symbol,
+                    currency: options.tokens["native"]?.symbol ?? "ETH",
                     status: "pending",
                     metadata: {
                         family: "evm",
                         chain: options.chain.name,
                         recipient: options.recipientAddress,
                         reference: id,
-                        token,
+                        token: options.tokens["native"]!,
                     },
                 };
             } catch (error: any) {
@@ -244,14 +270,14 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
             return {
                 id,
                 amount: 0,
-                currency: token.symbol,
+                currency: options.tokens["native"]?.symbol ?? "ETH",
                 status: "canceled",
                 metadata: {
                     family: "evm",
                     chain: options.chain.name,
                     recipient: options.recipientAddress,
                     reference: id,
-                    token,
+                    token: options.tokens["native"]!,
                 },
             };
         },
@@ -320,7 +346,12 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                     hash: id as `0x${string}`,
                 });
 
-                const isNative = !token.contractAddress;
+                // Determine which token was used: if tx.data is 0x, it's native; otherwise find matching ERC-20
+                const isNative = !tx.data || tx.data === "0x";
+                const token = isNative
+                    ? options.tokens["native"]!
+                    : Object.values(options.tokens).find(t => t.contractAddress?.toLowerCase() === tx.to?.toLowerCase()) ?? options.tokens["native"]!;
+
                 const refundAmount = amount
                     ? BigInt(amount)
                     : (tx.value ?? 0n);

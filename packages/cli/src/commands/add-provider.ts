@@ -65,60 +65,44 @@ export const chapaProvider = createChapaClientProvider();`,
         configSnippet: ({ envPrefix }) =>
             `paypal({\n      clientId: process.env.${envPrefix}CLIENT_ID!,\n      clientSecret: process.env.${envPrefix}CLIENT_SECRET!,\n    })`,
     },
-    "evm-eth": {
-        id: "evm-eth",
-        name: "Ethereum (native ETH)",
-        description: "Accept native ETH payments via any EVM wallet",
+    ethereum: {
+        id: "ethereum",
+        name: "Ethereum",
+        description: "Accept ETH and ERC-20 payments on Ethereum via any EVM wallet",
         npmPackages: ["viem"],
         envVars: [
             { key: "NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS", description: "Your Ethereum wallet address (0x...)", required: true, public: true },
         ],
         configSnippet: () =>
-            `evm({\n      chain: CHAINS.ethereum,\n      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as \`0x\${string}\`,\n      id: "evm-eth",\n    })`,
+            `ethereum: {\n      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as \`0x\${string}\`,\n      tokens: ["native", "USDC", "USDT"],\n      testnet: false,\n    }`,
         clientSnippet: `import { createEVMClientProvider } from "${PKG.kulupay}/client/providers";
 
 export const evmProvider = createEVMClientProvider();`,
     },
-    "evm-base-usdc": {
-        id: "evm-base-usdc",
-        name: "Base USDC",
-        description: "Accept USDC on Base via any EVM wallet",
+    base: {
+        id: "base",
+        name: "Base",
+        description: "Accept ETH and ERC-20 payments on Base via any EVM wallet",
         npmPackages: ["viem"],
         envVars: [
             { key: "NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS", description: "Your Base wallet address (0x...)", required: true, public: true },
-            { key: "NEXT_PUBLIC_BASE_USDC_CONTRACT", description: "Base USDC contract address", required: true, public: true },
         ],
         configSnippet: () =>
-            `evm({\n      chain: CHAINS.base,\n      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as \`0x\${string}\`,\n      token: TOKENS.USDC(process.env.NEXT_PUBLIC_BASE_USDC_CONTRACT!),\n      id: "evm-base-usdc",\n    })`,
+            `base: {\n      recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as \`0x\${string}\`,\n      tokens: ["native", "USDC", "USDT"],\n      testnet: false,\n    }`,
         clientSnippet: `import { createEVMClientProvider } from "${PKG.kulupay}/client/providers";
 
 export const evmProvider = createEVMClientProvider();`,
     },
-    "tron-trx": {
-        id: "tron-trx",
-        name: "Tron (native TRX)",
-        description: "Accept native TRX payments via TronLink",
+    tron: {
+        id: "tron",
+        name: "Tron",
+        description: "Accept TRX and TRC-20 payments on Tron via TronLink",
         npmPackages: ["tronweb"],
         envVars: [
             { key: "NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS", description: "Your Tron wallet address (T...)", required: true, public: true },
         ],
         configSnippet: () =>
-            `tron({\n      chain: CHAINS.tron,\n      recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,\n      id: "tron-trx",\n    })`,
-        clientSnippet: `import { createTronClientProvider } from "${PKG.kulupay}/client/providers";
-
-export const tronProvider = createTronClientProvider();`,
-    },
-    "tron-usdt": {
-        id: "tron-usdt",
-        name: "Tron USDT (TRC-20)",
-        description: "Accept USDT on Tron via TronLink",
-        npmPackages: ["tronweb"],
-        envVars: [
-            { key: "NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS", description: "Your Tron wallet address (T...)", required: true, public: true },
-            { key: "NEXT_PUBLIC_TRON_USDT_CONTRACT", description: "Tron USDT contract address", required: true, public: true },
-        ],
-        configSnippet: () =>
-            `tron({\n      chain: CHAINS.tron,\n      recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,\n      token: { symbol: "USDT", decimals: 6, contractAddress: process.env.NEXT_PUBLIC_TRON_USDT_CONTRACT! },\n      id: "tron-usdt",\n    })`,
+            `tron: {\n      recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,\n      tokens: ["native", "USDT"],\n      testnet: false,\n    }`,
         clientSnippet: `import { createTronClientProvider } from "${PKG.kulupay}/client/providers";
 
 export const tronProvider = createTronClientProvider();`,
@@ -322,8 +306,8 @@ function updateConfigWithProvider(
 }
 
 function providerImportLine(providerId: string): string {
-    if (["evm-eth", "evm-base-usdc", "tron-trx", "tron-usdt"].includes(providerId)) {
-        return `import { evm, tron, CHAINS, TOKENS } from "${PKG.kulupay}/providers/blockchain";`;
+    if (["ethereum", "base", "polygon", "arbitrum", "tron"].includes(providerId)) {
+        return `import { evm, tron, CHAINS, TOKENS } from "${PKG.kulupay}/providers/onchain";`;
     }
     switch (providerId) {
         case "stripe":
@@ -339,7 +323,7 @@ function providerImportLine(providerId: string): string {
 
 export const addProvider = new Command("add-provider")
     .description("Add a payment provider to your KuluPay project (like shadcn add)")
-    .argument("[provider]", "provider id: stripe, chapa, paypal, evm-eth, evm-base-usdc, tron-trx, or tron-usdt")
+    .argument("[provider]", "provider id: stripe, chapa, paypal, ethereum, base, or tron")
     .option("-c, --cwd <cwd>", "the working directory", process.cwd())
     .option("--force", "reconfigure an existing provider", false)
     .action((provider: string | undefined, opts: any) => {

@@ -1,4 +1,4 @@
-export type BlockchainErrorCode =
+export type OnchainErrorCode =
     | "WALLET_NOT_FOUND"
     | "WALLET_NOT_CONNECTED"
     | "TRANSACTION_REJECTED"
@@ -17,7 +17,7 @@ interface ErrorDefinition {
     hint?: string;
 }
 
-export const BLOCKCHAIN_ERROR_CODES: Record<BlockchainErrorCode, ErrorDefinition> = {
+export const ONCHAIN_ERROR_CODES: Record<OnchainErrorCode, ErrorDefinition> = {
     WALLET_NOT_FOUND: {
         message: "No wallet found.",
         developerMessage: "window.ethereum (EVM) or window.tronWeb (Tron) is undefined. Install MetaMask or TronLink extension.",
@@ -60,7 +60,7 @@ export const BLOCKCHAIN_ERROR_CODES: Record<BlockchainErrorCode, ErrorDefinition
     },
     RPC_ERROR: {
         message: "Network error.",
-        developerMessage: "Failed to communicate with the blockchain RPC node.",
+        developerMessage: "Failed to communicate with the onchain RPC node.",
         hint: "Check your internet connection and try again.",
     },
     MISSING_PAYMENT_DATA: {
@@ -84,7 +84,7 @@ export interface NetworkInfo {
     faucetUrl?: string;
 }
 
-export interface BlockchainErrorContext {
+export interface OnchainErrorContext {
     balance?: string;
     required?: string;
     chainId?: number | string;
@@ -95,18 +95,18 @@ export interface BlockchainErrorContext {
     network?: NetworkInfo;
 }
 
-export class BlockchainError extends Error {
-    readonly code: BlockchainErrorCode;
+export class OnchainError extends Error {
+    readonly code: OnchainErrorCode;
     readonly developerMessage: string;
     readonly hint?: string;
-    readonly context?: BlockchainErrorContext;
+    readonly context?: OnchainErrorContext;
 
     constructor(
-        code: BlockchainErrorCode,
-        context?: BlockchainErrorContext,
+        code: OnchainErrorCode,
+        context?: OnchainErrorContext,
         cause?: unknown,
     ) {
-        const def = BLOCKCHAIN_ERROR_CODES[code];
+        const def = ONCHAIN_ERROR_CODES[code];
         let message = def.message;
         let devMessage = def.developerMessage;
         let hint = def.hint;
@@ -151,38 +151,38 @@ export class BlockchainError extends Error {
         }
 
         super(message, { cause });
-        this.name = "BlockchainError";
+        this.name = "OnchainError";
         this.code = code;
         this.developerMessage = devMessage;
         this.hint = hint;
         this.context = context;
     }
 
-    static fromWalletError(error: any, network?: NetworkInfo): BlockchainError {
+    static fromWalletError(error: any, network?: NetworkInfo): OnchainError {
         const code = (error?.code ?? error?.error?.code) as number | undefined;
         const msg = (error?.message ?? error?.error?.message ?? String(error ?? "")).toLowerCase();
-        const ctx = (extra?: Partial<BlockchainErrorContext>): BlockchainErrorContext => ({
+        const ctx = (extra?: Partial<OnchainErrorContext>): OnchainErrorContext => ({
             details: error?.message,
             network,
             ...extra,
         });
 
         if (code === 4001 || msg.includes("rejected") || msg.includes("denied") || msg.includes("user rejected")) {
-            return new BlockchainError("TRANSACTION_REJECTED", ctx(), error);
+            return new OnchainError("TRANSACTION_REJECTED", ctx(), error);
         }
 
         if (code === 4902 || msg.includes("unrecognized chain") || msg.includes("chain not added")) {
-            return new BlockchainError("CHAIN_NOT_ADDED", ctx(), error);
+            return new OnchainError("CHAIN_NOT_ADDED", ctx(), error);
         }
 
         if (code === -32002 || msg.includes("request accounts") || msg.includes("already pending")) {
-            return new BlockchainError("WALLET_NOT_CONNECTED", ctx(), error);
+            return new OnchainError("WALLET_NOT_CONNECTED", ctx(), error);
         }
 
         if (msg.includes("insufficient funds") || msg.includes("gas") && msg.includes("price")) {
             const balanceMatch = msg.match(/balance\s+(\d+)/);
             const costMatch = msg.match(/cost\s+(\d+)/);
-            return new BlockchainError(
+            return new OnchainError(
                 "INSUFFICIENT_FUNDS",
                 ctx({
                     balance: balanceMatch?.[1],
@@ -193,14 +193,14 @@ export class BlockchainError extends Error {
         }
 
         if (msg.includes("wrong chain") || msg.includes("incorrect chain") || msg.includes("network mismatch")) {
-            return new BlockchainError("WRONG_CHAIN", ctx(), error);
+            return new OnchainError("WRONG_CHAIN", ctx(), error);
         }
 
         if (msg.includes("rpc") || msg.includes("connection") || msg.includes("timeout") || msg.includes("econnreset")) {
-            return new BlockchainError("RPC_ERROR", ctx(), error);
+            return new OnchainError("RPC_ERROR", ctx(), error);
         }
 
-        return new BlockchainError("TRANSACTION_FAILED", ctx(), error);
+        return new OnchainError("TRANSACTION_FAILED", ctx(), error);
     }
 
     toJSON() {

@@ -1,5 +1,5 @@
 import type { PaymentFieldKeys, CustomerFieldKeys, SubscriptionFieldKeys } from "../db/schema";
-import type { BlockchainConfig } from "../payment-providers/blockchain/config";
+import type { OnchainConfig } from "../payment-providers/onchain/config";
 
 /**
  * The base URL configuration for the KuluPay server.
@@ -127,10 +127,76 @@ export interface KuluPayOptions {
      * Drizzle, MongoDB, and other supported databases.
      */
     database: any;
-    providers?: BlockchainConfig;
+    providers?: OnchainConfig;
+    /**
+     * Base URL for the KuluPay server. This is typically the root URL where
+     * your application server is hosted (e.g. `https://myapp.com`).
+     *
+     * Used on the server for:
+     * - Trusted origins / CORS validation
+     * - Webhook signature verification
+     * - Redirect URLs for redirect-based providers (Stripe, Chapa, PayPal)
+     *
+     * The client (`createPayClient`) also needs to know this URL to send
+     * HTTP requests to the server. If the client and server share the same
+     * domain, the client can infer it automatically. If they're on different
+     * domains, pass it explicitly to `createPayClient({ baseURL })`.
+     *
+     * Can be a static string or a dynamic config object for multi-tenant
+     * setups (wildcard subdomains, preview deployments, etc.).
+     *
+     * If not set, it will be inferred from the incoming request.
+     * Relying on request inference is not recommended for production.
+     *
+     * @example
+     * ```ts
+     * kuluPay({
+     *   baseURL: "https://myapp.com",
+     *   // or dynamic:
+     *   baseURL: {
+     *     allowedHosts: ["myapp.com", "*.vercel.app"],
+     *     protocol: "https",
+     *     fallback: "https://myapp.com",
+     *   },
+     * })
+     * ```
+     */
     baseURL?: BaseURLConfig;
+    /**
+     * Base path where KuluPay routes are mounted. Defaults to `/api/pay`.
+     *
+     * The client must use the same base path. If you change this on the
+     * server, also pass it to `createPayClient({ basePath })`.
+     */
     basePath?: string;
     debug?: boolean;
+    /**
+     * Reown (WalletConnect) project ID for AppKit wallet connections.
+     *
+     * Get one free at https://dashboard.reown.com
+     *
+     * Required when onchain providers (ethereum, polygon, base, arbitrum,
+     * tron, etc.) are configured — AppKit handles all wallet connections
+     * (600+ wallets, mobile QR codes, network switching, pre-built modal).
+     *
+     * Ignored when no onchain providers are configured (Stripe/Chapa/PayPal
+     * only setups).
+     *
+     * The client discovers this automatically via the internal `/config`
+     * endpoint — no separate client-side configuration needed.
+     *
+     * @example
+     * ```ts
+     * kuluPay({
+     *   providers: {
+     *     ethereum: { recipientAddress: "0x...", tokens: ["USDC"] },
+     *     tron: { recipientAddress: "T...", tokens: ["USDT"] },
+     *   },
+     *   walletConnectProjectId: "YOUR_PROJECT_ID",
+     * })
+     * ```
+     */
+    walletConnectProjectId?: string;
     plugins?: any[];
     /**
      * Authentication configuration. KuluPay is auth-agnostic — you plug in
@@ -262,6 +328,21 @@ export interface KuluPayContext {
 export type CheckoutFlow = "self-hosted" | "redirect" | "embedded" | "none";
 
 /**
+ * Public chain metadata exposed by onchain providers.
+ * Safe to send to the client — no recipient addresses or secrets.
+ * Used by the /config endpoint to configure AppKit networks.
+ */
+export interface ProviderChainConfig {
+    family: "evm" | "tron";
+    chainId: number;
+    name: string;
+    rpcUrl: string;
+    explorerUrl?: string;
+    isTestnet?: boolean;
+    tokens: Record<string, { symbol: string; decimals: number; contractAddress?: string }>;
+}
+
+/**
  * Defines a payment provider integration (e.g. Stripe, PayPal, Chapa).
  * Implement this interface to add a new payment provider.
  */
@@ -269,6 +350,11 @@ export interface PaymentProvider {
     id: string;
     /** How this provider handles checkout. Defaults to "none" if not specified. */
     checkout?: CheckoutFlow;
+    /**
+     * Public chain configuration for onchain providers (EVM, Tron).
+     * Used by the /config endpoint to expose chain info to the client.
+     */
+    chainConfig?: ProviderChainConfig;
     createIntent: (data: CreateIntentData) => Promise<PaymentIntent>;
     getIntent: (id: string) => Promise<PaymentIntent>;
     cancelIntent: (id: string) => Promise<PaymentIntent>;
@@ -323,6 +409,8 @@ export interface CreateIntentData {
     currency: string;
     userId: string;
     providerId: string;
+    /** Token to use for this payment (e.g. "USDC", "USDT", "native"). Falls back to metadata.token or "native". */
+    token?: string;
     id?: string;
     productId?: string;
     description?: string;

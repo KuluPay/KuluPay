@@ -1,61 +1,84 @@
 ---
 title: Introduction
-description: A unified payment SDK for Node.js — integrate multiple providers through a single API.
+description: One SDK for fiat and onchain payments. Code you own, not a SaaS you depend on.
 ---
 
 # Introduction
 
-KuluPay is a unified payment gateway SDK that lets you integrate multiple payment providers (Stripe, crypto) through a single, type-safe API.
+## The problem nobody solved
 
-## Why KuluPay?
+Accepting payments today means living in two worlds that were never designed to talk to each other.
 
-- **Multi-provider** — Stripe and crypto out of the box
-- **Modular imports** — Only install the SDK for providers you use (like shadcn/ui)
-- **Framework agnostic** — Works with Next.js, Express, Hono, or any Node.js server
-- **Type-safe** — Written in TypeScript with full type definitions
-- **Pluggable auth** — Bring your own auth (better-auth, NextAuth, custom)
-- **Server-side pricing** — Prevent client-side price manipulation
-- **Auto-customers** — Automatically creates provider customers for your users
-- **CLI tools** — Generate schemas, migrate databases, add providers
+**Fiat payments** are handled by SaaS platforms like Stripe — hosted checkout pages, their servers, their fees, their downtime. You integrate their SDK, adapt to their webhook format, and accept that the payment experience isn't really yours.
 
-## Quick Example
+**Onchain payments** are the opposite — you're building from scratch. Wallet connection, transaction construction, chain detection, confirmation polling, error handling. Every chain is a new integration project. Every wallet is a new edge case.
+
+And if you want both? You stitch them together with separate SDKs, separate webhook handlers, separate error formats, and separate state management — then pray they stay in sync.
+
+## What KuluPay changes
+
+KuluPay treats fiat and onchain as **one problem, not two**.
+
+One config. One API. One webhook system. One checkout. One error code system. One source of truth for payment state.
 
 ```ts
 import { kuluPay } from "@kulupay/kulupay";
+import { onchain } from "@kulupay/core/providers/onchain";
 import { stripe } from "@kulupay/kulupay/providers/stripe";
 
 export const pay = kuluPay({
   database: yourDriver,
   providers: [
     stripe({ apiKey: process.env.STRIPE_API_KEY! }),
+    onchain({
+      ethereum: { recipientAddress: "0x...", tokens: ["USDC"] },
+      tron: { recipientAddress: "T...", tokens: ["USDT"] },
+    }),
   ],
+  walletConnectProjectId: "xxx",
   auth: {
     getSession: async (req) => yourAuthSession(req),
   },
-  pricing: {
-    resolvePrice: async (data) => {
-      const product = await db.products.findById(data.metadata.productId);
-      return { amount: product.price, currency: product.currency };
-    },
-  },
 });
 ```
+
+Adding a new payment method is a config change, not a multi-week integration project.
+
+## Code you own, not a SaaS you depend on
+
+KuluPay is to payments what [better-auth](https://better-auth.com) is to authentication.
+
+Not Auth0 — hosted, locked-in, their servers. Not Stripe — their checkout, their fees, their downtime. KuluPay is a library you install, code you own, and run on your infrastructure.
+
+- **Your checkout, your brand** — not a hosted redirect page
+- **Your server, your database** — not a black box you can't inspect
+- **Your code** — eject providers, customize middleware, own the logic
+- **Your auth** — bring better-auth, NextAuth, or anything that returns a session
+
+## How it works
+
+| Layer | What happens |
+| --- | --- |
+| **Server** | You configure providers in one `kuluPay()` call. The server builds transaction data, verifies on-chain, and handles webhooks. |
+| **Client** | You create a `payClient` with just a `baseURL`. The proxy infers endpoints — no hardcoded routes. |
+| **Checkout** | AppKit handles wallet connection for onchain. Stripe/Chapa use their redirect flow. Same UI, same state machine. |
+| **Security** | Server builds `raw` transaction calldata. Client never constructs transactions — it just signs what the server gave. |
 
 ## Packages
 
 | Package | Description |
 | --- | --- |
-| `@kulupay/core` | Core logic, types, provider implementations |
-| `@kulupay/kulupay` | Full SDK with server handler, client, and framework integrations |
-| `@kulupay/cli` | CLI tool for schema generation and database migration |
+| `@kulupay/core` | Core logic, types, provider implementations (EVM, Tron, Stripe, Chapa) |
+| `@kulupay/kulupay` | Full SDK — server handler, client proxy, React bindings, checkout |
+| `@kulupay/cli` | CLI for schema generation, database migration, adding providers |
 
 ## Architecture
 
 KuluPay follows a modular architecture inspired by better-auth and shadcn/ui:
 
 1. **Server providers** are framework-agnostic (standard Request/Response)
-2. **Client providers** are framework-agnostic (vanilla JS, `PaymentClientProvider` interface)
-3. **Framework bindings** are thin wrappers (React `usePaymentProvider` hook)
+2. **Client** uses a dynamic proxy — no hardcoded endpoints, infers GET/POST from call shape
+3. **Framework bindings** are thin wrappers (React hooks, Vue composables)
 4. **Auth is pluggable** — you provide `getSession()`, KuluPay doesn't hardcode any auth library
 5. **CLI follows shadcn pattern** — you own the code, eject providers/blocks/middleware
 

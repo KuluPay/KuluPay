@@ -4,9 +4,30 @@ import type { KuluPaySession, CreateIntentData } from "./index";
 export interface KuluPayOptions {
     database: any; // Farming ORM driver
     providers?: PaymentProvider[];
+    /**
+     * Base URL for the KuluPay server (e.g. `https://myapp.com`).
+     * Used for trusted origins, webhook verification, and redirect URLs.
+     * The client also needs this to send HTTP requests — if same domain,
+     * it can be inferred automatically. See `createPayClient` docs.
+     */
     baseURL?: string;
+    /**
+     * Base path where KuluPay routes are mounted. Defaults to `/api/pay`.
+     * The client must use the same base path.
+     */
     basePath?: string;
     debug?: boolean;
+    /**
+     * Reown (WalletConnect) project ID for AppKit wallet connections.
+     * Get one free at https://dashboard.reown.com
+     *
+     * Required when onchain providers are configured — AppKit handles
+     * all wallet connections (600+ wallets, mobile QR, network switching).
+     * Ignored when no onchain providers are configured.
+     *
+     * The client discovers this via the internal `/config` endpoint.
+     */
+    walletConnectProjectId?: string;
     plugins?: any[];
     auth?: {
         getSession?: (request: Request) => Promise<KuluPaySession | null>;

@@ -4,5 +4,5 @@ export * from "./chapa";
 export { CHAPA_ERROR_CODES, type ChapaErrorCode } from "./chapa/error-codes";
 export * from "./paypal";
 
-// Blockchain providers (modular — supports EVM + Tron)
-export * from "./blockchain";
+// Onchain providers (modular — supports EVM + Tron)
+export * from "./onchain";

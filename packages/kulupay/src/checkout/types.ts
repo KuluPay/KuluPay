@@ -1,4 +1,4 @@
-import type { CheckoutFlow } from "@kulupay/core";
+import type { CheckoutFlow, ProviderChainConfig } from "@kulupay/core";
 
 /** Minimal interface that the checkout components need from the PayClient. */
 export interface PayClientLike {
@@ -26,6 +26,7 @@ export interface CheckoutIntentData {
   network: any;
   signature: string | null;
   contractAddress: string | null;
+  chainConfig?: ProviderChainConfig | null;
 }
 
 export interface CheckoutProps {
@@ -33,6 +34,25 @@ export interface CheckoutProps {
   client: PayClientLike;
   onStartPolling: () => void;
   onUpdateStatus: (status: string, txHash?: string) => void;
+}
+
+/** Provider type for UI routing — determines which checkout component to render. */
+export type ProviderType = "evm" | "tron" | "redirect" | "unknown";
+
+/** Known onchain network names for provider type detection. */
+const EVM_NETWORKS = new Set(["ethereum", "base", "polygon", "arbitrum", "optimism", "avalanche", "bsc", "fantom", "gnosis", "scroll", "linea", "blast", "zksync", "mantle", "sepolia", "base-sepolia", "polygon-amoy", "arbitrum-sepolia"]);
+const TRON_NETWORKS = new Set(["tron", "tron-nile", "tron-shasta"]);
+
+/**
+ * Determine the provider type from the providerId (which is now just the network name).
+ * Falls back to checkoutFlow for non-onchain providers (stripe, chapa, paypal).
+ */
+export function getProviderType(providerId: string, checkoutFlow?: CheckoutFlow): ProviderType {
+  const id = providerId.toLowerCase();
+  if (EVM_NETWORKS.has(id)) return "evm";
+  if (TRON_NETWORKS.has(id)) return "tron";
+  if (checkoutFlow === "redirect" || checkoutFlow === "embedded") return "redirect";
+  return "unknown";
 }
 
 export function formatAmount(cents: number, currency: string): string {

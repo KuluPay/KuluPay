@@ -146,6 +146,7 @@ export const createIntent = createKuluPayEndpoint(
 
         return {
             ...intent,
+            chainConfig: provider.chainConfig ?? null,
             redirects: (provider as any).options?.redirects || {
                 success: "/success",
             }
@@ -217,7 +218,10 @@ export const getIntent = createKuluPayEndpoint(
             }
         }
 
-        return intent;
+        return {
+            ...intent,
+            chainConfig: provider.chainConfig ?? null,
+        };
     }
 );
 

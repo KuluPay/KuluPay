@@ -11,7 +11,7 @@ import {
 import type { ChainConfig, TokenConfig, PriceConverter } from "./types";
 import { stablecoinConverter } from "./price-converter";
 
-export interface BlockchainChainConfig {
+export interface OnchainChainConfig {
     recipientAddress: string;
     tokens?: string | string[];
     testnet?: boolean | string;
@@ -22,9 +22,9 @@ export interface BlockchainChainConfig {
     apiKey?: string;
 }
 
-export type BlockchainConfig = Record<string, BlockchainChainConfig>;
+export type OnchainConfig = Record<string, OnchainChainConfig>;
 
-export function blockchain(config: BlockchainConfig): PaymentProvider[] {
+export function onchain(config: OnchainConfig): PaymentProvider[] {
     const providers: PaymentProvider[] = [];
 
     for (const [configKey, chainConfig] of Object.entries(config)) {
@@ -57,6 +57,8 @@ export function blockchain(config: BlockchainConfig): PaymentProvider[] {
             }
         }
 
+        // Build the tokens map: { "native": TokenConfig, "USDC": TokenConfig, ... }
+        const tokens: Record<string, TokenConfig> = {};
         const tokenList: string[] = [];
         if (chainConfig.tokens) {
             if (Array.isArray(chainConfig.tokens)) {
@@ -69,21 +71,10 @@ export function blockchain(config: BlockchainConfig): PaymentProvider[] {
             tokenList.push("native");
         }
 
-        const chainConfigResolved: ChainConfig = {
-            family: chain.family,
-            chainId: network.chainId,
-            name: network.name,
-            rpcUrl: network.rpcUrl,
-            explorerUrl: network.explorerUrl,
-        };
-
-        const converter = chainConfig.priceConverter
-            ?? stablecoinConverter();
-
         for (const tokenKey of tokenList) {
             const isNative = tokenKey === "native";
             const tokenConfig: TokenConfig | undefined = isNative
-                ? undefined
+                ? { symbol: chain.nativeToken.symbol, decimals: chain.nativeToken.decimals }
                 : chain.wellKnownTokens[tokenKey];
 
             if (!isNative && !tokenConfig) {
@@ -103,33 +94,46 @@ export function blockchain(config: BlockchainConfig): PaymentProvider[] {
                 }
             }
 
-            const providerId = isNative
-                ? configKey
-                : `${configKey}-${tokenKey.toLowerCase()}`;
+            const key = isNative ? "native" : tokenKey;
+            tokens[key] = resolvedToken!;
+        }
 
-            if (chain.family === "evm") {
-                providers.push(
-                    evm({
-                        chain: chainConfigResolved,
-                        recipientAddress: chainConfig.recipientAddress as `0x${string}`,
-                        token: resolvedToken,
-                        priceConverter: converter,
-                        confirmations: chainConfig.confirmations,
-                        id: providerId,
-                    }),
-                );
-            } else if (chain.family === "tron") {
-                providers.push(
-                    tron({
-                        chain: chainConfigResolved,
-                        recipientAddress: chainConfig.recipientAddress,
-                        token: resolvedToken,
-                        priceConverter: converter,
-                        id: providerId,
-                        apiKey: chainConfig.apiKey,
-                    }),
-                );
-            }
+        const chainConfigResolved: ChainConfig = {
+            family: chain.family,
+            chainId: network.chainId,
+            name: network.name,
+            rpcUrl: network.rpcUrl,
+            explorerUrl: network.explorerUrl,
+        };
+
+        const converter = chainConfig.priceConverter
+            ?? stablecoinConverter();
+
+        // One provider per chain — ID is the network name
+        const providerId = configKey;
+
+        if (chain.family === "evm") {
+            providers.push(
+                evm({
+                    chain: chainConfigResolved,
+                    recipientAddress: chainConfig.recipientAddress as `0x${string}`,
+                    tokens,
+                    priceConverter: converter,
+                    confirmations: chainConfig.confirmations,
+                    id: providerId,
+                }),
+            );
+        } else if (chain.family === "tron") {
+            providers.push(
+                tron({
+                    chain: chainConfigResolved,
+                    recipientAddress: chainConfig.recipientAddress,
+                    tokens,
+                    priceConverter: converter,
+                    id: providerId,
+                    apiKey: chainConfig.apiKey,
+                }),
+            );
         }
     }
 

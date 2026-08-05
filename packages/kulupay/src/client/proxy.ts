@@ -40,7 +40,6 @@ function buildQueryString(query: Record<string, any>): string {
 
 export function createDynamicPathProxy(
     fetcher: PayFetcher,
-    knownMethods: Record<string, "GET" | "POST"> = {},
     pluginActions: Record<string, any> = {},
 ): any {
     const target: Record<string, any> = {};
@@ -96,11 +95,8 @@ export function createDynamicPathProxy(
 
                 const fetchOptions = (args[1] || {}) as PayFetchOptions;
 
-                // Determine method
-                let method: "GET" | "POST" = knownMethods[routePath] || "GET";
-                if (!knownMethods[routePath]) {
-                    method = (fetchOptions.method as "GET" | "POST") || (arg.body || Object.keys(arg).length > 0 ? "POST" : "GET");
-                }
+                // Determine method — infer from call shape, like better-auth
+                const method: "GET" | "POST" = (fetchOptions.method as "GET" | "POST") || (arg.body || Object.keys(arg).length > 0 ? "POST" : "GET");
 
                 const { query, body, fetchOptions: argFetch, ...rest } = arg;
                 const mergedOptions: PayFetchOptions = {

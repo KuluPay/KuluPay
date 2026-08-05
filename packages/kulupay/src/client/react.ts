@@ -12,8 +12,7 @@ import {
     type PayClientPlugin,
 } from "./vanilla";
 import { KuluPayClientError } from "./error";
-import { createEVMClientProvider } from "./providers/evm";
-import { createTronClientProvider } from "./providers/tron";
+import type { KuluPayAppKitInstance } from "./appkit";
 
 export type { PayClientOptions, PayClientPlugin };
 
@@ -43,55 +42,13 @@ export interface UsePayReturn {
     refetch: () => Promise<void>;
 }
 
-function getProviderForId(providerId: string) {
-    if (providerId.startsWith("tron")) {
-        const tw = (globalThis as any).tronWeb;
-        if (!tw) return null;
-        return createTronClientProvider({
-            id: providerId,
-            recipientAddress: "",
-            network: {
-                name: "Tron Nile",
-                chainId: 3448148188,
-                rpcUrl: "https://nile.trongrid.io",
-                explorerUrl: "https://nile.tronscan.org",
-                isTestnet: true,
-                faucetUrl: "https://nileex.io/join/getJoinPage",
-            },
-        });
-    }
-    const eth = (globalThis as any).ethereum;
-    if (!eth) return null;
-
-    if (providerId.includes("base")) {
-        return createEVMClientProvider({
-            chainId: 84532,
-            id: providerId,
-            recipientAddress: "0x0" as `0x${string}`,
-            network: {
-                name: "Base Sepolia",
-                chainId: 84532,
-                rpcUrl: "https://sepolia.base.org",
-                explorerUrl: "https://sepolia.basescan.org",
-                isTestnet: true,
-                faucetUrl: "https://www.coinbase.com/faucet/base-sepolia",
-            },
-        });
-    }
-
-    return createEVMClientProvider({
-        chainId: 11155111,
-        id: providerId,
-        recipientAddress: "0x0" as `0x${string}`,
-        network: {
-            name: "Ethereum Sepolia",
-            chainId: 11155111,
-            rpcUrl: "https://rpc.sepolia.org",
-            explorerUrl: "https://sepolia.etherscan.io",
-            isTestnet: true,
-            faucetUrl: "https://sepoliafaucet.com",
-        },
-    });
+export interface CreatePayClientOptions extends PayClientOptions {
+    /**
+     * AppKit instance for vanilla JS usage (non-React).
+     * React users should use KuluPayAppKitProvider instead —
+     * the provider initializes AppKit and passes it via context.
+     */
+    appKit?: KuluPayAppKitInstance;
 }
 
 function createUsePay(client: VanillaPayClient) {
@@ -116,9 +73,10 @@ function createUsePay(client: VanillaPayClient) {
     };
 }
 
-export function createPayClient(options: PayClientOptions) {
+export function createPayClient(options: CreatePayClientOptions) {
     const client = createVanillaPayClient(options);
     const usePay = createUsePay(client);
+    const appKit = options.appKit;
 
     const confirmPayment = async (data: {
         providerId: string;
@@ -134,37 +92,78 @@ export function createPayClient(options: PayClientOptions) {
             return { data: null, error: new KuluPayClientError("NO_INTENT", "Call createIntent first.", 400) };
         }
 
-        const provider = getProviderForId(providerId);
-        if (!provider) {
-            return { data: null, error: new KuluPayClientError("NO_PROVIDER", `No wallet found for "${providerId}".`, 400) };
+        if (!appKit) {
+            return {
+                data: null,
+                error: new KuluPayClientError(
+                    "NO_PROVIDER",
+                    "AppKit is not initialized. Pass appKit to createPayClient or use KuluPayAppKitProvider.",
+                    400,
+                ),
+            };
+        }
+
+        if (!appKit.isConnected()) {
+            appKit.open();
+            return {
+                data: null,
+                error: new KuluPayClientError(
+                    "NO_PROVIDER",
+                    "Wallet not connected. Opening AppKit modal...",
+                    400,
+                ),
+            };
         }
 
         client.$intent.set({ data: current, error: null, isPending: true });
         try {
-            const result = await provider.confirmPayment(secret, {
-                ...opts,
-                paymentMethodData: current.raw,
-                intentId: current.id,
-            });
+            const raw = (current as any).raw;
+            if (!raw) {
+                throw new KuluPayClientError("CONFIRM_FAILED", "No transaction data in intent.", 400);
+            }
 
-            const txHash = result.metadata?.txHash;
+            const family = current.metadata?.family;
+            let txHash: string;
+
+            if (family === "tron") {
+                const provider = appKit.modal.getWalletProvider();
+                if (!provider) {
+                    throw new KuluPayClientError("NO_PROVIDER", "No wallet provider connected.", 400);
+                }
+                const result = await (provider as any).request({
+                    method: "tron_sendTransaction",
+                    params: [raw],
+                });
+                txHash = typeof result === "string" ? result : result?.txid ?? result?.hash ?? "";
+            } else {
+                txHash = await appKit.sendEVMTx({
+                    to: raw.to,
+                    value: raw.value ? BigInt(raw.value) : BigInt(0),
+                    data: raw.data,
+                });
+            }
+
             if (txHash) {
                 try {
                     const confirmResult = await client.confirmIntent({
                         body: { intentId: current.id, txHash, clientSecret: secret },
                     });
                     if (confirmResult?.data) {
-                        client.$intent.set({ data: { ...current, ...result, ...confirmResult.data, id: current.id }, error: null, isPending: false });
+                        client.$intent.set({
+                            data: { ...current, ...confirmResult.data, id: current.id },
+                            error: null,
+                            isPending: false,
+                        });
                     } else {
-                        client.$intent.set({ data: { ...current, ...result, id: current.id }, error: null, isPending: false });
+                        client.$intent.set({ data: { ...current, id: current.id }, error: null, isPending: false });
                     }
                 } catch (confirmErr) {
-                    client.$intent.set({ data: { ...current, ...result, id: current.id }, error: null, isPending: false });
+                    client.$intent.set({ data: { ...current, id: current.id }, error: null, isPending: false });
                 }
             } else {
-                client.$intent.set({ data: { ...current, ...result, id: current.id }, error: null, isPending: false });
+                client.$intent.set({ data: { ...current, id: current.id }, error: null, isPending: false });
             }
-            return { data: { ...result, id: current.id }, error: null };
+            return { data: { ...current, id: current.id }, error: null };
         } catch (err: any) {
             const e = err instanceof KuluPayClientError
                 ? err
@@ -224,12 +223,8 @@ export function createPayClient(options: PayClientOptions) {
         usePay,
         confirmPayment,
         verifyPayment,
+        appKit,
     });
 }
 
 export type PayClient = ReturnType<typeof createPayClient>;
-
-
-
-
-
