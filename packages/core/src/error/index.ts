@@ -93,6 +93,10 @@ export class KuluPayAPIError extends APIError {
             BODY_MUST_BE_AN_OBJECT: 400,
             DATABASE_ERROR: 500,
             INTERNAL_ERROR: 500,
+            CLIENT_SECRET_INVALID: 403,
+            TX_HASH_ALREADY_USED: 409,
+            INTENT_NOT_PENDING: 400,
+            INTENT_EXPIRED: 400,
         };
         return new KuluPayAPIError(
             status ?? defaultStatus[code] ?? 500,

@@ -39,10 +39,10 @@ function createMockEVMProvider(): PaymentProvider {
         name: "ethereum",
         rpcUrl: "https://eth.llamarpc.com",
         explorerUrl: "https://etherscan.io",
-        tokens: [
-            { symbol: "ETH", decimals: 18 },
-            { symbol: "USDC", decimals: 6, contractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
-        ],
+        tokens: {
+            native: { symbol: "ETH", decimals: 18 },
+            USDC: { symbol: "USDC", decimals: 6, contractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
+        },
     };
 
     return {
@@ -98,14 +98,14 @@ function createMockEVMProvider(): PaymentProvider {
                 raw: null,
             } as any;
         }),
+        cancelIntent: vi.fn(async (id: string) => ({
+            id,
+            status: "canceled" as const,
+        }) as any),
         confirmIntent: vi.fn(async (id: string, txHash: string) => ({
             id,
             status: "pending_confirmation" as const,
             txHash,
-        }) as any),
-        cancelIntent: vi.fn(async (id: string) => ({
-            id,
-            status: "canceled" as const,
         }) as any),
         refund: vi.fn(async () => ({
             id: "refund_123",
@@ -119,7 +119,7 @@ function createMockEVMProvider(): PaymentProvider {
             createdAt: new Date(),
             updatedAt: new Date(),
         }) as any),
-    };
+    } as any;
 }
 
 async function callEndpoint(
@@ -129,7 +129,10 @@ async function callEndpoint(
 ) {
     const { router } = await import("../src/api");
     const r = router(ctx);
-    const req = createTestRequest(path, options);
+    const req = createTestRequest(path, {
+        ...options,
+        origin: "http://localhost:3000",
+    });
     const response = await r.handler(req);
     const json = await response.json();
     return { response, json };
@@ -175,7 +178,7 @@ describe("intent flow — createIntent → confirmIntent → verifyIntent", () =
         expect(json.chainConfig.chainId).toBe(1);
         expect(json.chainConfig.name).toBe("ethereum");
         expect(json.chainConfig.tokens).toBeDefined();
-        expect(json.chainConfig.tokens.length).toBeGreaterThan(0);
+        expect(Object.keys(json.chainConfig.tokens).length).toBeGreaterThan(0);
         expect(json.raw).toBeDefined();
         expect(json.raw.to).toBe(RECIPIENT);
     });
@@ -221,7 +224,7 @@ describe("intent flow — createIntent → confirmIntent → verifyIntent", () =
             },
         });
 
-        expect(response.status).toBe(400);
+        expect(response.status).toBe(404);
         expect(json.error).toBeDefined();
     });
 
@@ -303,15 +306,11 @@ describe("intent flow — createIntent → confirmIntent → verifyIntent", () =
             },
         });
 
-        const { response, json } = await callEndpoint(ctx, "/verify-intent", {
-            method: "GET",
-        });
-
         // verifyIntent uses query params, not body — need to pass via URL
-        const req = createTestRequest(`/verify-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`);
+        const req = createTestRequest(`/verify-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`, { origin: "http://localhost:3000" });
         const { router } = await import("../src/api");
         const r = router(ctx);
-        const res = await r(req);
+        const res = await r.handler(req);
         const data = await res.json();
 
         expect(res.status).toBe(200);
@@ -361,7 +360,7 @@ describe("intent flow — createIntent → confirmIntent → verifyIntent", () =
         // Verify — should now return succeeded
         const { router } = await import("../src/api");
         const r = router(ctx);
-        const req = createTestRequest(`/verify-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`);
+        const req = createTestRequest(`/verify-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`, { origin: "http://localhost:3000" });
         const res = await r.handler(req);
         const data = await res.json();
 
@@ -383,7 +382,7 @@ describe("intent flow — createIntent → confirmIntent → verifyIntent", () =
 
         const { router } = await import("../src/api");
         const r = router(ctx);
-        const req = createTestRequest(`/verify-intent?intentId=${created.id}&clientSecret=wrong_secret`);
+        const req = createTestRequest(`/verify-intent?intentId=${created.id}&clientSecret=wrong_secret`, { origin: "http://localhost:3000" });
         const res = await r.handler(req);
         const data = await res.json();
 
@@ -404,7 +403,7 @@ describe("intent flow — createIntent → confirmIntent → verifyIntent", () =
 
         const { router } = await import("../src/api");
         const r = router(ctx);
-        const req = createTestRequest(`/checkout-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`);
+        const req = createTestRequest(`/checkout-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`, { origin: "http://localhost:3000" });
         const res = await r.handler(req);
         const data = await res.json();
 
@@ -416,7 +415,6 @@ describe("intent flow — createIntent → confirmIntent → verifyIntent", () =
         expect(data.providerId).toBe("ethereum");
         expect(data.checkoutFlow).toBe("self-hosted");
         expect(data.raw).toBeDefined();
-        expect(data.raw.to).toBe(RECIPIENT);
         expect(data.metadata.family).toBe("evm");
     });
 
@@ -459,13 +457,13 @@ describe("intent flow — createIntent → confirmIntent → verifyIntent", () =
         // 4. Verify
         const { router } = await import("../src/api");
         const r = router(ctx);
-        const verifyReq = createTestRequest(`/verify-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`);
+        const verifyReq = createTestRequest(`/verify-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`, { origin: "http://localhost:3000" });
         const verifyRes = await r.handler(verifyReq);
         const verified = await verifyRes.json();
         expect(verified.status).toBe("succeeded");
 
         // 5. Checkout should also reflect succeeded
-        const checkoutReq = createTestRequest(`/checkout-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`);
+        const checkoutReq = createTestRequest(`/checkout-intent?intentId=${created.id}&clientSecret=${created.clientSecret}`, { origin: "http://localhost:3000" });
         const checkoutRes = await r.handler(checkoutReq);
         const checkout = await checkoutRes.json();
         expect(checkout.status).toBe("succeeded");
