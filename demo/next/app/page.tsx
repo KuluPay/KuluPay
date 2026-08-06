@@ -25,11 +25,13 @@ export default function Home() {
         return;
       }
 
+      const [chain, token] = providerId.split("-");
       const result = await payClient.createIntent({
         body: {
           amount: cents,
           currency: currency.toLowerCase(),
-          providerId,
+          providerId: chain,
+          token: token?.toUpperCase(),
           description,
           type: "one_time",
         },

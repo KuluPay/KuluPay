@@ -33,6 +33,10 @@ function generateReference(): string {
     return `ref_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function generateClientSecret(): string {
+    return `sec_${Date.now()}_${Math.random().toString(36).slice(2, 18)}`;
+}
+
 /**
  * Encode an ERC-20 transfer call.
  * transfer(address to, uint256 amount)
@@ -124,7 +128,7 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                 amount: data.amount,
                 currency: data.currency,
                 status: "pending",
-                clientSecret: reference,
+                clientSecret: generateClientSecret(),
                 metadata: {
                     ...data.metadata,
                     ...metadata,

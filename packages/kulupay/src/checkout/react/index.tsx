@@ -4,7 +4,12 @@ import { useEffect, useRef } from "react";
 import type { PayClientLike } from "../types";
 import { mountCheckout, type CheckoutHandle } from "../core/ui";
 
-export interface CheckoutPageProps {
+// Full React checkout — supports onchain payments via AppKit wallet connection.
+// Requires the app to be wrapped in <KuluPayAppKitProvider client={payClient}>.
+export { CheckoutPage, type CheckoutPageProps } from "../checkout-page";
+export { KuluPayCheckout, type AppKitCheckoutProps } from "../appkit-checkout";
+
+export interface VanillaCheckoutPageProps {
     intentId: string;
     clientSecret: string;
     client: PayClientLike;
@@ -15,10 +20,10 @@ export interface CheckoutPageProps {
 }
 
 /**
- * React binding for the KuluPay checkout.
- * Thin wrapper around the framework-agnostic checkout core.
+ * React wrapper around the framework-agnostic vanilla checkout core.
+ * Does NOT support onchain wallet payments — use CheckoutPage for those.
  */
-export function CheckoutPage({ intentId, clientSecret, client, merchantName, theme }: CheckoutPageProps) {
+export function VanillaCheckoutPage({ intentId, clientSecret, client, merchantName, theme }: VanillaCheckoutPageProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const handleRef = useRef<CheckoutHandle | null>(null);
 

@@ -36,7 +36,82 @@ export interface AppKitCheckoutProps {
 
 type CheckoutState = "idle" | "connecting" | "sending" | "confirming" | "confirmed" | "error";
 
-export function KuluPayCheckout({
+function getTokenRawAmount(intent: CheckoutIntentData): string {
+    const converted = intent.metadata?.priceConversion?.cryptoAmount;
+    if (converted) return converted.toString();
+    if (intent.raw?.value && intent.raw.value !== "0") return intent.raw.value;
+    if (
+        intent.raw?.data &&
+        typeof intent.raw.data === "string" &&
+        intent.raw.data.startsWith("0xa9059cbb") &&
+        intent.raw.data.length >= 138
+    ) {
+        // ERC-20 transfer(address,uint256): parse amount from last 32 bytes
+        return BigInt(`0x${intent.raw.data.slice(-64)}`).toString();
+    }
+    return intent.amount.toString();
+}
+
+export function KuluPayCheckout(props: AppKitCheckoutProps) {
+    const { appKit, isLoading: appKitLoading, error: appKitError, initFromChains } = useKuluPayAppKitStatus();
+
+    // Initialize AppKit lazily from the intent's chainConfig
+    useEffect(() => {
+        if (!appKit && !appKitLoading && !appKitError && props.intent.chainConfig) {
+            initFromChains([props.intent.chainConfig as ProviderChainConfig]);
+        }
+    }, [appKit, appKitLoading, appKitError, initFromChains, props.intent]);
+
+    const tokenAmount = getTokenRawAmount(props.intent);
+    const tokenSymbol = props.intent.token?.symbol ?? props.intent.metadata?.token?.symbol ?? "";
+    const tokenDecimals = props.intent.token?.decimals ?? props.intent.metadata?.token?.decimals ?? 18;
+
+    if (appKitError) {
+        return (
+            <div className="kulupay-checkout">
+                <div className="kulupay-checkout__header">
+                    <h3>Pay {formatTokenAmount(tokenAmount, tokenDecimals)} {tokenSymbol}</h3>
+                    {props.intent.description && <p>{props.intent.description}</p>}
+                </div>
+                <div className="kulupay-checkout__error">
+                    Failed to initialize wallet: {appKitError.message}
+                </div>
+            </div>
+        );
+    }
+
+    if (!props.intent.chainConfig) {
+        return (
+            <div className="kulupay-checkout">
+                <div className="kulupay-checkout__header">
+                    <h3>Pay {formatTokenAmount(tokenAmount, tokenDecimals)} {tokenSymbol}</h3>
+                    {props.intent.description && <p>{props.intent.description}</p>}
+                </div>
+                <div className="kulupay-checkout__error">
+                    No chain configuration available for this payment. Please create a new payment intent.
+                </div>
+            </div>
+        );
+    }
+
+    if (!appKit || appKitLoading) {
+        return (
+            <div className="kulupay-checkout">
+                <div className="kulupay-checkout__header">
+                    <h3>Pay {formatTokenAmount(tokenAmount, tokenDecimals)} {tokenSymbol}</h3>
+                    {props.intent.description && <p>{props.intent.description}</p>}
+                </div>
+                <button className="kulupay-checkout__button" disabled>
+                    Initializing wallet...
+                </button>
+            </div>
+        );
+    }
+
+    return <KuluPayCheckoutInner {...props} />;
+}
+
+function KuluPayCheckoutInner({
     intent,
     client,
     onStatusChange,
@@ -50,14 +125,7 @@ export function KuluPayCheckout({
     const { isConnected, address } = useAppKitAccount();
     const { fetchBalance } = useAppKitBalance();
     const { sendTransactionAsync, isPending: isSendingTx } = useSendTransaction();
-    const { appKit, isLoading: appKitLoading, initFromChains } = useKuluPayAppKitStatus();
-
-    // Initialize AppKit lazily from the intent's chainConfig
-    useEffect(() => {
-        if (!appKit && !appKitLoading && intent.chainConfig) {
-            initFromChains([intent.chainConfig as ProviderChainConfig]);
-        }
-    }, [appKit, appKitLoading, initFromChains, intent]);
+    const { appKit } = useKuluPayAppKitStatus();
 
     const [state, setState] = useState<CheckoutState>("idle");
     const [txHash, setTxHash] = useState<string | null>(null);
@@ -66,7 +134,7 @@ export function KuluPayCheckout({
     const [polling, setPolling] = useState(false);
 
     const isTron = intent.metadata?.family === "tron";
-    const token = intent.token;
+    const token = intent.token ?? intent.metadata?.token ?? null;
     const raw = intent.raw;
 
     // Fetch balance when connected
@@ -195,8 +263,6 @@ export function KuluPayCheckout({
 
     const getButtonText = () => {
         if (isExpired) return "Expired";
-        if (appKitLoading) return "Initializing...";
-        if (!appKit) return "Loading...";
         if (state === "connecting") return "Connecting...";
         if (state === "sending") return "Sending...";
         if (state === "confirming") return "Confirming...";
@@ -206,12 +272,14 @@ export function KuluPayCheckout({
         return payButtonText;
     };
 
-    const isDisabled = isExpired || appKitLoading || !appKit || state === "connecting" || state === "sending" || state === "confirming" || state === "confirmed";
+    const isDisabled = isExpired || state === "connecting" || state === "sending" || state === "confirming" || state === "confirmed";
+
+    const tokenAmount = getTokenRawAmount(intent);
 
     return (
         <div className="kulupay-checkout">
             <div className="kulupay-checkout__header">
-                <h3>Pay {formatTokenAmount(intent.amount.toString(), token?.decimals ?? 18)} {token?.symbol}</h3>
+                <h3>Pay {formatTokenAmount(tokenAmount, token?.decimals ?? 18)} {token?.symbol}</h3>
                 {intent.description && <p>{intent.description}</p>}
             </div>
 

@@ -447,6 +447,7 @@ export const checkoutIntent = createKuluPayEndpoint(
             network: metadata?.network || (metadata?.chain ? { name: metadata.chain, family: metadata.family } : null),
             signature: metadata?.signature || null,
             contractAddress: metadata?.contractAddress || null,
+            chainConfig: provider?.chainConfig ?? null,
         };
     }
 );

@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useMemo, useCallback } from "react";
 import { WagmiConfig } from "wagmi";
+import { createAppKit } from "@reown/appkit/react";
 import { createKuluPayAppKit, type KuluPayAppKitInstance } from "../client/appkit";
 import type { PayClient } from "../client/react";
 import type { ProviderChainConfig } from "@kulupay/core";
@@ -83,7 +84,7 @@ export function KuluPayAppKitProvider({
 
         setIsLoading(true);
         try {
-            const instance = createKuluPayAppKit({ projectId, chains, metadata });
+            const instance = createKuluPayAppKit({ projectId, chains, metadata }, createAppKit);
             setAppKit(instance);
             setError(null);
         } catch (err) {
@@ -98,38 +99,21 @@ export function KuluPayAppKitProvider({
         [appKit, isLoading, error, initFromChains],
     );
 
-    if (isLoading) {
+    if (appKit) {
         return (
             <KuluPayAppKitContext.Provider value={contextValue}>
-                {fallback ?? null}
+                <WagmiConfig config={appKit.wagmiConfig}>
+                    {children}
+                </WagmiConfig>
             </KuluPayAppKitContext.Provider>
         );
     }
 
-    if (error) {
-        return (
-            <KuluPayAppKitContext.Provider value={contextValue}>
-                {fallback ?? (
-                    <div>Failed to initialize KuluPay AppKit: {error.message}</div>
-                )}
-            </KuluPayAppKitContext.Provider>
-        );
-    }
-
-    if (!appKit) {
-        // AppKit not yet initialized — waiting for chains from first intent
-        return (
-            <KuluPayAppKitContext.Provider value={contextValue}>
-                {children}
-            </KuluPayAppKitContext.Provider>
-        );
-    }
-
+    // AppKit not yet initialized or error — still render children so checkout
+    // components can show their own loading/error states via useKuluPayAppKitStatus()
     return (
         <KuluPayAppKitContext.Provider value={contextValue}>
-            <WagmiConfig config={appKit.wagmiConfig}>
-                {children}
-            </WagmiConfig>
+            {children}
         </KuluPayAppKitContext.Provider>
     );
 }

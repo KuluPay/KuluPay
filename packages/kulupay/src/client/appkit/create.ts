@@ -63,6 +63,7 @@ export interface CreateKuluPayAppKitOptions {
  */
 export function createKuluPayAppKit(
     options: CreateKuluPayAppKitOptions,
+    createAppKitImpl: (options: any) => any = createAppKit,
 ): KuluPayAppKitInstance {
     const { projectId, chains, metadata: customMetadata } = options;
 
@@ -107,7 +108,7 @@ export function createKuluPayAppKit(
         icons: [],
     };
 
-    const modal = createAppKit({
+    const modal = createAppKitImpl({
         adapters,
         networks: all as [typeof all[number], ...typeof all],
         projectId,

@@ -3,7 +3,7 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@kulupay/kulupay", "@kulupay/core", "@kulupay/adapter-drizzle"],
-  serverExternalPackages: ["pg", "@farming-labs/orm-sql", "@farming-labs/orm", "@neondatabase/serverless"],
+  serverExternalPackages: ["pg", "@farming-labs/orm-sql", "@farming-labs/orm", "@neondatabase/serverless", "@coinbase/cdp-sdk", "@base-org/account"],
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   turbopack: {
     root: path.resolve(__dirname, "..", ".."),

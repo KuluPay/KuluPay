@@ -33,6 +33,10 @@ function generateReference(): string {
     return `ref_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function generateClientSecret(): string {
+    return `sec_${Date.now()}_${Math.random().toString(36).slice(2, 18)}`;
+}
+
 export const tron = (options: TronProviderOptions): PaymentProvider => {
     if (options.chain.family !== "tron") {
         throw new ProviderError(
@@ -106,7 +110,7 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                 amount: data.amount,
                 currency: data.currency,
                 status: "pending",
-                clientSecret: reference,
+                clientSecret: generateClientSecret(),
                 metadata: {
                     ...data.metadata,
                     ...metadata,

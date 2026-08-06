@@ -96,7 +96,7 @@ export function createDynamicPathProxy(
                 const fetchOptions = (args[1] || {}) as PayFetchOptions;
 
                 // Determine method — infer from call shape, like better-auth
-                const method: "GET" | "POST" = (fetchOptions.method as "GET" | "POST") || (arg.body || Object.keys(arg).length > 0 ? "POST" : "GET");
+                const method: "GET" | "POST" = (fetchOptions.method as "GET" | "POST") || (arg.body ? "POST" : "GET");
 
                 const { query, body, fetchOptions: argFetch, ...rest } = arg;
                 const mergedOptions: PayFetchOptions = {

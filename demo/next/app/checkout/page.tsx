@@ -25,8 +25,6 @@ function CheckoutContent({ searchParams }: { searchParams: Promise<{ intentId?: 
       intentId={intentId}
       clientSecret={clientSecret}
       client={payClient as any}
-      merchantName="KuluPay Demo"
-      theme="light"
     />
   );
 }
