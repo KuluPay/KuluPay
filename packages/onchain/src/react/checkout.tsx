@@ -2,41 +2,44 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAppKit, useAppKitAccount, useAppKitBalance, useAppKitNetwork } from "@reown/appkit/react";
 import { useSendTransaction, useSwitchChain } from "wagmi";
-import type { PaymentIntent } from "@kulupay/core";
-import { useKuluPayAppKitStatus } from "../integrations/appkit-react";
-import type { ProviderChainConfig } from "@kulupay/core";
-import {
-    type CheckoutIntentData,
-    type PayClientLike,
-    formatTokenAmount,
-    shortenAddress,
-    timeRemaining,
-} from "./types";
+import type { PaymentIntent, ProviderChainConfig } from "@kulupay/core";
 
-export interface AppKitCheckoutProps {
-    /** The payment intent from the server (createIntent response) */
-    intent: CheckoutIntentData;
-    /** The KuluPay client (from createPayClient) */
-    client: PayClientLike & {
+export type CheckoutState = "idle" | "connecting" | "sending" | "confirming" | "confirmed" | "error";
+
+export interface OnchainCheckoutSlots {
+    header?: (props: { amount: string; symbol: string; description?: string }) => React.ReactNode;
+    timer?: (props: { remaining: number; isExpired: boolean }) => React.ReactNode;
+    account?: (props: { address: string | null; balance: { formatted: string; symbol: string } | null; isConnected: boolean }) => React.ReactNode;
+    error?: (props: { message: string; onRetry: () => void }) => React.ReactNode;
+    button?: (props: { state: CheckoutState; onClick: () => void; disabled: boolean; text: string }) => React.ReactNode;
+    txStatus?: (props: { txHash: string | null; state: CheckoutState }) => React.ReactNode;
+    success?: (props: { txHash: string }) => React.ReactNode;
+}
+
+export interface OnchainCheckoutProps {
+    intent: PaymentIntent & {
+        chainConfig?: ProviderChainConfig | null;
+        description?: string | null;
+        deadline?: number | null;
+    };
+    client: {
         confirmIntent: (opts: { body: { intentId: string; txHash: string; clientSecret: string } }) => Promise<{ data: any; error: any }>;
         verifyIntent: (opts: { intentId: string; clientSecret: string }) => Promise<{ data: any; error: any }>;
     };
-    /** Called when payment status changes */
+    appKit?: {
+        modal: { getWalletProvider: () => any };
+    };
+    slots?: OnchainCheckoutSlots;
+    theme?: Record<string, string>;
     onStatusChange?: (status: string, txHash?: string) => void;
-    /** Called when transaction is confirmed on-chain */
     onConfirmed?: (txHash: string) => void;
-    /** Called on error */
     onError?: (error: Error) => void;
-    /** Custom button text */
     connectButtonText?: string;
     payButtonText?: string;
-    /** Show countdown timer if intent has deadline */
     showTimer?: boolean;
 }
 
-type CheckoutState = "idle" | "connecting" | "sending" | "confirming" | "confirmed" | "error";
-
-function getTokenRawAmount(intent: CheckoutIntentData): string {
+function getTokenRawAmount(intent: any): string {
     const converted = intent.metadata?.priceConversion?.cryptoAmount;
     if (converted) return converted.toString();
     if (intent.raw?.value && intent.raw.value !== "0") return intent.raw.value;
@@ -46,24 +49,19 @@ function getTokenRawAmount(intent: CheckoutIntentData): string {
         intent.raw.data.startsWith("0xa9059cbb") &&
         intent.raw.data.length >= 138
     ) {
-        // ERC-20 transfer(address,uint256): parse amount from last 32 bytes
         return BigInt(`0x${intent.raw.data.slice(-64)}`).toString();
     }
     return "";
 }
 
-function resolveTokenInfo(intent: CheckoutIntentData): { symbol: string; decimals: number } {
-    // 1. Direct token field
+function resolveTokenInfo(intent: any): { symbol: string; decimals: number } {
     if (intent.token?.symbol && intent.token?.decimals) {
         return { symbol: intent.token.symbol, decimals: intent.token.decimals };
     }
-    // 2. Metadata token
     if (intent.metadata?.token?.symbol && intent.metadata?.token?.decimals) {
         return { symbol: intent.metadata.token.symbol, decimals: intent.metadata.token.decimals };
     }
-    // 3. Raw tokenSymbol (set by EVM provider)
     if (intent.raw?.tokenSymbol) {
-        // Try to find matching token in chainConfig for decimals
         const chainTokens = intent.chainConfig?.tokens as any;
         if (chainTokens) {
             for (const key of Object.keys(chainTokens)) {
@@ -75,7 +73,6 @@ function resolveTokenInfo(intent: CheckoutIntentData): { symbol: string; decimal
         }
         return { symbol: intent.raw.tokenSymbol, decimals: 18 };
     }
-    // 4. ChainConfig tokens (first token)
     if (intent.chainConfig?.tokens) {
         const tokens = intent.chainConfig.tokens as any;
         for (const key of Object.keys(tokens)) {
@@ -88,95 +85,46 @@ function resolveTokenInfo(intent: CheckoutIntentData): { symbol: string; decimal
     return { symbol: "", decimals: 18 };
 }
 
-export function KuluPayCheckout(props: AppKitCheckoutProps) {
-    const { appKit, isLoading: appKitLoading, error: appKitError, initFromChains } = useKuluPayAppKitStatus();
-
-    // Initialize AppKit lazily from the intent's chainConfig
-    useEffect(() => {
-        console.log('[KuluPayCheckout] useEffect', { appKit: !!appKit, appKitLoading, appKitError: !!appKitError, hasChainConfig: !!props.intent.chainConfig, chainConfig: props.intent.chainConfig });
-        if (!appKit && !appKitLoading && !appKitError && props.intent.chainConfig) {
-            initFromChains([props.intent.chainConfig as ProviderChainConfig]);
-        }
-    }, [appKit, appKitLoading, appKitError, initFromChains, props.intent]);
-
-    const tokenAmount = getTokenRawAmount(props.intent);
-    const { symbol: tokenSymbol, decimals: tokenDecimals } = resolveTokenInfo(props.intent);
-    const displayAmount = tokenAmount ? formatTokenAmount(tokenAmount, tokenDecimals) : "";
-
-    console.log('[KuluPayCheckout] token debug', {
-        tokenAmount,
-        tokenSymbol,
-        tokenDecimals,
-        displayAmount,
-        intentToken: props.intent.token,
-        intentMetadataToken: props.intent.metadata?.token,
-        intentRaw: props.intent.raw,
-        intentMetadataPriceConversion: props.intent.metadata?.priceConversion,
-        intentChainConfigTokens: props.intent.chainConfig?.tokens,
-        intentAmount: props.intent.amount,
-    });
-
-    if (appKitError) {
-        return (
-            <div className="kulupay-checkout">
-                <div className="kulupay-checkout__header">
-                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
-                    {props.intent.description && <p>{props.intent.description}</p>}
-                </div>
-                <div className="kulupay-checkout__error">
-                    Failed to initialize wallet: {appKitError.message}
-                </div>
-            </div>
-        );
-    }
-
-    if (!props.intent.chainConfig) {
-        return (
-            <div className="kulupay-checkout">
-                <div className="kulupay-checkout__header">
-                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
-                    {props.intent.description && <p>{props.intent.description}</p>}
-                </div>
-                <div className="kulupay-checkout__error">
-                    No chain configuration available for this payment. Please create a new payment intent.
-                </div>
-            </div>
-        );
-    }
-
-    if (!appKit || appKitLoading) {
-        return (
-            <div className="kulupay-checkout">
-                <div className="kulupay-checkout__header">
-                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
-                    {props.intent.description && <p>{props.intent.description}</p>}
-                </div>
-                <button className="kulupay-checkout__button" disabled>
-                    Initializing wallet...
-                </button>
-            </div>
-        );
-    }
-
-    return <KuluPayCheckoutInner {...props} />;
+function formatTokenAmount(rawAmount: string, decimals: number): string {
+    const value = BigInt(rawAmount) / BigInt(10 ** decimals);
+    const remainder = BigInt(rawAmount) % BigInt(10 ** decimals);
+    const intPart = value.toString();
+    const decPart = remainder.toString().padStart(decimals, "0").slice(0, 4);
+    return `${intPart}.${decPart}`;
 }
 
-function KuluPayCheckoutInner({
+function shortenAddress(addr: string, chars = 6): string {
+    if (!addr) return "";
+    return `${addr.slice(0, chars)}...${addr.slice(-4)}`;
+}
+
+function timeRemaining(deadline: number): { mins: number; secs: number; total: number } {
+    const total = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+    return {
+        mins: Math.floor(total / 60),
+        secs: total % 60,
+        total,
+    };
+}
+
+export function OnchainCheckout({
     intent,
     client,
+    appKit,
+    slots,
+    theme,
     onStatusChange,
     onConfirmed,
     onError,
     connectButtonText = "Connect Wallet",
     payButtonText = "Pay",
     showTimer = true,
-}: AppKitCheckoutProps) {
+}: OnchainCheckoutProps) {
     const { open } = useAppKit();
     const { isConnected, address } = useAppKitAccount();
     const { fetchBalance } = useAppKitBalance();
     const { sendTransactionAsync, isPending: isSendingTx } = useSendTransaction();
     const { switchChainAsync } = useSwitchChain();
-    const { appKit } = useKuluPayAppKitStatus();
     const network = useAppKitNetwork();
 
     const [state, setState] = useState<CheckoutState>("idle");
@@ -187,19 +135,16 @@ function KuluPayCheckoutInner({
 
     const isTron = intent.metadata?.family === "tron";
     const { symbol: tokenSymbol, decimals: tokenDecimals } = resolveTokenInfo(intent);
-    const token = intent.token ?? intent.metadata?.token ?? null;
     const raw = intent.raw;
     const tokenAmount = getTokenRawAmount(intent);
     const displayAmount = tokenAmount ? formatTokenAmount(tokenAmount, tokenDecimals) : "";
 
-    // Reset "connecting" state once wallet actually connects
     useEffect(() => {
         if (isConnected && state === "connecting") {
             setState("idle");
         }
     }, [isConnected, state]);
 
-    // Fetch balance when connected
     useEffect(() => {
         if (isConnected && address) {
             fetchBalance().then((res: any) => {
@@ -212,7 +157,6 @@ function KuluPayCheckoutInner({
         }
     }, [isConnected, address, fetchBalance]);
 
-    // Poll for confirmation after txHash is submitted
     const pollForConfirmation = useCallback(async () => {
         if (polling || !txHash || !intent.clientSecret) return;
         setPolling(true);
@@ -240,7 +184,6 @@ function KuluPayCheckoutInner({
                     return;
                 }
             } catch {
-                // Continue polling
             }
             await new Promise((r) => setTimeout(r, 3000));
         }
@@ -254,12 +197,6 @@ function KuluPayCheckoutInner({
     }, [txHash, state, pollForConfirmation]);
 
     const handlePay = async () => {
-        if (!appKit) {
-            setError("AppKit is not initialized yet");
-            setState("error");
-            return;
-        }
-
         if (!isConnected) {
             setState("connecting");
             open();
@@ -288,8 +225,7 @@ function KuluPayCheckoutInner({
             }
 
             if (isTron) {
-                // Tron: use the wallet provider directly
-                const provider = appKit.modal.getWalletProvider();
+                const provider = appKit?.modal?.getWalletProvider?.();
                 if (!provider) throw new Error("No wallet provider");
                 const result = await (provider as any).request({
                     method: "tron_sendTransaction",
@@ -297,7 +233,6 @@ function KuluPayCheckoutInner({
                 });
                 hash = typeof result === "string" ? result : result?.txid ?? result?.hash ?? "";
             } else {
-                // EVM: use wagmi sendTransaction
                 hash = await sendTransactionAsync({
                     to: raw.to as `0x${string}`,
                     value: raw.value ? BigInt(raw.value) : BigInt(0),
@@ -309,23 +244,27 @@ function KuluPayCheckoutInner({
             setState("confirming");
             onStatusChange?.("pending_confirmation", hash);
 
-            // Submit txHash to server for verification
             try {
                 await client.confirmIntent({
                     body: {
                         intentId: intent.id,
                         txHash: hash,
-                        clientSecret: intent.clientSecret,
+                        clientSecret: intent.clientSecret!,
                     },
                 });
             } catch {
-                // Server confirmation will be picked up by polling
             }
         } catch (err: any) {
             setState("error");
             setError(err?.message ?? "Transaction failed");
             onError?.(err instanceof Error ? err : new Error(err?.message ?? "Transaction failed"));
         }
+    };
+
+    const handleRetry = () => {
+        setState("idle");
+        setError(null);
+        setTxHash(null);
     };
 
     const timer = intent.deadline ? timeRemaining(intent.deadline) : null;
@@ -344,58 +283,82 @@ function KuluPayCheckoutInner({
 
     const isDisabled = isExpired || state === "connecting" || state === "sending" || state === "confirming" || state === "confirmed";
 
+    const themeStyle = theme ? { ...theme } as React.CSSProperties : undefined;
+
     return (
-        <div className="kulupay-checkout">
-            <div className="kulupay-checkout__header">
-                <h3>Pay {displayAmount} {tokenSymbol}</h3>
-                {intent.description && <p>{intent.description}</p>}
-            </div>
-
-            {showTimer && timer && !isExpired && (
-                <div className="kulupay-checkout__timer">
-                    Time remaining: {timer.mins}:{timer.secs.toString().padStart(2, "0")}
+        <div className="kulupay-checkout" style={themeStyle}>
+            {slots?.header ? (
+                slots.header({ amount: displayAmount, symbol: tokenSymbol, description: intent.description ?? undefined })
+            ) : (
+                <div className="kulupay-checkout__header">
+                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
+                    {intent.description && <p>{intent.description}</p>}
                 </div>
             )}
 
-            {isExpired && (
-                <div className="kulupay-checkout__expired">
-                    Payment expired
-                </div>
+            {showTimer && timer && (
+                slots?.timer ? (
+                    slots.timer({ remaining: timer.total, isExpired })
+                ) : !isExpired ? (
+                    <div className="kulupay-checkout__timer">
+                        Time remaining: {timer.mins}:{timer.secs.toString().padStart(2, "0")}
+                    </div>
+                ) : (
+                    <div className="kulupay-checkout__expired">Payment expired</div>
+                )
             )}
 
-            {isConnected && address && (
-                <div className="kulupay-checkout__account">
-                    <span>Connected: {shortenAddress(address)}</span>
-                    {balance && (
-                        <span>Balance: {balance.formatted} {balance.symbol}</span>
-                    )}
-                </div>
+            {slots?.account ? (
+                slots.account({ address: address ?? null, balance, isConnected })
+            ) : (
+                isConnected && address && (
+                    <div className="kulupay-checkout__account">
+                        <span>Connected: {shortenAddress(address)}</span>
+                        {balance && (
+                            <span>Balance: {balance.formatted} {balance.symbol}</span>
+                        )}
+                    </div>
+                )
             )}
 
             {error && (
-                <div className="kulupay-checkout__error">
-                    {error}
-                </div>
+                slots?.error ? (
+                    slots.error({ message: error, onRetry: handleRetry })
+                ) : (
+                    <div className="kulupay-checkout__error">{error}</div>
+                )
             )}
 
             {txHash && (
-                <div className="kulupay-checkout__txhash">
-                    TX: {shortenAddress(txHash, 10)}
-                </div>
+                slots?.txStatus ? (
+                    slots.txStatus({ txHash, state })
+                ) : (
+                    <div className="kulupay-checkout__txhash">
+                        TX: {shortenAddress(txHash, 10)}
+                    </div>
+                )
             )}
 
-            <button
-                className="kulupay-checkout__button"
-                onClick={handlePay}
-                disabled={isDisabled}
-            >
-                {getButtonText()}
-            </button>
+            {slots?.button ? (
+                slots.button({ state, onClick: handlePay, disabled: isDisabled, text: getButtonText() })
+            ) : (
+                <button
+                    className="kulupay-checkout__button"
+                    onClick={handlePay}
+                    disabled={isDisabled}
+                >
+                    {getButtonText()}
+                </button>
+            )}
 
-            {state === "confirmed" && (
-                <div className="kulupay-checkout__success">
-                    Payment confirmed! Thank you.
-                </div>
+            {state === "confirmed" && txHash && (
+                slots?.success ? (
+                    slots.success({ txHash })
+                ) : (
+                    <div className="kulupay-checkout__success">
+                        Payment confirmed! Thank you.
+                    </div>
+                )
             )}
         </div>
     );

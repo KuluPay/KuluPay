@@ -15,6 +15,7 @@
     "@kulupay/adapter-sql": "workspace:*",
     "@kulupay/core": "workspace:*",
     "@kulupay/kulupay": "workspace:*",
+    "@kulupay/onchain": "workspace:*",
     "@neondatabase/serverless": "^1.1.0",
     "@stripe/stripe-js": "^7.0.0",
     "better-sqlite3": "^9.0.0",

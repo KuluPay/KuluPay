@@ -165,4 +165,4 @@ export function useKuluPayAppKitStatus() {
 }
 
 export { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect, useAppKitBalance } from "@reown/appkit/react";
-export { useSendTransaction, useEstimateGas, useBalance } from "wagmi";
+export { useSendTransaction, useEstimateGas, useBalance, useSwitchChain } from "wagmi";

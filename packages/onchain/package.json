@@ -1,0 +1,110 @@
+{
+    "name": "@kulupay/onchain",
+    "version": "0.0.1",
+    "description": "Onchain payment plugin for KuluPay — EVM + Tron support with AppKit wallet integration",
+    "author": "YonaniCodes",
+    "license": "MIT",
+    "keywords": [
+        "payment",
+        "crypto",
+        "evm",
+        "tron",
+        "ethereum",
+        "wallet",
+        "appkit",
+        "reown",
+        "kulupay"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/KuluPay/KuluPay.git",
+        "directory": "packages/onchain"
+    },
+    "homepage": "https://github.com/KuluPay/KuluPay#readme",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "dev-source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js",
+            "default": "./dist/index.mjs"
+        },
+        "./client": {
+            "dev-source": "./src/client.ts",
+            "types": "./dist/client.d.ts",
+            "import": "./dist/client.mjs",
+            "require": "./dist/client.js",
+            "default": "./dist/client.mjs"
+        },
+        "./appkit": {
+            "dev-source": "./src/appkit/index.ts",
+            "types": "./dist/appkit/index.d.ts",
+            "import": "./dist/appkit/index.mjs",
+            "require": "./dist/appkit/index.js",
+            "default": "./dist/appkit/index.mjs"
+        },
+        "./react": {
+            "dev-source": "./src/react/index.tsx",
+            "types": "./dist/react/index.d.ts",
+            "import": "./dist/react/index.mjs",
+            "require": "./dist/react/index.js",
+            "default": "./dist/react/index.mjs"
+        }
+    },
+    "typesVersions": {
+        "*": {
+            "*": ["./dist/index.d.ts"],
+            "client": ["./dist/client.d.ts"],
+            "appkit": ["./dist/appkit/index.d.ts"],
+            "react": ["./dist/react/index.d.ts"]
+        }
+    },
+    "files": ["dist", "README.md", "LICENSE"],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "lint": "biome lint src",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "prepublishOnly": "tsup"
+    },
+    "dependencies": {
+        "@kulupay/core": "workspace:*",
+        "@better-fetch/fetch": "^1.0.0",
+        "nanostores": "^0.11.0"
+    },
+    "peerDependencies": {
+        "react": "^18.0.0 || ^19.0.0",
+        "@reown/appkit": "^1.0.0",
+        "@reown/appkit-adapter-wagmi": "^1.0.0",
+        "@reown/appkit-adapter-tron": "^1.0.0",
+        "@tronweb3/tronwallet-adapter-tronlink": "^1.0.0",
+        "wagmi": "^2.0.0",
+        "@wagmi/core": "^2.0.0",
+        "viem": "^2.0.0",
+        "@tanstack/react-query": "^5.0.0",
+        "tronweb": "^6.0.0"
+    },
+    "peerDependenciesMeta": {
+        "react": { "optional": true },
+        "@reown/appkit": { "optional": true },
+        "@reown/appkit-adapter-wagmi": { "optional": true },
+        "@reown/appkit-adapter-tron": { "optional": true },
+        "@tronweb3/tronwallet-adapter-tronlink": { "optional": true },
+        "wagmi": { "optional": true },
+        "@wagmi/core": { "optional": true },
+        "viem": { "optional": true },
+        "@tanstack/react-query": { "optional": true },
+        "tronweb": { "optional": true }
+    },
+    "devDependencies": {
+        "tsup": "^8.0.0",
+        "@types/react": "^18.0.0 || ^19.0.0"
+    }
+}
