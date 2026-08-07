@@ -129,7 +129,7 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                 raw: {
                     to: isNative
                         ? options.recipientAddress
-                        : (token.contractAddress as `0x${string}`),
+                        : (token.contractAddress as `0x${string}`).toLowerCase() as `0x${string}`,
                     value: isNative
                         ? amountBigInt.toString()
                         : "0",
