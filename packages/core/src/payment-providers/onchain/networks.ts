@@ -34,7 +34,7 @@ export const NETWORKS: Record<string, ChainNetworks> = {
             sepolia: {
                 chainId: 11155111,
                 name: "sepolia",
-                rpcUrl: "https://rpc.sepolia.org",
+                rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com",
                 explorerUrl: "https://sepolia.etherscan.io",
                 isTestnet: true,
                 faucetUrl: "https://sepoliafaucet.com",
@@ -65,7 +65,7 @@ export const NETWORKS: Record<string, ChainNetworks> = {
             "base-sepolia": {
                 chainId: 84532,
                 name: "base-sepolia",
-                rpcUrl: "https://sepolia.base.org",
+                rpcUrl: "https://base-sepolia-rpc.publicnode.com",
                 explorerUrl: "https://sepolia.basescan.org",
                 isTestnet: true,
                 faucetUrl: "https://www.alchemy.com/faucets/base-sepolia",
@@ -96,7 +96,7 @@ export const NETWORKS: Record<string, ChainNetworks> = {
             amoy: {
                 chainId: 80002,
                 name: "polygon-amoy",
-                rpcUrl: "https://rpc-amoy.polygon.technology",
+                rpcUrl: "https://polygon-amoy-rpc.publicnode.com",
                 explorerUrl: "https://amoy.polygonscan.com",
                 isTestnet: true,
                 faucetUrl: "https://faucet.polygon.technology",
@@ -127,7 +127,7 @@ export const NETWORKS: Record<string, ChainNetworks> = {
             sepolia: {
                 chainId: 421614,
                 name: "arbitrum-sepolia",
-                rpcUrl: "https://sepolia-rollup.arbitrum.io/rpc",
+                rpcUrl: "https://arbitrum-sepolia-rpc.publicnode.com",
                 explorerUrl: "https://sepolia.arbiscan.io",
                 isTestnet: true,
                 faucetUrl: "https://www.alchemy.com/faucets/arbitrum-sepolia",

@@ -1,6 +1,7 @@
 import { KuluPayAPIError, ProviderError } from "@kulupay/core/error";
 import { createKuluPayEndpoint } from "@kulupay/core/api";
 import { sessionMiddleware, originCheckMiddleware, ownershipMiddleware } from "@kulupay/core/api";
+import { z } from "zod";
 
 /**
  * Refund a payment.
@@ -104,6 +105,7 @@ export const capturePayment = createKuluPayEndpoint(
     {
         method: "POST",
         use: [sessionMiddleware, originCheckMiddleware] as any,
+        body: z.record(z.string(), z.any()),
     },
     async (ctx) => {
         const { providers, orm, options } = ctx.context;

@@ -3,6 +3,7 @@ import { createKuluPayEndpoint } from "@kulupay/core/api";
 import { sessionMiddleware, originCheckMiddleware, ownershipMiddleware } from "@kulupay/core/api";
 import type { CreateIntentData } from "@kulupay/core";
 import { validateCurrency, normalizeCurrency } from "@kulupay/core/utils";
+import { z } from "zod";
 
 /**
  * Endpoint to create a payment intent.
@@ -13,6 +14,7 @@ export const createIntent = createKuluPayEndpoint(
     {
         method: "POST",
         use: [sessionMiddleware, originCheckMiddleware] as any,
+        body: z.record(z.string(), z.any()),
     },
     async (ctx) => {
         const { providers, logger, orm, options } = ctx.context;
@@ -242,6 +244,7 @@ export const confirmIntent = createKuluPayEndpoint(
     {
         method: "POST",
         use: [originCheckMiddleware] as any,
+        body: z.record(z.string(), z.any()),
     },
     async (ctx) => {
         const { orm, logger } = ctx.context;
@@ -454,10 +457,10 @@ export const checkoutIntent = createKuluPayEndpoint(
             metadata: metadata,
             type: payment.type,
             description: payment.description,
-            raw: metadata?.raw || null,
+            raw: metadata?.raw ? { ...metadata.raw } : null,
             deadline: metadata?.deadline || null,
             recipient: metadata?.recipient || metadata?.to || null,
-            token: metadata?.token || null,
+            token: metadata?.token ? { ...metadata.token } : null,
             network: metadata?.network || (metadata?.chain ? { name: metadata.chain, family: metadata.family } : null),
             signature: metadata?.signature || null,
             contractAddress: metadata?.contractAddress || null,

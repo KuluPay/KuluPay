@@ -93,7 +93,6 @@ export function KuluPayCheckout(props: AppKitCheckoutProps) {
 
     // Initialize AppKit lazily from the intent's chainConfig
     useEffect(() => {
-        console.log('[KuluPayCheckout] useEffect', { appKit: !!appKit, appKitLoading, appKitError: !!appKitError, hasChainConfig: !!props.intent.chainConfig, chainConfig: props.intent.chainConfig });
         if (!appKit && !appKitLoading && !appKitError && props.intent.chainConfig) {
             initFromChains([props.intent.chainConfig as ProviderChainConfig]);
         }
@@ -103,28 +102,12 @@ export function KuluPayCheckout(props: AppKitCheckoutProps) {
     const { symbol: tokenSymbol, decimals: tokenDecimals } = resolveTokenInfo(props.intent);
     const displayAmount = tokenAmount ? formatTokenAmount(tokenAmount, tokenDecimals) : "";
 
-    console.log('[KuluPayCheckout] token debug', {
-        tokenAmount,
-        tokenSymbol,
-        tokenDecimals,
-        displayAmount,
-        intentToken: props.intent.token,
-        intentMetadataToken: props.intent.metadata?.token,
-        intentRaw: props.intent.raw,
-        intentMetadataPriceConversion: props.intent.metadata?.priceConversion,
-        intentChainConfigTokens: props.intent.chainConfig?.tokens,
-        intentAmount: props.intent.amount,
-    });
-
     if (appKitError) {
         return (
-            <div className="kulupay-checkout">
-                <div className="kulupay-checkout__header">
-                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
-                    {props.intent.description && <p>{props.intent.description}</p>}
-                </div>
-                <div className="kulupay-checkout__error">
-                    Failed to initialize wallet: {appKitError.message}
+            <div style={sectionStyle}>
+                <div style={errorBoxStyle}>
+                    {warningIconSvg}
+                    <span>Failed to initialize wallet: {appKitError.message}</span>
                 </div>
             </div>
         );
@@ -132,13 +115,10 @@ export function KuluPayCheckout(props: AppKitCheckoutProps) {
 
     if (!props.intent.chainConfig) {
         return (
-            <div className="kulupay-checkout">
-                <div className="kulupay-checkout__header">
-                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
-                    {props.intent.description && <p>{props.intent.description}</p>}
-                </div>
-                <div className="kulupay-checkout__error">
-                    No chain configuration available for this payment. Please create a new payment intent.
+            <div style={sectionStyle}>
+                <div style={errorBoxStyle}>
+                    {warningIconSvg}
+                    <span>No chain configuration available for this payment.</span>
                 </div>
             </div>
         );
@@ -146,14 +126,11 @@ export function KuluPayCheckout(props: AppKitCheckoutProps) {
 
     if (!appKit || appKitLoading) {
         return (
-            <div className="kulupay-checkout">
-                <div className="kulupay-checkout__header">
-                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
-                    {props.intent.description && <p>{props.intent.description}</p>}
+            <div style={sectionStyle}>
+                <div style={loadingRowStyle}>
+                    <div style={miniSpinnerStyle} />
+                    <span style={{ color: "#a1a1aa", fontSize: 14 }}>Initializing wallet...</span>
                 </div>
-                <button className="kulupay-checkout__button" disabled>
-                    Initializing wallet...
-                </button>
             </div>
         );
     }
@@ -277,7 +254,7 @@ function KuluPayCheckoutInner({
         setError(null);
 
         try {
-            let hash: string;
+            let hash: string = "";
 
             if (!isTron && intent.chainConfig) {
                 const targetChainId = intent.chainConfig.chainId;
@@ -288,14 +265,38 @@ function KuluPayCheckoutInner({
             }
 
             if (isTron) {
-                // Tron: use the wallet provider directly
-                const provider = appKit.modal.getWalletProvider();
-                if (!provider) throw new Error("No wallet provider");
-                const result = await (provider as any).request({
-                    method: "tron_sendTransaction",
-                    params: [raw],
-                });
-                hash = typeof result === "string" ? result : result?.txid ?? result?.hash ?? "";
+                // Tron: use TronWeb injected by TronLink to build, sign, and broadcast
+                const tronWeb = (window as any).tron?.tronWeb;
+                if (!tronWeb) throw new Error("TronLink not found — please install TronLink extension");
+                if (!tronWeb.ready) throw new Error("TronLink not connected — please unlock and authorize");
+
+                const fromAddress = tronWeb.defaultAddress.base58;
+                const toAddress = raw.to;
+                const amount = BigInt(raw.amount);
+
+                let unsignedTx: any;
+                if (raw.isNative) {
+                    // Native TRX transfer
+                    unsignedTx = await tronWeb.transactionBuilder.sendTrx(toAddress, amount.toString(), fromAddress);
+                } else {
+                    // TRC-20 transfer: trigger smart contract
+                    const contractAddress = raw.contractAddress;
+                    const contract = await tronWeb.contract().at(contractAddress);
+                    // Use the contract's transfer method — TronLink will prompt to sign
+                    const result = await contract.transfer(toAddress, amount.toString()).send();
+                    hash = typeof result === "string" ? result : result?.txid ?? result?.hash ?? "";
+                    // Already broadcast by .send(), skip sign/broadcast below
+                    unsignedTx = null;
+                }
+
+                if (unsignedTx) {
+                    const signedTx = await tronWeb.trx.sign(unsignedTx);
+                    const broadcastResult = await tronWeb.trx.sendRawTransaction(signedTx);
+                    if (!broadcastResult?.result) {
+                        throw new Error(broadcastResult?.message || "Broadcast failed");
+                    }
+                    hash = broadcastResult.txid ?? broadcastResult.transaction?.txID ?? signedTx.txID;
+                }
             } else {
                 // EVM: use wagmi sendTransaction
                 hash = await sendTransactionAsync({
@@ -344,59 +345,313 @@ function KuluPayCheckoutInner({
 
     const isDisabled = isExpired || state === "connecting" || state === "sending" || state === "confirming" || state === "confirmed";
 
+    const isBusy = state === "connecting" || state === "sending" || state === "confirming";
+
     return (
-        <div className="kulupay-checkout">
-            <div className="kulupay-checkout__header">
-                <h3>Pay {displayAmount} {tokenSymbol}</h3>
-                {intent.description && <p>{intent.description}</p>}
+        <div style={sectionStyle}>
+            {/* Token amount display */}
+            <div style={tokenDisplayStyle}>
+                <div style={tokenIconStyle}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#a5b4fc" }}>
+                        {tokenSymbol.slice(0, 3)}
+                    </span>
+                </div>
+                <div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#fafafa", letterSpacing: "-0.02em" }}>
+                        {displayAmount} {tokenSymbol}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#71717a", marginTop: 2 }}>
+                        {isTron ? "Tron network" : intent.chainConfig?.name ?? "EVM"}
+                    </div>
+                </div>
             </div>
 
+            {/* Timer */}
             {showTimer && timer && !isExpired && (
-                <div className="kulupay-checkout__timer">
-                    Time remaining: {timer.mins}:{timer.secs.toString().padStart(2, "0")}
+                <div style={timerStyle}>
+                    {clockSmallSvg}
+                    <span>Expires in {timer.mins}:{timer.secs.toString().padStart(2, "0")}</span>
                 </div>
             )}
 
+            {/* Expired notice */}
             {isExpired && (
-                <div className="kulupay-checkout__expired">
+                <div style={{ ...statusBadgeStyle, background: "rgba(245,158,11,0.08)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.15)" }}>
                     Payment expired
                 </div>
             )}
 
+            {/* Connected account info */}
             {isConnected && address && (
-                <div className="kulupay-checkout__account">
-                    <span>Connected: {shortenAddress(address)}</span>
+                <div style={accountCardStyle}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={avatarStyle}>
+                            {shortenAddress(address, 4).slice(0, 4)}
+                        </div>
+                        <span style={{ fontSize: 13, color: "#d4d4d8", fontFamily: "monospace" }}>
+                            {shortenAddress(address)}
+                        </span>
+                    </div>
                     {balance && (
-                        <span>Balance: {balance.formatted} {balance.symbol}</span>
+                        <span style={{ fontSize: 12, color: "#71717a" }}>
+                            {balance.formatted} {balance.symbol}
+                        </span>
                     )}
                 </div>
             )}
 
+            {/* Error message */}
             {error && (
-                <div className="kulupay-checkout__error">
-                    {error}
+                <div style={errorBoxStyle}>
+                    {warningIconSvg}
+                    <span>{error}</span>
                 </div>
             )}
 
+            {/* TX hash */}
             {txHash && (
-                <div className="kulupay-checkout__txhash">
-                    TX: {shortenAddress(txHash, 10)}
+                <div style={txHashRowStyle}>
+                    <span style={{ fontSize: 12, color: "#71717a" }}>Transaction</span>
+                    <a
+                        href={`${intent.chainConfig?.explorerUrl ?? ""}/tx/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={txHashLinkStyle}
+                    >
+                        {shortenAddress(txHash, 10)}
+                        <span style={{ marginLeft: 4, opacity: 0.5 }}>{externalLinkSmallSvg}</span>
+                    </a>
                 </div>
             )}
 
+            {/* Pay / Connect button */}
             <button
-                className="kulupay-checkout__button"
                 onClick={handlePay}
                 disabled={isDisabled}
+                style={isDisabled ? buttonDisabledStyle : buttonStyle}
             >
+                {isBusy && <span style={miniSpinnerWhiteStyle} />}
                 {getButtonText()}
             </button>
 
+            {/* Success state */}
             {state === "confirmed" && (
-                <div className="kulupay-checkout__success">
-                    Payment confirmed! Thank you.
+                <div style={{ ...statusBadgeStyle, background: "rgba(34,197,94,0.08)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.15)" }}>
+                    {checkCircleSvg}
+                    <span>Payment confirmed! Thank you.</span>
+                </div>
+            )}
+
+            {/* Network mismatch hint */}
+            {isConnected && !isTron && intent.chainConfig && network?.chainId !== intent.chainConfig.chainId && !isBusy && (
+                <div style={hintStyle}>
+                    {networkIconSvg}
+                    <span>Click Pay to switch to {intent.chainConfig.name}</span>
                 </div>
             )}
         </div>
     );
 }
+
+const sectionStyle: React.CSSProperties = {
+    padding: 28,
+};
+
+const tokenDisplayStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 16,
+};
+
+const tokenIconStyle: React.CSSProperties = {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    background: "linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(99,102,241,0.05) 100%)",
+    border: "1px solid rgba(99,102,241,0.15)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+};
+
+const timerStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 12,
+    color: "#71717a",
+    marginBottom: 16,
+    padding: "4px 10px",
+    background: "rgba(255,255,255,0.03)",
+    borderRadius: 8,
+};
+
+const accountCardStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "12px 14px",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(255,255,255,0.06)",
+    borderRadius: 12,
+    marginBottom: 16,
+};
+
+const avatarStyle: React.CSSProperties = {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    background: "linear-gradient(135deg, #6366f1, #818cf8)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#fff",
+    flexShrink: 0,
+};
+
+const buttonStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "14px 20px",
+    borderRadius: 12,
+    border: "none",
+    background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    transition: "transform 0.1s, box-shadow 0.2s",
+    boxShadow: "0 4px 20px rgba(99,102,241,0.25)",
+};
+
+const buttonDisabledStyle: React.CSSProperties = {
+    ...buttonStyle,
+    opacity: 0.5,
+    cursor: "not-allowed",
+    boxShadow: "none",
+};
+
+const errorBoxStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: "12px 14px",
+    background: "rgba(239,68,68,0.06)",
+    border: "1px solid rgba(239,68,68,0.12)",
+    borderRadius: 12,
+    marginBottom: 16,
+    fontSize: 13,
+    color: "#fca5a5",
+    lineHeight: 1.5,
+};
+
+const txHashRowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "10px 14px",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(255,255,255,0.06)",
+    borderRadius: 10,
+    marginBottom: 16,
+};
+
+const txHashLinkStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: 13,
+    fontFamily: "monospace",
+    color: "#a5b4fc",
+    textDecoration: "none",
+};
+
+const statusBadgeStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "10px 14px",
+    borderRadius: 12,
+    fontSize: 13,
+    fontWeight: 500,
+    marginTop: 12,
+};
+
+const hintStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    fontSize: 12,
+    color: "#71717a",
+};
+
+const loadingRowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    justifyContent: "center",
+    padding: "20px 0",
+};
+
+const miniSpinnerStyle: React.CSSProperties = {
+    width: 16,
+    height: 16,
+    border: "2px solid rgba(255,255,255,0.08)",
+    borderTopColor: "#6366f1",
+    borderRadius: "50%",
+    animation: "spin 0.8s linear infinite",
+};
+
+const miniSpinnerWhiteStyle: React.CSSProperties = {
+    width: 14,
+    height: 14,
+    border: "2px solid rgba(255,255,255,0.2)",
+    borderTopColor: "#fff",
+    borderRadius: "50%",
+    animation: "spin 0.8s linear infinite",
+};
+
+const warningIconSvg = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+);
+
+const checkCircleSvg = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+);
+
+const clockSmallSvg = (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+    </svg>
+);
+
+const networkIconSvg = (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+);
+
+const externalLinkSmallSvg = (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+);

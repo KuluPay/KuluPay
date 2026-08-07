@@ -1,6 +1,6 @@
 import { kuluPay } from "@kulupay/kulupay";
 import { drizzleAdapter } from "@kulupay/adapter-drizzle";
-import { onchain } from "@kulupay/onchain";
+import { onchain } from "@kulupay/kulupay/plugins/onchain";
 import { db } from "./db";
 
 export const pay = kuluPay({
@@ -10,27 +10,27 @@ export const pay = kuluPay({
       ethereum: {
         recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
         tokens: ["USDC", "USDT"],
-        testnet: false,
+        testnet: true,
       },
       base: {
         recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
         tokens: ["USDC", "USDT"],
-        testnet: false,
+        testnet: true,
       },
       polygon: {
         recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
         tokens: ["USDC", "USDT"],
-        testnet: false,
+        testnet: true,
       },
       arbitrum: {
         recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as `0x${string}`,
         tokens: ["USDC", "USDT"],
-        testnet: false,
+        testnet: true,
       },
       tron: {
         recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,
         tokens: ["USDT"],
-        testnet: false,
+        testnet: true,
       },
     }),
   ],

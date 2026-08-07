@@ -1,6 +1,7 @@
 import { KuluPayAPIError, ProviderError } from "@kulupay/core/error";
 import { createKuluPayEndpoint } from "@kulupay/core/api";
 import { sessionMiddleware, originCheckMiddleware, ownershipMiddleware } from "@kulupay/core/api";
+import { z } from "zod";
 
 /**
  * Create a customer record in the provider (e.g. Stripe Customer).
@@ -11,6 +12,7 @@ export const createCustomer = createKuluPayEndpoint(
     {
         method: "POST",
         use: [sessionMiddleware, originCheckMiddleware] as any,
+        body: z.record(z.string(), z.any()),
     },
     async (ctx) => {
         const { providers, orm, options } = ctx.context;

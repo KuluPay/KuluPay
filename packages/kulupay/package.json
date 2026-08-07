@@ -127,7 +127,35 @@
                                          "import":  "./dist/integrations/appkit-react.mjs",
                                          "require":  "./dist/integrations/appkit-react.js",
                                          "default":  "./dist/integrations/appkit-react.mjs"
-                                     }
+                                     },
+                    "./plugins/onchain":  {
+                                              "dev-source":  "./src/plugins/onchain.ts",
+                                              "types":  "./dist/plugins/onchain.d.ts",
+                                              "import":  "./dist/plugins/onchain.mjs",
+                                              "require":  "./dist/plugins/onchain.js",
+                                              "default":  "./dist/plugins/onchain.mjs"
+                                          },
+                    "./plugins/onchain/client":  {
+                                                   "dev-source":  "./src/plugins/onchain/client.ts",
+                                                   "types":  "./dist/plugins/onchain/client.d.ts",
+                                                   "import":  "./dist/plugins/onchain/client.mjs",
+                                                   "require":  "./dist/plugins/onchain/client.js",
+                                                   "default":  "./dist/plugins/onchain/client.mjs"
+                                               },
+                    "./plugins/onchain/appkit":  {
+                                                   "dev-source":  "./src/plugins/onchain/appkit.ts",
+                                                   "types":  "./dist/plugins/onchain/appkit.d.ts",
+                                                   "import":  "./dist/plugins/onchain/appkit.mjs",
+                                                   "require":  "./dist/plugins/onchain/appkit.js",
+                                                   "default":  "./dist/plugins/onchain/appkit.mjs"
+                                               },
+                    "./plugins/onchain/react":  {
+                                                   "dev-source":  "./src/plugins/onchain/react.tsx",
+                                                   "types":  "./dist/plugins/onchain/react.d.ts",
+                                                   "import":  "./dist/plugins/onchain/react.mjs",
+                                                   "require":  "./dist/plugins/onchain/react.js",
+                                                   "default":  "./dist/plugins/onchain/react.mjs"
+                                               }
                 },
     "typesVersions":  {
                           "*":  {
@@ -175,6 +203,18 @@
                                                      ],
                                     "appkit/react":  [
                                                         "./dist/integrations/appkit-react.d.ts"
+                                                    ],
+                                    "plugins/onchain": [
+                                                        "./dist/plugins/onchain.d.ts"
+                                                    ],
+                                    "plugins/onchain/client": [
+                                                        "./dist/plugins/onchain/client.d.ts"
+                                                    ],
+                                    "plugins/onchain/appkit": [
+                                                        "./dist/plugins/onchain/appkit.d.ts"
+                                                    ],
+                                    "plugins/onchain/react": [
+                                                        "./dist/plugins/onchain/react.d.ts"
                                                     ]
                                 }
                       },
@@ -196,9 +236,11 @@
                 },
     "dependencies":  {
                          "@kulupay/core":  "workspace:*",
+                         "@kulupay/onchain":  "workspace:*",
                          "@stripe/stripe-js":  "^3.0.0",
                          "@better-fetch/fetch":  "^1.0.0",
-                         "nanostores": "^0.11.0"
+                         "nanostores": "^0.11.0",
+                         "zod": "^4.0.0"
                      },
     "peerDependencies":  {
                              "react":  "^18.0.0 || ^19.0.0",

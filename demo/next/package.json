@@ -4,13 +4,14 @@
   "private": true,
   "packageManager": "pnpm@10.28.1",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@base-ui/react": "^1.7.0",
     "@kulupay/adapter-drizzle": "workspace:*",
     "@kulupay/adapter-sql": "workspace:*",
     "@kulupay/core": "workspace:*",
@@ -18,12 +19,21 @@
     "@kulupay/onchain": "workspace:*",
     "@neondatabase/serverless": "^1.1.0",
     "@stripe/stripe-js": "^7.0.0",
+    "@tailwindcss/postcss": "^4.3.3",
     "better-sqlite3": "^9.0.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
+    "lucide-react": "^1.25.0",
     "next": "16.2.0",
     "pg": "^8.22.0",
+    "postcss": "^8.5.21",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "shadcn": "^4.16.2",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",

@@ -1,0 +1,544 @@
+---
+title: Onchain Plugin
+description: Accept crypto payments across EVM and Tron chains with AppKit wallet integration.
+---
+
+# Onchain Plugin
+
+The onchain plugin bundles EVM (Ethereum, Base, Polygon, Arbitrum) and Tron payment providers into a single KuluPay plugin. It handles server-side transaction building, client-side wallet signing via Reown AppKit, and on-chain verification — all from one config.
+
+## Installation
+
+```bash
+pnpm add @kulupay/kulupay @kulupay/onchain
+```
+
+Optional peer dependencies (only install what you need):
+
+```bash
+pnpm add viem          # EVM chains
+pnpm add tronweb       # Tron
+```
+
+<Callout type="info">
+  The onchain plugin is also re-exported from `@kulupay/kulupay/plugins/onchain`. You can import it from either package.
+</Callout>
+
+## Server Setup
+
+Pass the `onchain()` plugin to `kuluPay()` with one key per chain you want to accept:
+
+```ts title="lib/pay.ts"
+import { kuluPay } from "@kulupay/kulupay";
+import { onchain } from "@kulupay/kulupay/plugins/onchain";
+
+export const pay = kuluPay({
+  database: yourDriver,
+  plugins: [
+    onchain({
+      ethereum: {
+        recipientAddress: "0xYourWalletAddress",
+        tokens: ["USDC", "USDT"],
+      },
+      base: {
+        recipientAddress: "0xYourWalletAddress",
+        tokens: ["USDC", "USDT"],
+      },
+      tron: {
+        recipientAddress: "TYourTronAddress",
+        tokens: ["USDT"],
+      },
+    }),
+  ],
+  auth: {
+    getSession: async (req) => yourAuthSession(req),
+  },
+});
+```
+
+### Configuration Options
+
+Each chain key accepts an `OnchainChainConfig`:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `recipientAddress` | `string` | Wallet address to receive payments (EVM: `0x...`, Tron: `T...`) |
+| `tokens` | `string \| string[]` | Token symbols to accept (e.g. `"USDC"`, `["USDC", "USDT"]`). Defaults to `["native"]` |
+| `testnet` | `boolean \| string` | `true` for default testnet, or specify by name (`"sepolia"`, `"nile"`). `false` for mainnet |
+| `network` | `Partial<NetworkConfig>` | Override chain ID, RPC URL, explorer URL, etc. |
+| `priceConverter` | `PriceConverter` | Custom fiat-to-crypto converter. Defaults to `stablecoinConverter()` |
+| `confirmations` | `number` | Block confirmations to wait for (default: `1`) |
+| `apiKey` | `string` | TronGrid API key for higher rate limits (Tron only) |
+
+### Testnet Support
+
+Set `testnet: true` to use the default testnet for each chain, or specify a testnet by name:
+
+```ts
+onchain({
+  ethereum: {
+    recipientAddress: "0x...",
+    tokens: ["USDC"],
+    testnet: "sepolia", // Ethereum Sepolia
+  },
+  base: {
+    recipientAddress: "0x...",
+    tokens: ["USDC"],
+    testnet: true, // Base Sepolia (default)
+  },
+  tron: {
+    recipientAddress: "T...",
+    tokens: ["USDT"],
+    testnet: "nile", // Tron Nile
+  },
+})
+```
+
+When `testnet` is specified, the plugin automatically resolves the correct testnet token contract addresses. You don't need to manually pass contract addresses.
+
+### Supported Testnets
+
+| Chain | Testnet | Chain ID | Faucet |
+| --- | --- | --- | --- |
+| Ethereum | Sepolia | 11155111 | https://sepoliafaucet.com |
+| Base | Base Sepolia | 84532 | https://www.coinbase.com/developer-platform/base-sepolia-testnet-faucet |
+| Polygon | Amoy | 80002 | https://faucet.polygon.technology |
+| Arbitrum | Sepolia | 421614 | https://faucet.arbitrum.io |
+| Tron | Nile | 3448148188 | https://nileex.io/join/getJoinPage |
+| Tron | Shasta | 2494104990 | https://shasta.tronex.io/join/getJoinPage |
+
+### Available Tokens
+
+Tokens are resolved from the `NETWORKS` constant in `@kulupay/onchain`. Each chain has `wellKnownTokens` (mainnet) and `testnetTokens` (per testnet):
+
+| Chain | Mainnet Tokens | Testnet Tokens |
+| --- | --- | --- |
+| Ethereum | USDC, USDT | Sepolia: USDC |
+| Base | USDC, USDT | Base Sepolia: USDC |
+| Polygon | USDC, USDT | Amoy: USDC |
+| Arbitrum | USDC, USDT | Sepolia: (none) |
+| Tron | USDT | Nile: USDT, Shasta: USDT |
+
+Use `"native"` to accept the chain's native token (ETH for EVM, TRX for Tron).
+
+### Custom Networks
+
+Override the default network configuration with `network`:
+
+```ts
+onchain({
+  ethereum: {
+    recipientAddress: "0x...",
+    tokens: ["USDC"],
+    network: {
+      chainId: 11155111,
+      name: "sepolia",
+      rpcUrl: "https://rpc.sepolia.org",
+      explorerUrl: "https://sepolia.etherscan.io",
+      isTestnet: true,
+    },
+  },
+})
+```
+
+### Price Conversion (Fiat to Crypto)
+
+By default, the plugin uses `stablecoinConverter()` which assumes 1:1 parity for stablecoins (USDC, USDT). For custom pricing, provide a `priceConverter`:
+
+```ts
+import { stablecoinConverter, type PriceConverter } from "@kulupay/onchain";
+
+const coinGeckoConverter: PriceConverter = async (amount, currency, token, chain) => {
+  const res = await fetch(
+    `https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=usd`
+  );
+  const data = await res.json();
+  const rate = data["usd-coin"].usd;
+
+  const cryptoAmount = Math.round(
+    (amount / 100) / rate * Math.pow(10, token.decimals)
+  ).toString();
+
+  return {
+    cryptoAmount,
+    tokenSymbol: token.symbol,
+    rate,
+    rateTimestamp: new Date(),
+  };
+};
+
+onchain({
+  ethereum: {
+    recipientAddress: "0x...",
+    tokens: ["USDC"],
+    priceConverter: coinGeckoConverter,
+  },
+})
+```
+
+## Client Setup
+
+The client side uses the `onchainClient` plugin with a Reown WalletConnect project ID.
+
+### Get a WalletConnect Project ID
+
+1. Go to [dashboard.reown.com](https://dashboard.reown.com)
+2. Create a project
+3. Copy the project ID
+
+The project ID is **public** — like a Stripe publishable key. It's safe to expose in the browser.
+
+### Create the Client
+
+```ts title="lib/pay-client.ts"
+import { createPayClient } from "@kulupay/kulupay/client";
+import { onchainClient } from "@kulupay/kulupay/plugins/onchain/client";
+
+export const payClient = createPayClient({
+  baseURL: process.env.NEXT_PUBLIC_KULUPAY_URL ?? "http://localhost:3000",
+  walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
+  plugins: [
+    onchainClient({
+      walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
+    }),
+  ],
+});
+```
+
+### Onchain Client Options
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `walletConnectProjectId` | `string` | Reown project ID (required) |
+| `chains` | `ProviderChainConfig[]` | Pre-configured chains (optional — normally resolved from intent) |
+| `metadata` | `AppMetadata` | WalletConnect app metadata (name, description, url, icons) |
+| `themeOptions` | `AppKitThemeOptions` | Reown AppKit UI customization |
+
+## React Integration
+
+Wrap your app with `KuluPayAppKitProvider` to enable wallet connection:
+
+```tsx title="app/providers.tsx"
+"use client";
+
+import { KuluPayAppKitProvider } from "@kulupay/kulupay/appkit/react";
+import { payClient } from "@/lib/pay-client";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <KuluPayAppKitProvider
+      client={payClient}
+      metadata={{
+        name: "My Store",
+        description: "Pay with crypto",
+        url: "https://mystore.com",
+        icons: [],
+      }}
+      themeOptions={{
+        themeMode: "dark",
+      }}
+    >
+      {children}
+    </KuluPayAppKitProvider>
+  );
+}
+```
+
+### Available Hooks
+
+```tsx
+import {
+  useAppKit,
+  useAppKitAccount,
+  useAppKitNetwork,
+  useAppKitBalance,
+  useSendTransaction,
+  useSwitchChain,
+  useDisconnect,
+  useKuluPayAppKit,
+  useKuluPayAppKitStatus,
+} from "@kulupay/kulupay/appkit/react";
+```
+
+| Hook | Description |
+| --- | --- |
+| `useAppKit()` | `{ open, close }` — control the wallet modal |
+| `useAppKitAccount()` | `{ isConnected, address }` — wallet connection state |
+| `useAppKitNetwork()` | `{ chainId, switchNetwork }` — current chain |
+| `useAppKitBalance()` | `{ fetchBalance }` — fetch native token balance |
+| `useSendTransaction()` | `{ sendTransactionAsync }` — send EVM transactions |
+| `useSwitchChain()` | `{ switchChainAsync }` — switch EVM chain |
+| `useKuluPayAppKit()` | Direct access to the `KuluPayAppKitInstance` |
+| `useKuluPayAppKitStatus()` | `{ appKit, isLoading, error, initFromChains }` |
+
+### Lazy Initialization
+
+AppKit initializes **lazily** — only when an onchain intent is created. The flow:
+
+1. User creates a payment intent via `payClient.createIntent()`
+2. Server returns `chainConfig` in the intent response
+3. Checkout component calls `initFromChains([chainConfig])`
+4. `KuluPayAppKitProvider` creates the AppKit instance with the correct chains
+5. Wagmi adapter handles EVM, TronAdapter handles Tron
+
+This means AppKit is never initialized with wrong chains — it always matches the payment intent.
+
+## Checkout Component
+
+Use the `CheckoutPage` component for a complete payment UI:
+
+```tsx
+import { CheckoutPage } from "@kulupay/kulupay/checkout/react";
+
+<CheckoutPage
+  intentId={intentId}
+  clientSecret={clientSecret}
+  client={payClient}
+  merchantName="Acme Inc"
+  theme="light"
+/>
+```
+
+The checkout component handles:
+- Wallet connection (AppKit modal)
+- Chain switching (EVM)
+- Transaction signing (EVM via wagmi, Tron via TronWeb)
+- Confirmation polling
+- Error display with retry
+
+### EVM Transaction Flow
+
+1. Checkout calls `switchChainAsync` if the wallet is on the wrong chain
+2. Checkout calls `sendTransactionAsync` with `raw.to`, `raw.value`, `raw.data` from the intent
+3. The wallet (MetaMask, Coinbase, etc.) prompts the user to sign
+4. Transaction hash is submitted to the server via `confirmIntent`
+5. Checkout polls `verifyIntent` until the payment is confirmed
+
+### Tron Transaction Flow
+
+1. Checkout accesses `window.tron.tronWeb` (injected by TronLink)
+2. For **native TRX**: `transactionBuilder.sendTrx` → `trx.sign` → `trx.sendRawTransaction`
+3. For **TRC-20 tokens**: `contract.transfer(recipient, amount).send()` (TronLink handles signing + broadcasting)
+4. Transaction hash is submitted to the server via `confirmIntent`
+5. Checkout polls `verifyIntent` until the payment is confirmed
+
+<Callout type="warn" title="TronLink required for Tron payments">
+  Tron payments require the [TronLink](https://www.tronlink.org/) browser extension. The checkout will show an error if TronLink is not installed.
+</Callout>
+
+## How It Works
+
+### Architecture
+
+```
+Server (onchain plugin)          Client (onchainClient + AppKit)
+┌──────────────────────┐         ┌──────────────────────────┐
+│ buildOnchainProviders│         │ KuluPayAppKitProvider     │
+│   → evm providers    │         │   → WagmiAdapter (EVM)    │
+│   → tron providers   │         │   → TronAdapter (Tron)    │
+│                      │         │                          │
+│ createIntent()       │         │ initFromChains()          │
+│   → builds raw tx    │ ──────→ │   → creates AppKit        │
+│   → returns chainCfg │         │                          │
+│                      │         │ Checkout                  │
+│ confirmIntent()      │ ←────── │   → sign + broadcast      │
+│   → verifies onchain │         │   → submit txHash         │
+│                      │         │   → poll for confirmation │
+└──────────────────────┘         └──────────────────────────┘
+```
+
+### Security Model
+
+- **Server builds raw transaction data** — the client never constructs transactions
+- **Client only signs** what the server gave it
+- **`chainConfig` in intent response** contains only public info: chainId, name, family, rpcUrl, tokens, explorerUrl
+- **No recipient addresses, API keys, or secrets** are exposed to the client
+- **`walletConnectProjectId`** is public by design (like a Stripe publishable key)
+
+### Intent Response
+
+When `createIntent` is called with an onchain provider, the response includes:
+
+```json
+{
+  "id": "ref_12345",
+  "status": "pending",
+  "clientSecret": "sec_12345",
+  "chainConfig": {
+    "family": "evm",
+    "chainId": 8453,
+    "name": "base",
+    "rpcUrl": "https://mainnet.base.org",
+    "explorerUrl": "https://basescan.org",
+    "tokens": {
+      "USDC": { "symbol": "USDC", "decimals": 6, "contractAddress": "0x..." }
+    }
+  },
+  "raw": {
+    "to": "0x...",
+    "value": "0",
+    "data": "0xa9059cbb...",
+    "chainId": 8453,
+    "tokenSymbol": "USDC",
+    "isNative": false
+  },
+  "metadata": {
+    "family": "evm",
+    "chain": "base",
+    "recipient": "0x...",
+    "reference": "ref_12345",
+    "token": { "symbol": "USDC", "decimals": 6, "contractAddress": "0x..." }
+  }
+}
+```
+
+## Error Handling
+
+The onchain plugin provides typed error codes via `OnchainError`:
+
+```ts
+import { OnchainError, ONCHAIN_ERROR_CODES } from "@kulupay/onchain";
+
+try {
+  await payClient.onchain.sendPayment(intent);
+} catch (err) {
+  if (err instanceof OnchainError) {
+    console.log(err.code);        // "WALLET_NOT_CONNECTED"
+    console.log(err.message);     // User-friendly message
+    console.log(err.developerMessage); // Detailed explanation
+    console.log(err.hint);        // Actionable next step
+  }
+}
+```
+
+### Error Codes
+
+| Code | Description | Hint |
+| --- | --- | --- |
+| `WALLET_NOT_FOUND` | No wallet extension detected | Install MetaMask or TronLink |
+| `WALLET_NOT_CONNECTED` | Wallet not connected | Connect your wallet |
+| `WRONG_CHAIN` | Wallet on wrong network | Switch to the correct network |
+| `INSUFFICIENT_FUNDS` | Not enough balance | Use a faucet (testnet) or fund wallet (mainnet) |
+| `TRANSACTION_REJECTED` | User rejected transaction | Approve in wallet |
+| `TRANSACTION_FAILED` | Transaction reverted | Check on block explorer |
+| `MISSING_PAYMENT_DATA` | No intent data available | Call createIntent first |
+
+## Low-Level API
+
+### Vanilla JS (No React)
+
+You can use `createKuluPayAppKit` directly without React:
+
+```ts
+import { createKuluPayAppKit } from "@kulupay/kulupay/client/appkit";
+
+const appKit = createKuluPayAppKit({
+  projectId: "YOUR_PROJECT_ID",
+  chains: [chainConfig], // from intent response
+});
+
+// Connect wallet
+appKit.open();
+
+// Check connection
+if (appKit.isConnected()) {
+  const address = appKit.getAddress();
+  const chainId = appKit.getChainId();
+  const balance = await appKit.getBalance();
+}
+
+// Send EVM transaction
+const txHash = await appKit.sendEVMTx({
+  to: "0x...",
+  value: BigInt(0),
+  data: "0xa9059cbb...",
+});
+
+// Disconnect
+appKit.disconnect();
+```
+
+### Using the Onchain Client Plugin Actions
+
+The `onchainClient` plugin exposes actions under `payClient.onchain`:
+
+```ts
+// Connect wallet
+await payClient.onchain.connectWallet();
+
+// Check state
+payClient.onchain.isConnected();
+payClient.onchain.getAddress();
+payClient.onchain.getChainId();
+
+// Get balance
+const balance = await payClient.onchain.getBalance();
+
+// Send payment from an intent
+const { txHash, status } = await payClient.onchain.sendPayment(intent);
+
+// Disconnect
+payClient.onchain.disconnect();
+```
+
+### Reactive State (Atoms)
+
+The plugin exposes nanostore atoms for reactive state:
+
+```ts
+import { useStore } from "@nanostores/react";
+
+const { $onchainConnected, $onchainAddress, $onchainBalance } = payClient.$atoms;
+
+const connected = useStore($onchainConnected);
+const address = useStore($onchainAddress);
+const balance = useStore($onchainBalance);
+```
+
+## Environment Variables
+
+```bash
+# Public — safe to expose in browser
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
+NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS=0xYourWalletAddress
+NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS=TYourTronAddress
+NEXT_PUBLIC_KULUPAY_URL=http://localhost:3000
+
+# Server-only — never expose
+EVM_REFUND_PRIVATE_KEY=0xYourPrivateKey
+TRON_REFUND_PRIVATE_KEY=YourTronPrivateKey
+```
+
+## Supported Chains
+
+### Mainnet
+
+| Chain | Family | Chain ID | Native Token | Tokens |
+| --- | --- | --- | --- | --- |
+| Ethereum | EVM | 1 | ETH | USDC, USDT |
+| Base | EVM | 8453 | ETH | USDC, USDT |
+| Polygon | EVM | 137 | MATIC | USDC, USDT |
+| Arbitrum | EVM | 42161 | ETH | USDC, USDT |
+| Tron | Tron | 728126428 | TRX | USDT |
+
+### Adding a New Chain
+
+The onchain plugin architecture is modular. To add a new chain:
+
+1. Add chain presets to `NETWORKS` in `packages/onchain/src/networks.ts`
+2. Add well-known token contract addresses
+3. Add testnet configurations and testnet token addresses
+4. The plugin automatically creates the right provider (EVM or Tron) based on `family`
+
+Each provider handles its own SDK imports dynamically, so unused chains add zero bundle weight.
+
+## Package Exports
+
+| Import Path | What it exports |
+| --- | --- |
+| `@kulupay/kulupay/plugins/onchain` | `onchain` plugin, `CHAINS`, `TOKENS`, types |
+| `@kulupay/kulupay/plugins/onchain/client` | `onchainClient` plugin, `OnchainError`, error codes |
+| `@kulupay/kulupay/plugins/onchain/appkit` | `createKuluPayAppKit`, config transforms |
+| `@kulupay/kulupay/plugins/onchain/react` | React re-exports (hooks, provider) |
+| `@kulupay/kulupay/client/appkit` | Low-level AppKit creation + config utilities |
+| `@kulupay/kulupay/appkit/react` | `KuluPayAppKitProvider`, hooks (`useAppKit`, etc.) |

@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useMemo, useCallback } from "react";
-import { WagmiConfig } from "wagmi";
+import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createAppKit } from "@reown/appkit/react";
 import { createKuluPayAppKit, type KuluPayAppKitInstance } from "../client/appkit";
@@ -127,9 +127,9 @@ export function KuluPayAppKitProvider({
         return (
             <KuluPayAppKitContext.Provider value={contextValue}>
                 <QueryClientProvider client={queryClient}>
-                    <WagmiConfig config={appKit.wagmiConfig}>
+                    <WagmiProvider config={appKit.wagmiConfig}>
                         {children}
-                    </WagmiConfig>
+                    </WagmiProvider>
                 </QueryClientProvider>
             </KuluPayAppKitContext.Provider>
         );

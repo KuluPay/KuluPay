@@ -2,6 +2,7 @@ import { KuluPayAPIError, ProviderError } from "@kulupay/core/error";
 import { createKuluPayEndpoint } from "@kulupay/core/api";
 import { sessionMiddleware, originCheckMiddleware, ownershipMiddleware } from "@kulupay/core/api";
 import type { CreateSubscriptionData } from "@kulupay/core";
+import { z } from "zod";
 
 /**
  * Create a subscription.
@@ -15,6 +16,7 @@ export const createSubscription = createKuluPayEndpoint(
     {
         method: "POST",
         use: [sessionMiddleware, originCheckMiddleware] as any,
+        body: z.record(z.string(), z.any()),
     },
     async (ctx) => {
         const { providers, orm, options } = ctx.context;
@@ -159,6 +161,7 @@ export const cancelSubscription = createKuluPayEndpoint(
     "/cancel-subscription",
     {
         method: "POST",
+        body: z.record(z.string(), z.any()),
         use: [
             sessionMiddleware,
             originCheckMiddleware,

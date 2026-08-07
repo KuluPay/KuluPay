@@ -94,8 +94,19 @@ export function createKuluPayAppKit(
     const tokensByChain = extractTokenConfigs(chains);
 
     // 2. Create WagmiAdapter for EVM chains
+    // If there are no EVM chains (Tron-only), add a fallback Ethereum mainnet
+    // so WagmiAdapter can initialize — the Tron adapter handles the actual tx
+    const evmNetworks = evm.length > 0 ? evm : [{
+        id: 1,
+        caipNetworkId: "eip155:1",
+        chainNamespace: "eip155" as const,
+        name: "Ethereum",
+        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+        rpcUrls: { default: { http: ["https://eth.llamarpc.com"] } },
+        blockExplorers: { default: { name: "Etherscan", url: "https://etherscan.io" } },
+    }];
     const wagmiAdapter = new WagmiAdapter({
-        networks: evm,
+        networks: evmNetworks as any,
         projectId,
     });
 

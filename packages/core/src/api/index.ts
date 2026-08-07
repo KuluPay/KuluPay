@@ -74,6 +74,7 @@ export const createKuluPayEndpoint = <
 >(
 	path: Path,
 	options: { method: Method } & {
+		body?: BodySchema;
 		query?: QuerySchema;
 		use?: [...Use];
 		requireHeaders?: ReqHeaders;
