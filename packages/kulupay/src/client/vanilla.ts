@@ -41,7 +41,7 @@ export const ERROR_CODES = {
 } as const;
 
 function createFetcher(options: PayClientOptions): PayFetcher {
-    const baseURL = options.baseURL.replace(/\/$/, "");
+    const baseURL = (options.baseURL || "").replace(/\/$/, "");
     const basePath = (options.basePath || "/api/pay").replace(/\/$/, "");
 
     const $fetch = createFetch({

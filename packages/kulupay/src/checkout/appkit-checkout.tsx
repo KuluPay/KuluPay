@@ -49,7 +49,43 @@ function getTokenRawAmount(intent: CheckoutIntentData): string {
         // ERC-20 transfer(address,uint256): parse amount from last 32 bytes
         return BigInt(`0x${intent.raw.data.slice(-64)}`).toString();
     }
-    return intent.amount.toString();
+    return "";
+}
+
+function resolveTokenInfo(intent: CheckoutIntentData): { symbol: string; decimals: number } {
+    // 1. Direct token field
+    if (intent.token?.symbol && intent.token?.decimals) {
+        return { symbol: intent.token.symbol, decimals: intent.token.decimals };
+    }
+    // 2. Metadata token
+    if (intent.metadata?.token?.symbol && intent.metadata?.token?.decimals) {
+        return { symbol: intent.metadata.token.symbol, decimals: intent.metadata.token.decimals };
+    }
+    // 3. Raw tokenSymbol (set by EVM provider)
+    if (intent.raw?.tokenSymbol) {
+        // Try to find matching token in chainConfig for decimals
+        const chainTokens = intent.chainConfig?.tokens as any;
+        if (chainTokens) {
+            for (const key of Object.keys(chainTokens)) {
+                const t = chainTokens[key];
+                if (t?.symbol === intent.raw.tokenSymbol) {
+                    return { symbol: t.symbol, decimals: t.decimals };
+                }
+            }
+        }
+        return { symbol: intent.raw.tokenSymbol, decimals: 18 };
+    }
+    // 4. ChainConfig tokens (first token)
+    if (intent.chainConfig?.tokens) {
+        const tokens = intent.chainConfig.tokens as any;
+        for (const key of Object.keys(tokens)) {
+            const t = tokens[key];
+            if (t?.symbol && t?.decimals) {
+                return { symbol: t.symbol, decimals: t.decimals };
+            }
+        }
+    }
+    return { symbol: "", decimals: 18 };
 }
 
 export function KuluPayCheckout(props: AppKitCheckoutProps) {
@@ -57,20 +93,34 @@ export function KuluPayCheckout(props: AppKitCheckoutProps) {
 
     // Initialize AppKit lazily from the intent's chainConfig
     useEffect(() => {
+        console.log('[KuluPayCheckout] useEffect', { appKit: !!appKit, appKitLoading, appKitError: !!appKitError, hasChainConfig: !!props.intent.chainConfig, chainConfig: props.intent.chainConfig });
         if (!appKit && !appKitLoading && !appKitError && props.intent.chainConfig) {
             initFromChains([props.intent.chainConfig as ProviderChainConfig]);
         }
     }, [appKit, appKitLoading, appKitError, initFromChains, props.intent]);
 
     const tokenAmount = getTokenRawAmount(props.intent);
-    const tokenSymbol = props.intent.token?.symbol ?? props.intent.metadata?.token?.symbol ?? "";
-    const tokenDecimals = props.intent.token?.decimals ?? props.intent.metadata?.token?.decimals ?? 18;
+    const { symbol: tokenSymbol, decimals: tokenDecimals } = resolveTokenInfo(props.intent);
+    const displayAmount = tokenAmount ? formatTokenAmount(tokenAmount, tokenDecimals) : "";
+
+    console.log('[KuluPayCheckout] token debug', {
+        tokenAmount,
+        tokenSymbol,
+        tokenDecimals,
+        displayAmount,
+        intentToken: props.intent.token,
+        intentMetadataToken: props.intent.metadata?.token,
+        intentRaw: props.intent.raw,
+        intentMetadataPriceConversion: props.intent.metadata?.priceConversion,
+        intentChainConfigTokens: props.intent.chainConfig?.tokens,
+        intentAmount: props.intent.amount,
+    });
 
     if (appKitError) {
         return (
             <div className="kulupay-checkout">
                 <div className="kulupay-checkout__header">
-                    <h3>Pay {formatTokenAmount(tokenAmount, tokenDecimals)} {tokenSymbol}</h3>
+                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
                     {props.intent.description && <p>{props.intent.description}</p>}
                 </div>
                 <div className="kulupay-checkout__error">
@@ -84,7 +134,7 @@ export function KuluPayCheckout(props: AppKitCheckoutProps) {
         return (
             <div className="kulupay-checkout">
                 <div className="kulupay-checkout__header">
-                    <h3>Pay {formatTokenAmount(tokenAmount, tokenDecimals)} {tokenSymbol}</h3>
+                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
                     {props.intent.description && <p>{props.intent.description}</p>}
                 </div>
                 <div className="kulupay-checkout__error">
@@ -98,7 +148,7 @@ export function KuluPayCheckout(props: AppKitCheckoutProps) {
         return (
             <div className="kulupay-checkout">
                 <div className="kulupay-checkout__header">
-                    <h3>Pay {formatTokenAmount(tokenAmount, tokenDecimals)} {tokenSymbol}</h3>
+                    <h3>Pay {displayAmount} {tokenSymbol}</h3>
                     {props.intent.description && <p>{props.intent.description}</p>}
                 </div>
                 <button className="kulupay-checkout__button" disabled>
@@ -134,8 +184,18 @@ function KuluPayCheckoutInner({
     const [polling, setPolling] = useState(false);
 
     const isTron = intent.metadata?.family === "tron";
+    const { symbol: tokenSymbol, decimals: tokenDecimals } = resolveTokenInfo(intent);
     const token = intent.token ?? intent.metadata?.token ?? null;
     const raw = intent.raw;
+    const tokenAmount = getTokenRawAmount(intent);
+    const displayAmount = tokenAmount ? formatTokenAmount(tokenAmount, tokenDecimals) : "";
+
+    // Reset "connecting" state once wallet actually connects
+    useEffect(() => {
+        if (isConnected && state === "connecting") {
+            setState("idle");
+        }
+    }, [isConnected, state]);
 
     // Fetch balance when connected
     useEffect(() => {
@@ -274,12 +334,10 @@ function KuluPayCheckoutInner({
 
     const isDisabled = isExpired || state === "connecting" || state === "sending" || state === "confirming" || state === "confirmed";
 
-    const tokenAmount = getTokenRawAmount(intent);
-
     return (
         <div className="kulupay-checkout">
             <div className="kulupay-checkout__header">
-                <h3>Pay {formatTokenAmount(tokenAmount, token?.decimals ?? 18)} {token?.symbol}</h3>
+                <h3>Pay {displayAmount} {tokenSymbol}</h3>
                 {intent.description && <p>{intent.description}</p>}
             </div>
 

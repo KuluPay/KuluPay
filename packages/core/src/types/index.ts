@@ -197,7 +197,7 @@ export interface KuluPayOptions {
      * ```
      */
     walletConnectProjectId?: string;
-    plugins?: any[];
+    plugins?: KuluPayPlugin[];
     /**
      * Authentication configuration. KuluPay is auth-agnostic — you plug in
      * your own session resolver (e.g. better-auth, NextAuth, custom JWT).
@@ -299,6 +299,138 @@ export interface KuluPayOptions {
 }
 
 /**
+ * A middleware definition contributed by a plugin.
+ * Mirrors better-auth's plugin middleware pattern.
+ */
+export interface KuluPayMiddlewareDefinition {
+    /** Path pattern this middleware applies to (e.g. "/**" for all routes) */
+    path: string;
+    /** The middleware function */
+    middleware: any;
+}
+
+/**
+ * Rate limiting configuration.
+ * Mirrors better-auth's rate limit pattern.
+ */
+export interface KuluPayRateLimitConfig {
+    /** Window in seconds */
+    window: number;
+    /** Max requests per window */
+    max: number;
+    /** Custom key generator (defaults to IP-based) */
+    keyGenerator?: (request: Request) => string | Promise<string>;
+}
+
+/**
+ * Hook context passed to before/after hooks.
+ * Mirrors better-auth's HookEndpointContext.
+ */
+export type HookEndpointContext = {
+    path?: string;
+    method?: string;
+    headers?: Headers;
+    body?: any;
+    query?: any;
+    params?: any;
+    context: KuluPayContext & {
+        returned?: unknown;
+        responseHeaders?: Headers | undefined;
+    };
+};
+
+/**
+ * A KuluPay plugin — mirrors BetterAuthPlugin.
+ *
+ * Plugins can:
+ * - Add endpoints to the API surface
+ * - Contribute middlewares to the router middleware chain
+ * - Register before/after hooks that run around endpoint handlers
+ * - Hook into onRequest/onResponse lifecycle
+ * - Extend the schema with additional fields
+ * - Configure rate limiting
+ * - Run an init function on startup that can modify context/options
+ * - Export error codes and inferred types
+ *
+ * @example
+ * ```ts
+ * const myPlugin: KuluPayPlugin = {
+ *   id: "my-plugin",
+ *   endpoints: {
+ *     getCustomData: createKuluPayEndpoint("/get-custom-data", { method: "GET" }, async (ctx) => { ... }),
+ *   },
+ *   middlewares: [
+ *     { path: "/**", middleware: myAuthMiddleware },
+ *   ],
+ *   hooks: {
+ *     before: [
+ *       { matcher: (ctx) => ctx.path === "/create-intent", handler: async (ctx) => { ... } },
+ *     ],
+ *     after: [
+ *       { matcher: (ctx) => ctx.path === "/create-intent", handler: async (ctx) => { ... } },
+ *     ],
+ *   },
+ *   onRequest: async (req, ctx) => { ... },
+ *   onResponse: async (res, ctx) => { ... },
+ *   init: async (ctx) => { console.log("Plugin initialized"); },
+ * };
+ * ```
+ */
+export interface KuluPayPlugin {
+    /** Unique plugin ID */
+    id: string;
+    /** Endpoints to merge into the API surface */
+    endpoints?: Record<string, any>;
+    /** Middlewares to add to the router middleware chain */
+    middlewares?: KuluPayMiddlewareDefinition[];
+    /** Before/after hooks that run around endpoint handlers */
+    hooks?: {
+        before?: {
+            matcher: (context: HookEndpointContext) => boolean;
+            handler: (context: HookEndpointContext) => Promise<unknown>;
+        }[];
+        after?: {
+            matcher: (context: HookEndpointContext) => boolean;
+            handler: (context: HookEndpointContext) => Promise<unknown>;
+        }[];
+    };
+    /** Called on every request before routing — can short-circuit or modify request */
+    onRequest?: (
+        request: Request,
+        ctx: KuluPayContext,
+    ) => Promise<
+        | { response: Response }
+        | { request: Request }
+        | void
+    >;
+    /** Called on every response after routing — can modify response */
+    onResponse?: (
+        response: Response,
+        ctx: KuluPayContext,
+    ) => Promise<{ response: Response } | void>;
+    /** Rate limiting configuration */
+    rateLimit?: KuluPayRateLimitConfig;
+    /** Schema extension for database tables */
+    schema?: Record<string, any>;
+    /** Plugin-specific options */
+    options?: Record<string, any>;
+    /** Called once during initialization. Can return context/options modifications */
+    init?: (
+        ctx: KuluPayContext,
+    ) => Promise<
+        | {
+            context?: Partial<Omit<KuluPayContext, "options">> & Record<string, unknown>;
+            options?: Partial<KuluPayOptions>;
+        }
+        | void
+    >;
+    /** Error codes exported by this plugin */
+    $ERROR_CODES?: Record<string, { code: string; message: string }>;
+    /** Types to be inferred by consumers */
+    $Infer?: Record<string, any>;
+}
+
+/**
  * Internal runtime context for KuluPay, created during initialization.
  * Not intended to be constructed directly by users.
  */
@@ -310,10 +442,15 @@ export interface KuluPayContext {
     logger: {
         debug: (message: string, ...args: any[]) => void;
         error: (message: string, ...args: any[]) => void;
+        warn: (message: string, ...args: any[]) => void;
     };
-    plugins: any[];
+    plugins: KuluPayPlugin[];
     trustedOrigins: string[];
     session?: KuluPaySession | null;
+    /** Get a plugin by ID, or null if not installed */
+    getPlugin: (id: string) => KuluPayPlugin | null;
+    /** Check if a plugin is installed */
+    hasPlugin: (id: string) => boolean;
 }
 
 /**

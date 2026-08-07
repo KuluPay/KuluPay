@@ -26,10 +26,18 @@ export const createKuluPay = <Options extends KuluPayOptions>(
 ) => {
     // Resolve the core context once (async)
 	const contextPromise = initFn(options);
-    
+
     // Pre-calculate the API surface
 	const { api } = getEndpoints(contextPromise);
-    
+
+    // Aggregate error codes from plugins
+    const errorCodes = options.plugins?.reduce((acc, plugin) => {
+        if (plugin.$ERROR_CODES) {
+            return { ...acc, ...plugin.$ERROR_CODES };
+        }
+        return acc;
+    }, {} as Record<string, any>) || {};
+
 	return {
         /**
          * Main request handler for HTTP requests.
@@ -43,7 +51,7 @@ export const createKuluPay = <Options extends KuluPayOptions>(
 
             /**
              * DYNAMIC BASE URL HANDLING
-             * If the baseURL is dynamic (e.g. wildcard subdomains), we create a 
+             * If the baseURL is dynamic (e.g. wildcard subdomains), we create a
              * request-specific context to avoid mutation race conditions.
              */
 			if (isDynamicBaseURLConfig(options.baseURL)) {
@@ -121,5 +129,6 @@ export const createKuluPay = <Options extends KuluPayOptions>(
 		api: api as any,
 		options: options,
 		$context: contextPromise,
+        $ERROR_CODES: errorCodes,
 	};
 };

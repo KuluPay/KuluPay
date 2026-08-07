@@ -50,6 +50,14 @@ export interface CreateKuluPayAppKitOptions {
         url: string;
         icons: string[];
     };
+    /** Reown AppKit theme options for UI customization */
+    themeOptions?: {
+        themeMode?: "dark" | "light" | "auto";
+        themeVariables?: Record<string, string>;
+        customWallets?: any[];
+        enableWallets?: any[];
+        featuredWallets?: string[];
+    };
 }
 
 /**
@@ -115,7 +123,13 @@ export function createKuluPayAppKit(
         metadata,
         features: {
             analytics: false,
+            socialTypes: [],
+            email: false,
+            swaps: false,
+            onramp: false,
         },
+        themeMode: "dark",
+        ...options.themeOptions,
     });
 
     const wagmiConfig = wagmiAdapter.wagmiConfig;

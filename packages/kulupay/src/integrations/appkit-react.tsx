@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useMemo, useCallback } from "react";
 import { WagmiConfig } from "wagmi";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createAppKit } from "@reown/appkit/react";
 import { createKuluPayAppKit, type KuluPayAppKitInstance } from "../client/appkit";
 import type { PayClient } from "../client/react";
@@ -20,6 +21,14 @@ export interface KuluPayAppKitProviderProps {
         url: string;
         icons: string[];
     };
+    /** Reown AppKit theme options for UI customization */
+    themeOptions?: {
+        themeMode?: "dark" | "light" | "auto";
+        themeVariables?: Record<string, string>;
+        customWallets?: any[];
+        enableWallets?: any[];
+        featuredWallets?: string[];
+    };
     children: React.ReactNode;
     /** Shown while AppKit is initializing */
     fallback?: React.ReactNode;
@@ -33,12 +42,20 @@ interface KuluPayAppKitContextValue {
     initFromChains: (chains: ProviderChainConfig[]) => void;
 }
 
-const KuluPayAppKitContext = createContext<KuluPayAppKitContextValue>({
-    appKit: null,
-    isLoading: false,
-    error: null,
-    initFromChains: () => {},
-});
+const GLOBAL_KEY = "__KuluPayAppKitContext__";
+
+const KuluPayAppKitContext: React.Context<KuluPayAppKitContextValue> =
+    (globalThis as any)[GLOBAL_KEY] ??
+    createContext<KuluPayAppKitContextValue>({
+        appKit: null,
+        isLoading: false,
+        error: null,
+        initFromChains: () => {},
+    });
+
+if (!(globalThis as any)[GLOBAL_KEY]) {
+    (globalThis as any)[GLOBAL_KEY] = KuluPayAppKitContext;
+}
 
 /**
  * React provider that initializes AppKit from the KuluPay client.
@@ -63,6 +80,7 @@ const KuluPayAppKitContext = createContext<KuluPayAppKitContextValue>({
 export function KuluPayAppKitProvider({
     client,
     metadata,
+    themeOptions,
     children,
     fallback,
 }: KuluPayAppKitProviderProps) {
@@ -70,10 +88,13 @@ export function KuluPayAppKitProvider({
     const [appKit, setAppKit] = useState<KuluPayAppKitInstance | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const queryClient = useMemo(() => new QueryClient(), []);
 
     const initFromChains = useCallback((chains: ProviderChainConfig[]) => {
+        console.log('[KuluPayAppKit] initFromChains called', { hasAppKit: !!appKit, projectId: projectId ? projectId.slice(0, 8) + '...' : 'MISSING', chainsCount: chains.length, chainNames: chains.map(c => c.name) });
         if (appKit) return; // already initialized
         if (!projectId) {
+            console.error('[KuluPayAppKit] No projectId — set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID');
             setError(new Error(
                 "walletConnectProjectId not set on client. " +
                 "Pass it to createPayClient({ walletConnectProjectId: 'xxx' })."
@@ -84,15 +105,18 @@ export function KuluPayAppKitProvider({
 
         setIsLoading(true);
         try {
-            const instance = createKuluPayAppKit({ projectId, chains, metadata }, createAppKit);
+            console.log('[KuluPayAppKit] Creating AppKit instance...');
+            const instance = createKuluPayAppKit({ projectId, chains, metadata, themeOptions }, createAppKit);
+            console.log('[KuluPayAppKit] AppKit instance created successfully');
             setAppKit(instance);
             setError(null);
         } catch (err) {
+            console.error('[KuluPayAppKit] Failed to create AppKit:', err);
             setError(err as Error);
         } finally {
             setIsLoading(false);
         }
-    }, [appKit, projectId, metadata]);
+    }, [appKit, projectId, metadata, themeOptions]);
 
     const contextValue = useMemo(
         () => ({ appKit, isLoading, error, initFromChains }),
@@ -102,9 +126,11 @@ export function KuluPayAppKitProvider({
     if (appKit) {
         return (
             <KuluPayAppKitContext.Provider value={contextValue}>
-                <WagmiConfig config={appKit.wagmiConfig}>
-                    {children}
-                </WagmiConfig>
+                <QueryClientProvider client={queryClient}>
+                    <WagmiConfig config={appKit.wagmiConfig}>
+                        {children}
+                    </WagmiConfig>
+                </QueryClientProvider>
             </KuluPayAppKitContext.Provider>
         );
     }

@@ -1,8 +1,28 @@
-import { KuluPayContext, KuluPayOptions, PaymentProvider, KuluPayORM } from "../types";
+import { KuluPayContext, KuluPayOptions, PaymentProvider, KuluPayORM, KuluPayPlugin } from "../types";
 import { createOrm } from "@farming-labs/orm";
 import { getKuluPayTables } from "../db/get-tables";
 import { resolveDatabaseDriver } from "../db/resolve-database";
 import { onchain } from "../payment-providers/onchain/config";
+
+/**
+ * Run plugin init functions, merging any returned context/options modifications.
+ * Mirrors better-auth's runPluginInit pattern.
+ */
+async function runPluginInit(context: KuluPayContext): Promise<void> {
+    const plugins = context.options.plugins || [];
+    for (const plugin of plugins) {
+        if (!plugin.init) continue;
+        const result = await plugin.init(context);
+        if (typeof result === "object" && result !== null) {
+            if (result.options) {
+                context.options = { ...context.options, ...result.options };
+            }
+            if (result.context) {
+                Object.assign(context, result.context);
+            }
+        }
+    }
+}
 
 export const createKuluPayContext = async (
     options: KuluPayOptions
@@ -26,6 +46,9 @@ export const createKuluPayContext = async (
         error: (message: string, ...args: any[]) => {
             console.error(`[KuluPay:ERROR] ${message}`, ...args);
         },
+        warn: (message: string, ...args: any[]) => {
+            console.warn(`[KuluPay:WARN] ${message}`, ...args);
+        },
     };
 
     const schema = getKuluPayTables(options);
@@ -36,14 +59,28 @@ export const createKuluPayContext = async (
     }) as KuluPayORM;
 
     const plugins = options.plugins || [];
-    return {
+    const pluginIds = new Set(plugins.map((p) => p.id));
+
+    const getPlugin = (id: string): KuluPayPlugin | null =>
+        plugins.find((p) => p.id === id) ?? null;
+
+    const hasPlugin = (id: string): boolean => pluginIds.has(id);
+
+    const context: KuluPayContext = {
         options,
         providers,
         plugins,
         orm,
         baseURL,
-        trustedOrigins: [], // Will be populated in the handler or via init
+        trustedOrigins: [],
         logger,
+        getPlugin,
+        hasPlugin,
     };
+
+    // Initialize plugins — can modify context/options
+    await runPluginInit(context);
+
+    return context;
 };
 

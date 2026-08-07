@@ -138,8 +138,15 @@ export const createIntent = createKuluPayEndpoint(
 
         if (options.plugins) {
             for (const plugin of options.plugins) {
-                if (plugin.hooks?.["intent:created"]) {
-                    await plugin.hooks["intent:created"](intent);
+                if (plugin.hooks?.after) {
+                    for (const hook of plugin.hooks.after) {
+                        if (hook.matcher({ path: "/create-intent", context: ctx.context as any })) {
+                            await hook.handler({
+                                path: "/create-intent",
+                                context: { ...ctx.context, returned: intent } as any,
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -401,7 +408,7 @@ export const checkoutIntent = createKuluPayEndpoint(
         method: "GET",
     },
     async (ctx) => {
-        const { orm } = ctx.context;
+        const { orm, logger } = ctx.context;
         const query = ctx.query as any;
 
         const { intentId, clientSecret } = query;
@@ -424,6 +431,13 @@ export const checkoutIntent = createKuluPayEndpoint(
         }
 
         const metadata = payment.metadata as any;
+
+        logger.debug("checkoutIntent raw data", {
+            metadataRaw: metadata?.raw,
+            metadataRawTo: metadata?.raw?.to,
+            metadataRawValue: metadata?.raw?.value,
+            metadataRawData: metadata?.raw?.data ? metadata.raw.data.slice(0, 20) + "..." : null,
+        });
 
         const provider = ctx.context.providers.get(payment.providerId);
         const checkoutFlow = provider?.checkout || "none";
