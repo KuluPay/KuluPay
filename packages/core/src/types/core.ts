@@ -34,6 +34,17 @@ export interface KuluPayOptions {
         authorize?: (action: string, ctx: KuluPayContext, session: KuluPaySession) => Promise<boolean>;
     };
     trustedOrigins?: string[] | ((request: Request) => Promise<string[]>);
+    /**
+     * URL or URL pattern for the checkout page. When set, the `createIntent`
+     * response includes a `checkoutUrl` field with the intentId and clientSecret
+     * already embedded — the client can simply redirect to it.
+     *
+     * Supports `{intentId}` and `{clientSecret}` placeholders.
+     * Example: `"/checkout?intentId={intentId}&clientSecret={clientSecret}"`
+     *
+     * If not set, the client must build the URL manually from the response.
+     */
+    checkoutUrl?: string;
     pricing?: {
         resolvePrice?: (
             data: CreateIntentData,

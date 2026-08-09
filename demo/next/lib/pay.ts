@@ -36,6 +36,7 @@ export const pay = kuluPay({
   ],
   baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",
   trustedOrigins: ["http://localhost:3000"],
+  checkoutUrl: "/checkout?intentId={intentId}&clientSecret={clientSecret}",
   auth: {
     getSession: async () => {
       return {

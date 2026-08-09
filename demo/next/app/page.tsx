@@ -45,7 +45,9 @@ export default function Home() {
       });
 
       if (result?.data?.id && result?.data?.clientSecret) {
-        router.push(`/checkout?intentId=${result.data.id}&clientSecret=${result.data.clientSecret}`);
+        const url = result.data.checkoutUrl
+          ?? `/checkout?intentId=${result.data.id}&clientSecret=${result.data.clientSecret}`;
+        router.push(url);
       } else {
         const detail = result?.error?.message || `Missing id or clientSecret in response`;
         setError(`Failed: ${detail}`);
@@ -84,7 +86,7 @@ export default function Home() {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="10.00"
               />
-              <Select value={currency} onValueChange={setCurrency}>
+              <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
                 <SelectTrigger className="w-24">
                   <SelectValue />
                 </SelectTrigger>
@@ -98,7 +100,7 @@ export default function Home() {
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="provider">Provider</Label>
-            <Select value={providerId} onValueChange={setProviderId}>
+            <Select value={providerId} onValueChange={(v) => v && setProviderId(v)}>
               <SelectTrigger id="provider" className="w-full">
                 <SelectValue />
               </SelectTrigger>

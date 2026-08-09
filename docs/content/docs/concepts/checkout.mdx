@@ -247,3 +247,182 @@ For Stripe, Chapa, and PayPal, the checkout shows a simple redirect button inste
 ```
 
 The component automatically detects the checkout flow from the intent data and renders the appropriate UI.
+
+---
+
+## Custom Checkout (Self-Hosted)
+
+If you want full control over the checkout UI — your own design, your own wallet connection, your own payment logic — you can build it entirely yourself using the KuluPay API.
+
+### How It Works
+
+1. **Client** calls `createIntent` → receives `intentId`, `clientSecret`, and `raw` transaction data
+2. **Your code** renders whatever UI you want
+3. **Your code** connects to the user's wallet (MetaMask, TronLink, WalletConnect, etc.)
+4. **Your code** sends the transaction using the `raw` data from the intent
+5. **Your code** calls `confirmIntent` with the transaction hash
+6. **Your code** polls `verifyIntent` until the status is `succeeded` or `failed`
+
+### Server Configuration: `checkoutUrl`
+
+Set `checkoutUrl` on the server to give clients a ready-made redirect URL:
+
+```ts title="lib/pay.ts"
+import { kuluPay } from "@kulupay/kulupay";
+
+export const pay = kuluPay({
+  database: drizzleAdapter(db, { provider: "pg" }),
+  // ... providers, plugins, etc.
+
+  // When set, the createIntent response includes a `checkoutUrl` field
+  // with intentId and clientSecret already embedded.
+  checkoutUrl: "/checkout?intentId={intentId}&clientSecret={clientSecret}",
+});
+```
+
+The `createIntent` response will include:
+
+```json
+{
+  "id": "pi_abc123",
+  "clientSecret": "pi_abc123_secret_xyz",
+  "checkoutUrl": "/checkout?intentId=pi_abc123&clientSecret=pi_abc123_secret_xyz",
+  "raw": {
+    "to": "0x1c7d4b196cb0c5b537566c3ab4ddf2b53b3b3c7b",
+    "value": "0",
+    "data": "0xa9059cbb...",
+    "chainId": 11155111,
+    "tokenSymbol": "USDC",
+    "isNative": false,
+    "contractAddress": "0x1c7d4b196cb0c5b537566c3ab4ddf2b53b3b3c7b"
+  }
+}
+```
+
+### Client: Redirect After Intent Creation
+
+```tsx title="app/page.tsx"
+"use client";
+import { payClient } from "@/lib/pay-client";
+import { useRouter } from "next/navigation";
+
+export default function Home() {
+  const router = useRouter();
+
+  const handlePay = async () => {
+    const result = await payClient.createIntent({
+      body: {
+        amount: 1000,
+        currency: "usd",
+        providerId: "ethereum",
+        token: "USDC",
+      },
+    });
+
+    if (result?.data?.checkoutUrl) {
+      // Server provided the URL — just redirect
+      router.push(result.data.checkoutUrl);
+    } else if (result?.data?.id && result?.data?.clientSecret) {
+      // Fallback: build the URL yourself
+      router.push(`/checkout?intentId=${result.data.id}&clientSecret=${result.data.clientSecret}`);
+    }
+  };
+
+  return <button onClick={handlePay}>Pay $10.00</button>;
+}
+```
+
+<Callout type="info">
+  `checkoutUrl` is optional. If not configured on the server, the field is `undefined` and the client builds the URL manually from `id` and `clientSecret`.
+</Callout>
+
+### Building Your Own Checkout UI
+
+Use the `checkoutIntent` API to load the full intent data, then build your own UI:
+
+```tsx title="app/custom-checkout/page.tsx"
+"use client";
+import { useEffect, useState } from "react";
+import { payClient } from "@/lib/pay-client";
+import { useSearchParams } from "next/navigation";
+
+export default function CustomCheckout() {
+  const searchParams = useSearchParams();
+  const intentId = searchParams.get("intentId")!;
+  const clientSecret = searchParams.get("clientSecret")!;
+  const [intent, setIntent] = useState<any>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>("pending");
+
+  // 1. Load the intent data
+  useEffect(() => {
+    payClient.checkoutIntent({
+      query: { intentId, clientSecret },
+    }).then((res) => setIntent(res.data));
+  }, [intentId, clientSecret]);
+
+  // 2. Send the transaction using your own wallet code
+  const handlePay = async () => {
+    const raw = intent.raw;
+    // Use viem, ethers, tronweb, or any wallet library
+    const hash = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [{
+        to: raw.to,
+        value: raw.value,
+        data: raw.data,
+      }],
+    });
+    setTxHash(hash);
+
+    // 3. Confirm with the server
+    await payClient.confirmIntent({
+      body: { intentId, txHash: hash, clientSecret },
+    });
+
+    // 4. Poll for confirmation
+    const poll = setInterval(async () => {
+      const res = await payClient.verifyIntent({
+        query: { intentId, clientSecret },
+      });
+      setStatus(res.data.status);
+      if (res.data.status === "succeeded" || res.data.status === "failed") {
+        clearInterval(poll);
+      }
+    }, 5000);
+  };
+
+  if (!intent) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h1>Pay {intent.amount / 100} {intent.currency.toUpperCase()}</h1>
+      <p>Token: {intent.raw.tokenSymbol}</p>
+      <button onClick={handlePay} disabled={!!txHash}>
+        {txHash ? "Confirming..." : "Pay Now"}
+      </button>
+      {txHash && <p>TX: {txHash}</p>}
+      <p>Status: {status}</p>
+    </div>
+  );
+}
+```
+
+### Key API Endpoints for Custom Checkout
+
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/create-intent` | POST | Session | Creates the payment intent, returns `raw` tx data |
+| `/checkout-intent` | GET | clientSecret | Loads full intent data for checkout rendering |
+| `/confirm-intent` | POST | clientSecret | Submits the tx hash after user sends the transaction |
+| `/verify-intent` | GET | clientSecret | Polls for on-chain confirmation status |
+
+<Callout type="warn" title="Important">
+  When building a custom checkout, you are responsible for:
+  - Wallet connection and network switching
+  - Balance checks before sending transactions
+  - Error handling for rejected transactions
+  - Polling for confirmation status
+  
+  The built-in `CheckoutPage` component handles all of this automatically.
+</Callout>

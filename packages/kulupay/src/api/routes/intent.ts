@@ -158,7 +158,12 @@ export const createIntent = createKuluPayEndpoint(
             chainConfig: provider.chainConfig ?? null,
             redirects: (provider as any).options?.redirects || {
                 success: "/success",
-            }
+            },
+            checkoutUrl: options.checkoutUrl
+                ? options.checkoutUrl
+                    .replace("{intentId}", intent.id)
+                    .replace("{clientSecret}", intent.clientSecret || "")
+                : undefined,
         };
     }
 );

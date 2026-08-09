@@ -21,7 +21,7 @@ export interface PayClientPlugin {
 }
 
 export interface OnchainClientOptions {
-    /**
+    /**s
      * Reown WalletConnect project ID.
      * Public — like a Stripe publishable key. Get one at https://dashboard.reown.com.
      */
@@ -60,6 +60,10 @@ export interface OnchainActions {
     getChainId: () => number | string | undefined;
     getBalance: (address?: string) => Promise<{ formatted: string; symbol: string; value: bigint } | null>;
     sendPayment: (intent: PaymentIntent) => Promise<{ txHash: string; status: "confirmed" | "pending" }>;
+    /** Inject an externally-created AppKit instance (e.g. from KuluPayAppKitProvider) */
+    setAppKit: (instance: KuluPayAppKitInstance) => void;
+    /** Get the WalletConnect project ID from plugin options */
+    getProjectId: () => string;
 }
 
 /**
@@ -100,7 +104,11 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
     const $isSending = atom<boolean>(false);
 
     function getAppKit(chains?: ProviderChainConfig[]): KuluPayAppKitInstance {
-        if (appKitInstance) return appKitInstance;
+        if (appKitInstance) {
+            console.log("[onchain] getAppKit: using injected instance");
+            return appKitInstance;
+        }
+        console.log("[onchain] getAppKit: no injected instance, creating new one");
 
         const resolvedChains = chains ?? options.chains ?? [];
         if (resolvedChains.length === 0) {
@@ -130,6 +138,18 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
 
     function getOnchainActions(fetcher: any): OnchainActions {
         return {
+            setAppKit: (instance: KuluPayAppKitInstance) => {
+                console.log("[onchain] setAppKit called, injecting provider instance");
+                appKitInstance = instance;
+                instance.subscribeProvider((state: any) => {
+                    $connected.set(instance.isConnected());
+                    $address.set(instance.getAddress());
+                    $chainId.set(instance.getChainId());
+                });
+            },
+
+            getProjectId: () => options.walletConnectProjectId,
+
             connectWallet: async () => {
                 $isConnecting.set(true);
                 try {
@@ -177,6 +197,14 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
                 try {
                     const appKit = getAppKit();
 
+                    console.log("[onchain] sendPayment called", {
+                        hasAppKit: !!appKit,
+                        isConnected: appKit.isConnected(),
+                        intentId: intent.id,
+                        hasRaw: !!(intent as any).raw,
+                        family: intent.metadata?.family,
+                    });
+
                     if (!appKit.isConnected()) {
                         appKit.open();
                         throw new OnchainError("WALLET_NOT_CONNECTED", {
@@ -191,6 +219,8 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
 
                     const family = intent.metadata?.family;
                     let txHash: string;
+
+                    console.log("[onchain] raw tx data", { to: raw.to, value: raw.value, hasData: !!raw.data, chainId: raw.chainId, family });
 
                     if (family === "tron") {
                         const provider = appKit.modal.getWalletProvider();
@@ -207,19 +237,26 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
                         const currentChainId = appKit.getChainId();
                         const targetChainId = raw.chainId ?? intent.metadata?.chainId;
 
+                        console.log("[onchain] EVM chain check", { currentChainId, targetChainId, needsSwitch: targetChainId && Number(currentChainId) !== Number(targetChainId) });
+
                         if (targetChainId && Number(currentChainId) !== Number(targetChainId)) {
                             try {
+                                console.log("[onchain] switching chain to", Number(targetChainId));
                                 await appKit.switchChain(Number(targetChainId));
+                                console.log("[onchain] chain switched successfully");
                             } catch (switchErr: any) {
+                                console.error("[onchain] chain switch failed:", switchErr?.message ?? switchErr);
                                 throw OnchainError.fromWalletError(switchErr);
                             }
                         }
 
+                        console.log("[onchain] sending EVM tx", { to: raw.to, value: raw.value, dataLength: raw.data?.length });
                         txHash = await appKit.sendEVMTx({
                             to: raw.to,
                             value: raw.value ? BigInt(raw.value) : BigInt(0),
                             data: raw.data,
                         });
+                        console.log("[onchain] EVM tx sent, hash:", txHash);
                     }
 
                     // Confirm with server
@@ -238,6 +275,7 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
 
                     return { txHash, status: "confirmed" as const };
                 } catch (err: any) {
+                    console.error("[onchain] sendPayment error:", err?.message ?? err, err?.code, err?.details);
                     if (err instanceof OnchainError) throw err;
                     throw OnchainError.fromWalletError(err);
                 } finally {
@@ -247,8 +285,9 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
         };
     }
 
-    return {
+    const plugin: PayClientPlugin & { walletConnectProjectId?: string } = {
         id: "onchain",
+        walletConnectProjectId: options.walletConnectProjectId,
 
         getActions(fetcher: any, _opts: any) {
             return {
@@ -269,4 +308,6 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
 
         $ERROR_CODES: ONCHAIN_ERROR_CODES as unknown as Record<string, { code: string; message: string }>,
     };
+
+    return plugin;
 };

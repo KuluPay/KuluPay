@@ -110,6 +110,14 @@ export function KuluPayAppKitProvider({
             console.log('[KuluPayAppKit] AppKit instance created successfully');
             setAppKit(instance);
             setError(null);
+
+            // Inject the AppKit instance into the onchain plugin so
+            // payClient.onchain.sendPayment() uses the same instance
+            try {
+                (client as any).onchain?.setAppKit?.(instance);
+            } catch {
+                // Plugin may not be loaded — that's fine
+            }
         } catch (err) {
             console.error('[KuluPayAppKit] Failed to create AppKit:', err);
             setError(err as Error);

@@ -119,6 +119,11 @@ export function createPayClient(options: PayClientOptions) {
         if (plugin.getActions) {
             Object.assign(pluginActions, plugin.getActions(fetcher, options));
         }
+        // If a plugin exposes a walletConnectProjectId, hoist it to client options
+        // so KuluPayAppKitProvider can read it without going through the proxy
+        if ((plugin as any).walletConnectProjectId && !options.walletConnectProjectId) {
+            options.walletConnectProjectId = (plugin as any).walletConnectProjectId;
+        }
     }
 
     const proxy = createDynamicPathProxy(fetcher, pluginActions);
@@ -131,10 +136,22 @@ export function createPayClient(options: PayClientOptions) {
         $paySignal,
         $intent,
         $ERROR_CODES: ERROR_CODES,
-    });
+    }) as PayClient;
 }
 
-export type PayClient = ReturnType<typeof createPayClient>;
+export interface PayClient {
+    $fetch: PayFetcher;
+    $options: PayClientOptions;
+    baseURL: string;
+    $atoms: Record<string, WritableAtom<any>>;
+    $paySignal: WritableAtom<boolean>;
+    $intent: WritableAtom<PayAtom>;
+    $ERROR_CODES: typeof ERROR_CODES;
+    checkoutIntent: (opts: { intentId: string; clientSecret: string }) => Promise<{ data: any; error: any }>;
+    confirmIntent: (opts: { body: { intentId: string; txHash: string; clientSecret: string } }) => Promise<{ data: any; error: any }>;
+    verifyIntent: (opts: { intentId: string; clientSecret: string }) => Promise<{ data: any; error: any }>;
+    [key: string]: any;
+}
 export { KuluPayClientError };
 
 

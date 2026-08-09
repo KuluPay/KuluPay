@@ -2,6 +2,11 @@ import { createAppKit } from "@reown/appkit";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { TronAdapter } from "@reown/appkit-adapter-tron";
 import { TronLinkAdapter } from "@tronweb3/tronwallet-adapter-tronlink";
+import { OkxWalletAdapter } from "@tronweb3/tronwallet-adapter-okxwallet";
+import { BitKeepAdapter } from "@tronweb3/tronwallet-adapter-bitkeep";
+import { TokenPocketAdapter } from "@tronweb3/tronwallet-adapter-tokenpocket";
+import { BybitWalletAdapter } from "@tronweb3/tronwallet-adapter-bybit";
+import { TrustAdapter } from "@tronweb3/tronwallet-adapter-trust";
 import { sendTransaction, getBalance, getAccount, disconnect } from "@wagmi/core";
 import type { Config as WagmiConfig } from "wagmi";
 import {
@@ -111,10 +116,23 @@ export function createKuluPayAppKit(
     });
 
     // 3. Create TronAdapter for Tron chains (if any)
-    const adapters: any[] = [wagmiAdapter];
+    // Only include WagmiAdapter in AppKit when there are actual EVM chains.
+    // For Tron-only payments, passing WagmiAdapter (with its fallback EVM network)
+    // causes AppKit to show an EVM network selector that confuses users.
+    const adapters: any[] = [];
+    if (evm.length > 0) {
+        adapters.push(wagmiAdapter);
+    }
     if (tron.length > 0) {
         const tronAdapter = new TronAdapter({
-            walletAdapters: [new TronLinkAdapter()],
+            walletAdapters: [
+                new TronLinkAdapter(),
+                new OkxWalletAdapter(),
+                new BitKeepAdapter(),
+                new TokenPocketAdapter(),
+                new BybitWalletAdapter(),
+                new TrustAdapter(),
+            ],
         });
         adapters.push(tronAdapter);
     }
@@ -141,6 +159,49 @@ export function createKuluPayAppKit(
         },
         themeMode: "dark",
         ...options.themeOptions,
+        customWallets: [
+            ...(options.themeOptions?.customWallets ?? []),
+            {
+                id: "tron-okx",
+                name: "OKX Wallet",
+                homepage: "https://www.okx.com/web3",
+                image_url: "https://static.okx.com/cdn/assets/imgs/247/8E7F7BCA28A77B23.png",
+                desktop_link: "okxwallet://",
+                mobile_link: "okx://",
+                app_store: "https://apps.apple.com/app/okx-wallet/id3046397331",
+                play_store: "https://play.google.com/store/apps/details?id=com.okex.wallet",
+            },
+            {
+                id: "tron-tokenpocket",
+                name: "TokenPocket",
+                homepage: "https://www.tokenpocket.pro/",
+                image_url: "https://www.tokenpocket.pro/static/logo.png",
+                desktop_link: "tp://",
+                mobile_link: "tp://",
+                app_store: "https://apps.apple.com/app/tokenpocket/id1433618928",
+                play_store: "https://play.google.com/store/apps/details?id=vip.mytokenpocket.android",
+            },
+            {
+                id: "tron-bybit",
+                name: "Bybit Wallet",
+                homepage: "https://www.bybit.com/web3",
+                image_url: "https://public.bybit.com/common/logo/logo.png",
+                desktop_link: "bybitwallet://",
+                mobile_link: "bybitwallet://",
+                app_store: "https://apps.apple.com/app/bybit-wallet/id6471253723",
+                play_store: "https://play.google.com/store/apps/details?id=com.bybit.wallet",
+            },
+            {
+                id: "tron-trust",
+                name: "Trust Wallet",
+                homepage: "https://www.trustwallet.com/browser-extension",
+                image_url: "https://trustwallet.com/assets/images/media/assets/trust_platform.svg",
+                desktop_link: "trust://",
+                mobile_link: "https://link.trustwallet.com",
+                app_store: "https://apps.apple.com/app/trust-wallet-crypto/id1288339409",
+                play_store: "https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp",
+            },
+        ],
     });
 
     const wagmiConfig = wagmiAdapter.wagmiConfig;

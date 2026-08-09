@@ -3,8 +3,6 @@ import * as fs from "fs";
 import * as path from "path";
 import {
     REACT_CHECKOUT,
-    REACT_USE_CHECKOUT,
-    REACT_WALLET_PICKER,
     REACT_AMOUNT_DISPLAY,
     REACT_COUNTDOWN_TIMER,
     REACT_CONFIRMATION_STATUS,
@@ -12,7 +10,7 @@ import {
     REACT_PAY_BUTTON,
 } from "./templates";
 
-const COMPONENTS = ["checkout", "wallet-picker", "amount-display", "countdown-timer", "confirmation-status", "disclosures", "pay-button"] as const;
+const COMPONENTS = ["checkout", "amount-display", "countdown-timer", "confirmation-status", "disclosures", "pay-button"] as const;
 type ComponentName = (typeof COMPONENTS)[number];
 
 const FRAMEWORKS = ["react", "vue", "svelte", "vanilla"] as const;
@@ -21,8 +19,6 @@ type Framework = (typeof FRAMEWORKS)[number];
 const TEMPLATES: Record<Framework, Record<string, string>> = {
     react: {
         "checkout.tsx": REACT_CHECKOUT,
-        "use-checkout.ts": REACT_USE_CHECKOUT,
-        "wallet-picker.tsx": REACT_WALLET_PICKER,
         "amount-display.tsx": REACT_AMOUNT_DISPLAY,
         "countdown-timer.tsx": REACT_COUNTDOWN_TIMER,
         "confirmation-status.tsx": REACT_CONFIRMATION_STATUS,
@@ -36,7 +32,7 @@ const TEMPLATES: Record<Framework, Record<string, string>> = {
 
 export const add = new Command("add")
     .description("Add a KuluPay component to your project (shadcn/ui style — you own the code)")
-    .argument("<component>", "Component to add (checkout, wallet-picker, etc.)")
+    .argument("<component>", "Component to add (checkout, amount-display, etc.)")
     .option("-f, --framework <framework>", "Framework (react, vue, svelte, vanilla)", "react")
     .option("-p, --path <path>", "Path to copy components to", "src/components/kulupay/checkout")
     .action((component: string, opts: { framework: string; path: string }) => {
