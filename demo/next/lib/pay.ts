@@ -1,6 +1,6 @@
 import { kuluPay } from "@kulupay/kulupay";
 import { drizzleAdapter } from "@kulupay/adapter-drizzle";
-import { onchain } from "@kulupay/kulupay/plugins/onchain";
+import { onchain } from "@kulupay/onchain";
 import { db } from "./db";
 
 export const pay = kuluPay({

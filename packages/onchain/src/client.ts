@@ -95,6 +95,10 @@ export interface OnchainActions {
 export const onchainClient = (options: OnchainClientOptions): PayClientPlugin => {
     let appKitInstance: KuluPayAppKitInstance | null = null;
 
+    // Shared container — the provider can set the AppKit instance here
+    // directly on the plugin object, bypassing the proxy
+    const shared = { instance: null as KuluPayAppKitInstance | null };
+
     // Atoms for reactive state
     const $connected = atom<boolean>(false);
     const $address = atom<string | null>(null);
@@ -104,11 +108,8 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
     const $isSending = atom<boolean>(false);
 
     function getAppKit(chains?: ProviderChainConfig[]): KuluPayAppKitInstance {
-        if (appKitInstance) {
-            console.log("[onchain] getAppKit: using injected instance");
-            return appKitInstance;
-        }
-        console.log("[onchain] getAppKit: no injected instance, creating new one");
+        const injected = appKitInstance ?? shared.instance;
+        if (injected) return injected;
 
         const resolvedChains = chains ?? options.chains ?? [];
         if (resolvedChains.length === 0) {
@@ -139,7 +140,6 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
     function getOnchainActions(fetcher: any): OnchainActions {
         return {
             setAppKit: (instance: KuluPayAppKitInstance) => {
-                console.log("[onchain] setAppKit called, injecting provider instance");
                 appKitInstance = instance;
                 instance.subscribeProvider((state: any) => {
                     $connected.set(instance.isConnected());
@@ -196,67 +196,102 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
                 $isSending.set(true);
                 try {
                     const appKit = getAppKit();
-
-                    console.log("[onchain] sendPayment called", {
-                        hasAppKit: !!appKit,
-                        isConnected: appKit.isConnected(),
-                        intentId: intent.id,
-                        hasRaw: !!(intent as any).raw,
-                        family: intent.metadata?.family,
-                    });
-
-                    if (!appKit.isConnected()) {
-                        appKit.open();
-                        throw new OnchainError("WALLET_NOT_CONNECTED", {
-                            details: "Wallet not connected. Opening AppKit modal...",
-                        });
-                    }
-
                     const raw = (intent as any).raw;
                     if (!raw) {
                         throw new OnchainError("MISSING_PAYMENT_DATA");
                     }
 
                     const family = intent.metadata?.family;
+                    console.log("[KuluPay:DEBUG] sendPayment start", { family, metadata: intent.metadata, hasRaw: !!intent.raw, rawKeys: intent.raw ? Object.keys(intent.raw) : [] });
                     let txHash: string;
 
-                    console.log("[onchain] raw tx data", { to: raw.to, value: raw.value, hasData: !!raw.data, chainId: raw.chainId, family });
-
                     if (family === "tron") {
-                        const provider = appKit.modal.getWalletProvider();
-                        if (!provider) {
+                        const provider = appKit.modal.getWalletProvider() as any;
+                        const fromAddress = appKit.getAddress();
+                        const chainConfig = (intent as any).chainConfig ?? appKit.chains.find((c: any) => c.family === "tron");
+                        const rpcUrl = chainConfig?.rpcUrl;
+
+                        console.log("[KuluPay:DEBUG] sendPayment tron", { raw, fromAddress, hasSendTransaction: typeof provider?.sendTransaction, rpcUrl, providerType: provider?.constructor?.name || typeof provider });
+
+                        if (!fromAddress) {
                             throw new OnchainError("WALLET_NOT_CONNECTED");
                         }
-                        const result = await (provider as any).request({
-                            method: "tron_sendTransaction",
-                            params: [raw],
-                        });
-                        txHash = typeof result === "string" ? result : result?.txid ?? result?.hash ?? "";
+
+                        if (raw.contractAddress) {
+                            if (!rpcUrl) {
+                                throw new OnchainError("MISSING_PAYMENT_DATA", { details: "Tron RPC URL not configured" });
+                            }
+
+                            const TronWeb = (await import("tronweb")).default as any;
+                            const tw = new TronWeb({ fullHost: rpcUrl });
+                            const parameter = [
+                                { type: "address", value: raw.to },
+                                { type: "uint256", value: BigInt(raw.amount) },
+                            ];
+                            const triggerResult = await tw.transactionBuilder.triggerSmartContract(
+                                raw.contractAddress,
+                                "transfer(address,uint256)",
+                                { feeLimit: 100000000, callValue: 0 },
+                                parameter,
+                                fromAddress,
+                            );
+                            const unsignedTx = triggerResult?.transaction;
+                            if (!unsignedTx?.txID) {
+                                throw new OnchainError("TRANSACTION_FAILED", { details: triggerResult?.result?.message || "Failed to build TRC-20 transaction" });
+                            }
+
+                            const signedTx = await (provider as any).request({
+                                method: "tron_sendTransaction",
+                                params: { transaction: unsignedTx },
+                            });
+                            console.log("[KuluPay:DEBUG] TRC-20 signed", signedTx);
+
+                            const broadcast = await tw.trx.sendRawTransaction(signedTx);
+                            console.log("[KuluPay:DEBUG] TRC-20 broadcast", broadcast);
+                            if (!broadcast?.result) {
+                                throw new OnchainError("TRANSACTION_FAILED", { details: broadcast?.message || "Failed to broadcast TRC-20 transaction" });
+                            }
+                            txHash = signedTx?.txID ?? broadcast?.txid ?? broadcast?.transaction?.txID ?? "";
+                        } else {
+                            if (typeof provider.sendTransaction === "function") {
+                                console.log("[KuluPay:DEBUG] Sending TRX via provider.sendTransaction");
+                                txHash = await provider.sendTransaction({
+                                    from: fromAddress,
+                                    to: raw.to,
+                                    value: String(raw.amount),
+                                });
+                                console.log("[KuluPay:DEBUG] TRX result", txHash);
+                            } else {
+                                if (!rpcUrl) {
+                                    throw new OnchainError("MISSING_PAYMENT_DATA", { details: "Tron RPC URL not configured" });
+                                }
+                                const TronWeb = (await import("tronweb")).default as any;
+                                const tw = new TronWeb({ fullHost: rpcUrl });
+                                const unsignedTx = await tw.transactionBuilder.sendTrx(raw.to, Number(raw.amount), fromAddress);
+                                const signedTx = await (provider as any).request({
+                                    method: "tron_sendTransaction",
+                                    params: { transaction: unsignedTx },
+                                });
+                                const broadcast = await tw.trx.sendRawTransaction(signedTx);
+                                if (!broadcast?.result) {
+                                    throw new OnchainError("TRANSACTION_FAILED", { details: broadcast?.message || "Failed to broadcast TRX transaction" });
+                                }
+                                txHash = signedTx?.txID ?? broadcast?.txid ?? broadcast?.transaction?.txID ?? "";
+                            }
+                        }
                     } else {
-                        // EVM: check chain and switch if needed
                         const currentChainId = appKit.getChainId();
                         const targetChainId = raw.chainId ?? intent.metadata?.chainId;
 
-                        console.log("[onchain] EVM chain check", { currentChainId, targetChainId, needsSwitch: targetChainId && Number(currentChainId) !== Number(targetChainId) });
-
                         if (targetChainId && Number(currentChainId) !== Number(targetChainId)) {
-                            try {
-                                console.log("[onchain] switching chain to", Number(targetChainId));
-                                await appKit.switchChain(Number(targetChainId));
-                                console.log("[onchain] chain switched successfully");
-                            } catch (switchErr: any) {
-                                console.error("[onchain] chain switch failed:", switchErr?.message ?? switchErr);
-                                throw OnchainError.fromWalletError(switchErr);
-                            }
+                            await appKit.switchChain(Number(targetChainId));
                         }
 
-                        console.log("[onchain] sending EVM tx", { to: raw.to, value: raw.value, dataLength: raw.data?.length });
                         txHash = await appKit.sendEVMTx({
                             to: raw.to,
                             value: raw.value ? BigInt(raw.value) : BigInt(0),
                             data: raw.data,
                         });
-                        console.log("[onchain] EVM tx sent, hash:", txHash);
                     }
 
                     // Confirm with server
@@ -275,7 +310,7 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
 
                     return { txHash, status: "confirmed" as const };
                 } catch (err: any) {
-                    console.error("[onchain] sendPayment error:", err?.message ?? err, err?.code, err?.details);
+                    console.error("[KuluPay:DEBUG] sendPayment raw error", err);
                     if (err instanceof OnchainError) throw err;
                     throw OnchainError.fromWalletError(err);
                 } finally {
@@ -285,9 +320,10 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
         };
     }
 
-    const plugin: PayClientPlugin & { walletConnectProjectId?: string } = {
+    const plugin: PayClientPlugin & { walletConnectProjectId?: string; _shared?: typeof shared } = {
         id: "onchain",
         walletConnectProjectId: options.walletConnectProjectId,
+        _shared: shared,
 
         getActions(fetcher: any, _opts: any) {
             return {

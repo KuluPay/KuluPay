@@ -286,6 +286,12 @@ export interface KuluPayOptions {
     payment?: KuluPayDBOptions<PaymentFieldKeys>;
     customer?: KuluPayDBOptions<CustomerFieldKeys>;
     subscription?: KuluPayDBOptions<SubscriptionFieldKeys>;
+    /**
+     * Optional checkout URL template for payment intents.
+     * Placeholders: {intentId}, {clientSecret}
+     * Example: "/checkout?intentId={intentId}&clientSecret={clientSecret}"
+     */
+    checkoutUrl?: string;
     databaseHooks?: {
         payment?: {
             create?: DatabaseHook<any>;

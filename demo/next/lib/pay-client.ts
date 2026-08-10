@@ -1,5 +1,5 @@
 import { createPayClient } from "@kulupay/kulupay/client";
-import { onchainClient } from "@kulupay/kulupay/plugins/onchain/client";
+import { onchainClient } from "@kulupay/onchain/client";
 
 export const payClient = createPayClient({
   baseURL: process.env.NEXT_PUBLIC_KULUPAY_URL ?? "http://localhost:3000",

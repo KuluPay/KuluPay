@@ -66,6 +66,48 @@ export interface CreateKuluPayAppKitOptions {
 }
 
 /**
+ * Patch TronAdapter.getBalance to query the configured Tron RPC directly via
+ * TronWeb instead of Reown's BlockchainApiController, which frequently returns
+ * 503 for Tron balance reads.
+ */
+function patchTronAdapterBalance(
+    tronAdapter: any,
+    chains: ProviderChainConfig[],
+    networks: any[],
+) {
+    const tronChain = chains.find((c) => c.family === "tron");
+    const network = networks[0];
+    if (!tronChain && !network) return;
+
+    const rpcUrls =
+        network?.rpcUrls?.default?.http ||
+        [tronChain?.rpcUrl].filter(Boolean);
+
+    tronAdapter.getBalance = async (params: any) => {
+        const address = params?.address;
+        if (!address || rpcUrls.length === 0) {
+            return { balance: "0", symbol: "TRX" };
+        }
+
+        for (const rpcUrl of rpcUrls) {
+            try {
+                const TronWeb = (await import("tronweb")).default as any;
+                const tw = new TronWeb({ fullHost: rpcUrl });
+                const balanceInSun = await tw.trx.getBalance(address);
+                return {
+                    balance: (Number(balanceInSun) / 1e6).toString(),
+                    symbol: "TRX",
+                };
+            } catch {
+                // Try the next fallback RPC
+            }
+        }
+
+        return { balance: "0", symbol: "TRX" };
+    };
+}
+
+/**
  * Create a KuluPay AppKit instance — vanilla JS, no React.
  *
  * Takes chain configs and projectId directly — no fetching, no /config endpoint.
@@ -134,6 +176,7 @@ export function createKuluPayAppKit(
                 new TrustAdapter(),
             ],
         });
+        patchTronAdapterBalance(tronAdapter, chains, tron);
         adapters.push(tronAdapter);
     }
 
@@ -216,9 +259,12 @@ export function createKuluPayAppKit(
         close: () => modal.close(),
         isConnected: () => {
             const acc = getAccount(wagmiConfig);
-            return acc.isConnected;
+            return acc.isConnected || !!modal.getAddress();
         },
-        getAddress: () => modal.getAddress() ?? null,
+        getAddress: () => {
+            const acc = getAccount(wagmiConfig);
+            return acc.address ?? modal.getAddress() ?? null;
+        },
         getChainId: () => modal.getChainId(),
         disconnect: () => {
             disconnect(wagmiConfig);

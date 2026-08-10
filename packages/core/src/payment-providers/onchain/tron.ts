@@ -128,7 +128,7 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
         getIntent: async (id: string): Promise<PaymentIntent> => {
             try {
                 // Dynamic import tronweb (optional dependency)
-                const TronWeb = (await import("tronweb")).default;
+                const TronWeb = (await import("tronweb") as any).TronWeb;
 
                 const tw = new TronWeb({
                     fullHost: options.chain.rpcUrl,
@@ -293,7 +293,7 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
 
         refund: async (id: string, amount?: number): Promise<PaymentIntent> => {
             try {
-                const TronWeb = (await import("tronweb")).default;
+                const TronWeb = (await import("tronweb") as any).TronWeb;
 
                 const privateKey = process.env.TRON_REFUND_PRIVATE_KEY;
                 if (!privateKey) {

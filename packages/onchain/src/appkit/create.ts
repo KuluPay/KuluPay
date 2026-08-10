@@ -2,6 +2,11 @@ import { createAppKit } from "@reown/appkit";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { TronAdapter } from "@reown/appkit-adapter-tron";
 import { TronLinkAdapter } from "@tronweb3/tronwallet-adapter-tronlink";
+import { OkxWalletAdapter } from "@tronweb3/tronwallet-adapter-okxwallet";
+import { BybitWalletAdapter } from "@tronweb3/tronwallet-adapter-bybit";
+import { TrustAdapter } from "@tronweb3/tronwallet-adapter-trust";
+import { TokenPocketAdapter } from "@tronweb3/tronwallet-adapter-tokenpocket";
+import { BitKeepAdapter } from "@tronweb3/tronwallet-adapter-bitkeep";
 import { sendTransaction, getBalance, getAccount, disconnect, switchChain } from "@wagmi/core";
 import type { Config as WagmiConfig } from "wagmi";
 import {
@@ -64,6 +69,51 @@ export interface CreateKuluPayAppKitOptions {
 }
 
 /**
+ * WalletConnect explorer image ids for the Tron wallets we ship.
+ *
+ * The `@tronweb3/tronwallet-adapter-*` packages bundle their own inline
+ * `icon` data URIs, but they are inconsistent in size and aspect ratio, so
+ * AppKit renders them poorly. These are the same logos AppKit already uses
+ * for every other wallet in the modal.
+ */
+const TRON_WALLET_IMAGE_IDS = {
+    okx: "45f2f08e-fc0c-4d62-3e63-404e72170500",
+    bybit: "b9e64f74-0176-44fd-c603-673a45ed5b00",
+    trust: "7677b54f-3486-46e2-4e37-bf8747814f00",
+    tokenPocket: "cfe00608-cb9e-45e3-0d08-5ffc7f5ad200",
+    bitget: "2b569b7f-e6c6-4faa-8e5a-ecd4dec8cf00",
+} as const;
+
+function explorerLogoUrl(imageId: string, projectId: string): string {
+    return `https://explorer-api.walletconnect.com/v3/logo/lg/${imageId}?projectId=${projectId}`;
+}
+
+function withIcon<T extends { icon: string }>(
+    adapter: T,
+    imageId: string,
+    projectId: string,
+): T {
+    adapter.icon = explorerLogoUrl(imageId, projectId);
+    return adapter;
+}
+
+/**
+ * Build the Tron wallet adapters AppKit should offer, with consistent
+ * high-resolution icons.
+ */
+function createTronWalletAdapters(projectId: string): any[] {
+    const { okx, bybit, trust, tokenPocket, bitget } = TRON_WALLET_IMAGE_IDS;
+    return [
+        new TronLinkAdapter(),
+        withIcon(new OkxWalletAdapter(), okx, projectId),
+        withIcon(new BybitWalletAdapter(), bybit, projectId),
+        withIcon(new TrustAdapter(), trust, projectId),
+        withIcon(new TokenPocketAdapter(), tokenPocket, projectId),
+        withIcon(new BitKeepAdapter(), bitget, projectId),
+    ];
+}
+
+/**
  * Create a KuluPay AppKit instance — vanilla JS, no React.
  *
  * Takes chain configs and projectId directly — no fetching, no /config endpoint.
@@ -102,7 +152,7 @@ export function createKuluPayAppKit(
     const adapters: any[] = [wagmiAdapter];
     if (tron.length > 0) {
         const tronAdapter = new TronAdapter({
-            walletAdapters: [new TronLinkAdapter()],
+            walletAdapters: createTronWalletAdapters(projectId),
         });
         adapters.push(tronAdapter);
     }
@@ -142,7 +192,7 @@ export function createKuluPayAppKit(
         close: () => modal.close(),
         isConnected: () => {
             const acc = getAccount(wagmiConfig);
-            return acc.isConnected;
+            return acc.isConnected || !!modal.getAddress();
         },
         getAddress: () => modal.getAddress() ?? null,
         getChainId: () => modal.getChainId(),

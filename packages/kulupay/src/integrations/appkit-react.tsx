@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, useMemo, useCallback } from "react";
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from "react";
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createAppKit } from "@reown/appkit/react";
@@ -29,6 +29,12 @@ export interface KuluPayAppKitProviderProps {
         enableWallets?: any[];
         featuredWallets?: string[];
     };
+    /**
+     * Optional Tron wallet adapters to register with AppKit.
+     * Use this to add wallets like OKX, Bybit, Trust, TokenPocket, BitKeep
+     * with their own icons.
+     */
+    tronWalletAdapters?: any[];
     children: React.ReactNode;
     /** Shown while AppKit is initializing */
     fallback?: React.ReactNode;
@@ -81,6 +87,7 @@ export function KuluPayAppKitProvider({
     client,
     metadata,
     themeOptions,
+    tronWalletAdapters,
     children,
     fallback,
 }: KuluPayAppKitProviderProps) {
@@ -106,7 +113,10 @@ export function KuluPayAppKitProvider({
         setIsLoading(true);
         try {
             console.log('[KuluPayAppKit] Creating AppKit instance...');
-            const instance = createKuluPayAppKit({ projectId, chains, metadata, themeOptions }, createAppKit);
+            const instance = createKuluPayAppKit(
+                { projectId, chains, metadata, themeOptions },
+                createAppKit,
+            );
             console.log('[KuluPayAppKit] AppKit instance created successfully');
             setAppKit(instance);
             setError(null);
@@ -114,7 +124,15 @@ export function KuluPayAppKitProvider({
             // Inject the AppKit instance into the onchain plugin so
             // payClient.onchain.sendPayment() uses the same instance
             try {
-                (client as any).onchain?.setAppKit?.(instance);
+                const plugins = (client as any).$options?.plugins || [];
+                const onchainPlugin = plugins.find((p: any) => p.id === "onchain");
+                if (onchainPlugin?._shared) {
+                    onchainPlugin._shared.instance = instance;
+                }
+                const onchainActions = (client as any).onchain;
+                if (onchainActions?.setAppKit) {
+                    onchainActions.setAppKit(instance);
+                }
             } catch {
                 // Plugin may not be loaded — that's fine
             }
@@ -170,6 +188,79 @@ export function useKuluPayAppKit(): KuluPayAppKitInstance {
 export function useKuluPayAppKitStatus() {
     const ctx = useContext(KuluPayAppKitContext);
     return { appKit: ctx.appKit, isLoading: ctx.isLoading, error: ctx.error, initFromChains: ctx.initFromChains };
+}
+
+export interface KuluPayConnectButtonProps {
+    /**
+     * Chain configs to initialize AppKit with. Required for the button to work
+     * on pages where no checkout intent has been created yet.
+     */
+    chains?: ProviderChainConfig[];
+    /** Button text when disconnected */
+    label?: string;
+    /** Button text when AppKit is initializing */
+    loadingLabel?: string;
+    /** Optional style overrides */
+    style?: React.CSSProperties;
+    className?: string;
+}
+
+/**
+ * Drop-in connect button that opens the native Reown AppKit modal.
+ *
+ * Use it anywhere inside `KuluPayAppKitProvider` — no checkout intent required.
+ *
+ * ```tsx
+ * <KuluPayConnectButton
+ *   chains={[{ chainId: 8453, family: "evm", name: "Base", rpcUrl: "...", tokens: ["USDC"] }]}
+ *   label="Connect wallet"
+ * />
+ * ```
+ */
+export function KuluPayConnectButton({
+    chains,
+    label = "Connect wallet",
+    loadingLabel = "Loading…",
+    style,
+    className,
+}: KuluPayConnectButtonProps) {
+    const { appKit, isLoading, initFromChains } = useKuluPayAppKitStatus();
+
+    useEffect(() => {
+        if (chains && chains.length > 0 && !appKit) {
+            initFromChains(chains);
+        }
+    }, [chains, appKit, initFromChains]);
+
+    const open = useCallback(() => {
+        appKit?.open();
+    }, [appKit]);
+
+    const disabled = isLoading || !appKit;
+
+    return (
+        <button
+            type="button"
+            onClick={open}
+            disabled={disabled}
+            className={className}
+            style={{
+                appearance: "none",
+                border: "none",
+                borderRadius: 999,
+                padding: "12px 20px",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled ? 0.7 : 1,
+                background: "#111",
+                color: "#fff",
+                ...style,
+            }}
+        >
+            {isLoading ? loadingLabel : label}
+        </button>
+    );
 }
 
 export { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect, useAppKitBalance } from "@reown/appkit/react";
