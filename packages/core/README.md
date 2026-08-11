@@ -1,16 +1,15 @@
-# KuluPay
+# @kulupay/core
 
-A unified payment SDK for Node.js. Integrate multiple payment providers (Stripe, PayPal, Chapa, crypto) through a single API.
+Core logic, types, and payment provider implementations for KuluPay.
 
 ## Features
 
-- **Multi-provider support** — Stripe, PayPal, Chapa, and crypto (viem) out of the box
-- **Unified API** — One interface for creating payment intents, managing customers, and handling subscriptions
-- **Framework agnostic** — Works with any Node.js framework (Next.js, Express, etc.)
-- **Next.js integration** — Built-in handler for Next.js App Router
-- **React hooks** — Client-side hooks for payment operations
-- **Type-safe** — Written in TypeScript with full type definitions
-- **Pluggable** — Custom provider support via the `PaymentProvider` interface
+- **Multi-provider support** — Stripe, PayPal, Chapa, and onchain crypto (EVM + Tron)
+- **Unified provider interface** — Implement `PaymentProvider` to add any payment method
+- **Plugin system** — Extend KuluPay with plugins like `@kulupay/onchain`
+- **Type-safe** — Full TypeScript type definitions for all APIs
+- **Framework agnostic** — Core logic works with any Node.js framework
+- **Database agnostic** — Works with PostgreSQL, MySQL, SQLite, Drizzle, Prisma, or memory
 
 ## Packages
 
@@ -18,7 +17,11 @@ A unified payment SDK for Node.js. Integrate multiple payment providers (Stripe,
 | --- | --- |
 | `@kulupay/core` | Core logic, types, and payment provider implementations |
 | `@kulupay/kulupay` | Full SDK with server handler, client, and framework integrations |
-| `@kulupay/cli` | CLI tool for schema generation and database migration |
+| `@kulupay/onchain` | Onchain payment plugin — EVM + Tron support with AppKit wallet integration |
+| `@kulupay/cli` | CLI tool for project init, schema generation, and database migration |
+| `@kulupay/adapter-sql` | SQL adapter for PostgreSQL, MySQL, and SQLite |
+| `@kulupay/adapter-drizzle` | Drizzle ORM adapter |
+| `@kulupay/adapter-prisma` | Prisma adapter |
 
 ## Quick Start
 
@@ -78,11 +81,11 @@ export const { GET, POST, PUT, PATCH, DELETE } = toNextJsHandler(pay);
 ### Client-side (React)
 
 ```typescript
-import { usePayment } from "@kulupay/kulupay/client";
+import { usePaymentProvider } from "@kulupay/kulupay/client";
 
 function Checkout() {
-  const { createIntent, loading, error } = usePayment({
-    baseURL: "/api/pay",
+  const { createIntent, loading, error } = usePaymentProvider({
+    client: payClient,
     providerId: "mock",
   });
 
@@ -107,11 +110,10 @@ function Checkout() {
 ### Client-side (Vanilla)
 
 ```typescript
-import { createKuluPayClient } from "@kulupay/kulupay/client";
+import { createPayClient } from "@kulupay/kulupay/client";
 
-const client = createKuluPayClient({
+const client = createPayClient({
   baseURL: "/api/pay",
-  providerId: "mock",
 });
 
 const intent = await client.createIntent({
@@ -127,7 +129,7 @@ const intent = await client.createIntent({
 - **Stripe** — `@kulupay/core/payment-providers`
 - **PayPal** — `@kulupay/core/payment-providers`
 - **Chapa** — `@kulupay/core/payment-providers`
-- **Crypto (viem)** — `@kulupay/core/payment-providers`
+- **Onchain (EVM + Tron)** — `@kulupay/onchain`
 
 ## Custom Providers
 
