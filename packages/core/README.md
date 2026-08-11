@@ -182,31 +182,35 @@ Supported field types: `string`, `number`, `boolean`, `datetime`, `json`.
 
 ## CLI
 
-KuluPay provides a CLI tool for generating database schema files and migrating your database:
+KuluPay provides a CLI tool for project initialization, schema generation, and database migration:
 
 ```bash
-# Generate a Prisma schema
-npx @kulupay/cli generate --generator prisma --dialect postgresql
+# Initialize KuluPay in your project (interactive)
+npx @kulupay/cli init
 
-# Generate a Drizzle schema
-npx @kulupay/cli generate --generator drizzle --dialect pg
+# Initialize with flags (non-interactive)
+npx @kulupay/cli init --framework nextjs --database drizzle --yes
 
-# Generate raw SQL
-npx @kulupay/cli generate --generator sql --dialect postgres
+# Generate schema
+npx @kulupay/cli generate --generator drizzle
 
 # Push schema to database
 npx @kulupay/cli migrate
+
+# Add a payment provider
+npx @kulupay/cli add-provider stripe
 ```
 
-### CLI Options
+### Database Adapters
 
-| Option | Description |
-| --- | --- |
-| `--config <path>` | Path to your KuluPay config file |
-| `--output <path>` | Output file path for generated schema |
-| `--generator <type>` | Schema generator: `prisma`, `drizzle`, or `sql` |
-| `--dialect <type>` | Database dialect: `postgresql`, `mysql`, or `sqlite` |
-| `-y, --yes` | Skip confirmation prompts |
+| Database | Adapter Package | Driver Dependency |
+| --- | --- | --- |
+| PostgreSQL | `@kulupay/adapter-sql` | `pg` |
+| MySQL | `@kulupay/adapter-sql` | `mysql2` |
+| SQLite | `@kulupay/adapter-sql` | `better-sqlite3` |
+| Drizzle ORM | `@kulupay/adapter-drizzle` | `drizzle-orm` + driver |
+| Prisma | `@kulupay/adapter-prisma` | `@prisma/client` |
+| Memory | `@farming-labs/orm` | (none, for testing) |
 
 ## Testing
 
