@@ -34,7 +34,7 @@ function CheckoutContent({ searchParams }: { searchParams: SearchParams }) {
 }
 
 function CheckoutCard({ intentId, clientSecret }: { intentId: string; clientSecret: string }) {
-  const { intent, status, error, connected, address, connect, pay } = useKuluPayCheckout({
+  const { intent, status, error, txHash, connected, address, connect, pay } = useKuluPayCheckout({
     client: payClient,
     intentId,
     clientSecret,
@@ -74,11 +74,27 @@ function CheckoutCard({ intentId, clientSecret }: { intentId: string; clientSecr
   }
 
   if (status === "success") {
+    const chainConfig = intent.chainConfig;
+    const explorerUrl = chainConfig?.explorerUrl && txHash
+      ? chainConfig.family === "tron"
+        ? `${chainConfig.explorerUrl}/#/transaction/${txHash}`
+        : `${chainConfig.explorerUrl}/tx/${txHash}`
+      : null;
     return (
       <Card className="w-full max-w-md">
         <CardContent className="py-8 text-center">
           <p className="text-lg font-semibold">Payment complete</p>
           <p className="text-sm text-muted-foreground">{formatAmount(intent.amount, intent.currency)} sent</p>
+          {explorerUrl && (
+            <a
+              href={explorerUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-block text-sm text-primary underline"
+            >
+              View on block explorer
+            </a>
+          )}
         </CardContent>
       </Card>
     );
@@ -98,9 +114,13 @@ function CheckoutCard({ intentId, clientSecret }: { intentId: string; clientSecr
               <p className="text-muted-foreground">Connected wallet</p>
               <p className="font-mono">{address}</p>
             </div>
-            <Button onClick={pay} disabled={status === "sending"} className="w-full">
-              {status === "sending" && <Loader2 className="mr-2 size-4 animate-spin" />}
-              {status === "sending" ? "Confirming…" : `Pay ${formatAmount(intent.amount, intent.currency)}`}
+            <Button onClick={pay} disabled={status === "sending" || status === "confirming"} className="w-full">
+              {(status === "sending" || status === "confirming") && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {status === "sending"
+                ? "Waiting for wallet…"
+                : status === "confirming"
+                  ? "Confirming on-chain…"
+                  : `Pay ${formatAmount(intent.amount, intent.currency)}`}
             </Button>
           </>
         ) : (

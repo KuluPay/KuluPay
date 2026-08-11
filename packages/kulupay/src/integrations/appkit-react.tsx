@@ -98,10 +98,8 @@ export function KuluPayAppKitProvider({
     const queryClient = useMemo(() => new QueryClient(), []);
 
     const initFromChains = useCallback((chains: ProviderChainConfig[]) => {
-        console.log('[KuluPayAppKit] initFromChains called', { hasAppKit: !!appKit, projectId: projectId ? projectId.slice(0, 8) + '...' : 'MISSING', chainsCount: chains.length, chainNames: chains.map(c => c.name) });
         if (appKit) return; // already initialized
         if (!projectId) {
-            console.error('[KuluPayAppKit] No projectId — set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID');
             setError(new Error(
                 "walletConnectProjectId not set on client. " +
                 "Pass it to createPayClient({ walletConnectProjectId: 'xxx' })."
@@ -112,32 +110,31 @@ export function KuluPayAppKitProvider({
 
         setIsLoading(true);
         try {
-            console.log('[KuluPayAppKit] Creating AppKit instance...');
             const instance = createKuluPayAppKit(
                 { projectId, chains, metadata, themeOptions },
                 createAppKit,
             );
-            console.log('[KuluPayAppKit] AppKit instance created successfully');
             setAppKit(instance);
             setError(null);
 
             // Inject the AppKit instance into the onchain plugin so
             // payClient.onchain.sendPayment() uses the same instance
             try {
-                const plugins = (client as any).$options?.plugins || [];
-                const onchainPlugin = plugins.find((p: any) => p.id === "onchain");
-                if (onchainPlugin?._shared) {
-                    onchainPlugin._shared.instance = instance;
-                }
                 const onchainActions = (client as any).onchain;
                 if (onchainActions?.setAppKit) {
                     onchainActions.setAppKit(instance);
+                } else {
+                    // Older clients expose the plugin's shared container instead
+                    const plugins = (client as any).$options?.plugins || [];
+                    const onchainPlugin = plugins.find((p: any) => p.id === "onchain");
+                    if (onchainPlugin?._shared) {
+                        onchainPlugin._shared.instance = instance;
+                    }
                 }
             } catch {
                 // Plugin may not be loaded — that's fine
             }
         } catch (err) {
-            console.error('[KuluPayAppKit] Failed to create AppKit:', err);
             setError(err as Error);
         } finally {
             setIsLoading(false);

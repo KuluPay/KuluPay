@@ -12,7 +12,7 @@ export interface KuluPayCheckoutProps {
     onError?: (error: Error) => void;
 }
 
-type Status = "loading" | "ready" | "connecting" | "sending" | "success" | "error" | "expired";
+type Status = "loading" | "ready" | "connecting" | "sending" | "confirming" | "success" | "error" | "expired";
 
 export function useKuluPayCheckout(props: {
     client: any;
@@ -101,6 +101,31 @@ export function useKuluPayCheckout(props: {
         try {
             const result = await props.client.onchain.sendPayment(intent);
             setTxHash(result.txHash);
+            setStatus("confirming");
+
+            // Broadcast succeeded — poll the server until the tx is actually
+            // confirmed on-chain before reporting success.
+            const deadline = Date.now() + 5 * 60 * 1000;
+            let confirmedStatus: string | null = null;
+            while (Date.now() < deadline) {
+                const { data } = await props.client.verifyIntent({
+                    intentId: props.intentId,
+                    clientSecret: props.clientSecret,
+                });
+                if (data?.status === "succeeded" || data?.status === "failed") {
+                    confirmedStatus = data.status;
+                    break;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 3000));
+            }
+
+            if (confirmedStatus === "failed") {
+                setError("Transaction failed to confirm on-chain.");
+                setStatus("ready");
+                props.onError?.(new Error("Transaction failed to confirm on-chain"));
+                return;
+            }
+
             setStatus("success");
             props.onSuccess?.(result.txHash);
         } catch (e: any) {

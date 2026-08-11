@@ -200,7 +200,13 @@ export const getIntent = createKuluPayEndpoint(
             throw KuluPayAPIError.fromCode("PROVIDER_NOT_FOUND");
         }
 
-        const intent = await provider.getIntent(id).catch((error: any) => {
+        // Providers need their own identifier, not KuluPay's internal id:
+        // a txHash for onchain payments once broadcast, or the provider's
+        // own payment id for redirect providers (Stripe/PayPal/Chapa).
+        const stored = orm ? await orm.payment.findFirst({ where: { id } }) : null;
+        const providerLookupId = stored?.txHash || stored?.providerPaymentId || id;
+
+        const intent = await provider.getIntent(providerLookupId).catch((error: any) => {
             if (error instanceof ProviderError) {
                 throw KuluPayAPIError.from(502, {
                     code: error.code || "PROVIDER_ERROR",
@@ -211,7 +217,6 @@ export const getIntent = createKuluPayEndpoint(
         });
 
         if (orm) {
-            const stored = await orm.payment.findFirst({ where: { id } });
             if (stored && stored.status !== intent.status) {
                 const updateData = { status: intent.status, updatedAt: new Date() };
 
@@ -366,7 +371,7 @@ export const verifyIntent = createKuluPayEndpoint(
         }
 
         try {
-            const intent = await provider.getIntent(intentId);
+            const intent = await provider.getIntent(payment.txHash);
 
             if (intent.status !== payment.status) {
                 const now = new Date();
@@ -394,6 +399,8 @@ export const verifyIntent = createKuluPayEndpoint(
                     : undefined,
             };
         } catch (error: any) {
+            logger.debug(`verifyIntent error for ${intentId}: ${error?.constructor?.name} — ${error?.message}`);
+            if (error?.stack) logger.debug(`verifyIntent stack: ${error.stack}`);
             if (error instanceof ProviderError) {
                 throw KuluPayAPIError.from(502, {
                     code: error.code || "PROVIDER_ERROR",

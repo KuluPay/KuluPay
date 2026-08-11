@@ -171,17 +171,29 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                         hash: id as `0x${string}`,
                     });
 
+                    // viem's TransactionReceipt has no `confirmations` field —
+                    // derive it from the current block height.
+                    const currentBlock = await client.getBlockNumber();
+                    const confirmationCount =
+                        currentBlock - receipt.blockNumber + 1n;
+
                     const confirmed =
                         receipt.status === "success" &&
-                        receipt.confirmations >= confirmations;
+                        confirmationCount >= BigInt(confirmations);
 
                     const token = Object.values(options.tokens).find(t => t.contractAddress === receipt.to) ?? options.tokens["native"]!;
+
+                    const status: PaymentIntent["status"] = confirmed
+                        ? "succeeded"
+                        : receipt.status === "reverted"
+                            ? "failed"
+                            : "pending";
 
                     return {
                         id,
                         amount: 0,
                         currency: token.symbol,
-                        status: confirmed ? "succeeded" : "failed",
+                        status,
                         metadata: {
                             family: "evm",
                             chain: options.chain.name,

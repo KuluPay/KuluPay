@@ -13,6 +13,11 @@ import type {
 
 export { ProviderError };
 
+async function getTronWebClass(): Promise<any> {
+    const mod: any = await import("tronweb");
+    return mod.TronWeb ?? mod.default?.TronWeb ?? mod.default;
+}
+
 export interface TronProviderOptions {
     /** Chain configuration (family must be "tron") */
     chain: ChainConfig;
@@ -126,7 +131,7 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
 
         getIntent: async (id: string): Promise<PaymentIntent> => {
             try {
-                const TronWeb = (await import("tronweb")).default as any;
+                const TronWeb = await getTronWebClass();
 
                 const tw = new TronWeb({
                     fullHost: options.chain.rpcUrl,
@@ -136,9 +141,30 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                 });
 
                 if (/^[0-9a-fA-F]{64}$/.test(id)) {
-                    const tx = await tw.trx.getTransaction(id);
+                    let tx: any;
+                    try {
+                        tx = await tw.trx.getTransaction(id);
+                    } catch (lookupError: any) {
+                        // Transaction not yet indexed by the Tron API —
+                        // return pending instead of throwing a 502.
+                        return {
+                            id,
+                            amount: 0,
+                            currency: options.tokens["native"]?.symbol ?? "TRX",
+                            status: "pending",
+                            metadata: {
+                                family: "tron",
+                                chain: options.chain.name,
+                                recipient: options.recipientAddress,
+                                reference: id,
+                                token: options.tokens["native"]!,
+                                txHash: id,
+                            },
+                            raw: { lookupError: lookupError?.message },
+                        };
+                    }
 
-                    if (!tx || tx.Error) {
+                    if (!tx || tx.Error || (tx.code && tx.code !== "SUCCESS")) {
                         return {
                             id,
                             amount: 0,
@@ -286,7 +312,7 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
 
         refund: async (id: string, amount?: number): Promise<PaymentIntent> => {
             try {
-                const TronWeb = (await import("tronweb")).default as any;
+                const TronWeb = await getTronWebClass();
 
                 const privateKey = process.env.TRON_REFUND_PRIVATE_KEY;
                 if (!privateKey) {
