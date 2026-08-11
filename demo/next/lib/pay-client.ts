@@ -6,7 +6,7 @@ export const payClient = createPayClient({
   plugins: [
     onchainClient({
       walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-      debug: true,
+      debug: process.env.NODE_ENV !== "production",
     }),
   ],
 });
