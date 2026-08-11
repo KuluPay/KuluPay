@@ -33,7 +33,7 @@ function generateReference(): string {
 }
 
 function generateClientSecret(): string {
-    return `sec_${Date.now()}_${Math.random().toString(36).slice(2, 18)}`;
+    return `sec_${crypto.randomUUID()}`;
 }
 
 function encodeERC20Transfer(
@@ -148,7 +148,7 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
 
         getIntent: async (id: string): Promise<PaymentIntent> => {
             try {
-                const { createPublicClient, http, parseAbiItem } = await import("viem");
+                const { createPublicClient, http, parseAbiItem, decodeEventLog } = await import("viem");
 
                 const client = createPublicClient({
                     chain: {
@@ -167,9 +167,30 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                 });
 
                 if (id.startsWith("0x") && id.length === 66) {
-                    const receipt = await client.getTransactionReceipt({
-                        hash: id as `0x${string}`,
-                    });
+                    let receipt: any;
+                    try {
+                        receipt = await client.getTransactionReceipt({
+                            hash: id as `0x${string}`,
+                        });
+                    } catch (lookupError: any) {
+                        // Transaction not yet mined — return pending
+                        const fallbackToken = options.tokens["native"] ?? Object.values(options.tokens)[0] ?? { symbol: "ETH", decimals: 18 };
+                        return {
+                            id,
+                            amount: 0,
+                            currency: fallbackToken.symbol,
+                            status: "pending",
+                            metadata: {
+                                family: "evm",
+                                chain: options.chain.name,
+                                recipient: options.recipientAddress,
+                                reference: id,
+                                token: fallbackToken,
+                                txHash: id,
+                            },
+                            raw: { lookupError: lookupError?.message },
+                        };
+                    }
 
                     // viem's TransactionReceipt has no `confirmations` field —
                     // derive it from the current block height.
@@ -181,7 +202,43 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                         receipt.status === "success" &&
                         confirmationCount >= BigInt(confirmations);
 
-                    const token = Object.values(options.tokens).find(t => t.contractAddress === receipt.to) ?? options.tokens["native"]!;
+                    const fallbackToken = options.tokens["native"] ?? Object.values(options.tokens)[0] ?? { symbol: "ETH", decimals: 18 };
+                    const token = Object.values(options.tokens).find(t => t.contractAddress === receipt.to) ?? fallbackToken;
+
+                    // Parse Transfer events from receipt logs to extract the
+                    // actual on-chain recipient and amount for verification.
+                    let onchainRecipient: string | undefined;
+                    let onchainAmount: string | undefined;
+                    try {
+                        const transferEvent = parseAbiItem(
+                            "event Transfer(address indexed from, address indexed to, uint256 value)",
+                        );
+                        for (const log of receipt.logs ?? []) {
+                            try {
+                                const decoded = decodeEventLog({
+                                    abi: [transferEvent],
+                                    data: log.data,
+                                    topics: log.topics,
+                                });
+                                if (decoded.eventName === "Transfer") {
+                                    onchainRecipient = (decoded.args as any).to;
+                                    onchainAmount = (decoded.args as any).value?.toString();
+                                    break;
+                                }
+                            } catch {}
+                        }
+                    } catch {}
+
+                    // For native transfers, get amount from the tx itself
+                    if (!onchainAmount && receipt.status === "success") {
+                        try {
+                            const tx = await client.getTransaction({ hash: id as `0x${string}` });
+                            if (tx.value > 0n) {
+                                onchainRecipient = tx.to ?? undefined;
+                                onchainAmount = tx.value.toString();
+                            }
+                        } catch {}
+                    }
 
                     const status: PaymentIntent["status"] = confirmed
                         ? "succeeded"
@@ -201,6 +258,8 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                             reference: id,
                             token,
                             txHash: id,
+                            onchainRecipient,
+                            onchainAmount,
                         },
                         raw: receipt,
                     };
@@ -246,17 +305,18 @@ export const evm = (options: EVMProviderOptions): PaymentProvider => {
                     }
                 }
 
+                const fallbackToken = options.tokens["native"] ?? Object.values(options.tokens)[0] ?? { symbol: "ETH", decimals: 18 };
                 return {
                     id,
                     amount: 0,
-                    currency: options.tokens["native"]?.symbol ?? "ETH",
+                    currency: fallbackToken.symbol,
                     status: "pending",
                     metadata: {
                         family: "evm",
                         chain: options.chain.name,
                         recipient: options.recipientAddress,
                         reference: id,
-                        token: options.tokens["native"]!,
+                        token: fallbackToken,
                     },
                 };
             } catch (error: any) {

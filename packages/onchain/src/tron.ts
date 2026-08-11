@@ -38,7 +38,7 @@ function generateReference(): string {
 }
 
 function generateClientSecret(): string {
-    return `sec_${Date.now()}_${Math.random().toString(36).slice(2, 18)}`;
+    return `sec_${crypto.randomUUID()}`;
 }
 
 export const tron = (options: TronProviderOptions): PaymentProvider => {
@@ -147,17 +147,18 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                     } catch (lookupError: any) {
                         // Transaction not yet indexed by the Tron API —
                         // return pending instead of throwing a 502.
+                        const fallbackToken = options.tokens["native"] ?? Object.values(options.tokens)[0] ?? { symbol: "TRX", decimals: 6 };
                         return {
                             id,
                             amount: 0,
-                            currency: options.tokens["native"]?.symbol ?? "TRX",
+                            currency: fallbackToken.symbol,
                             status: "pending",
                             metadata: {
                                 family: "tron",
                                 chain: options.chain.name,
                                 recipient: options.recipientAddress,
                                 reference: id,
-                                token: options.tokens["native"]!,
+                                token: fallbackToken,
                                 txHash: id,
                             },
                             raw: { lookupError: lookupError?.message },
@@ -165,17 +166,18 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                     }
 
                     if (!tx || tx.Error || (tx.code && tx.code !== "SUCCESS")) {
+                        const fallbackToken = options.tokens["native"] ?? Object.values(options.tokens)[0] ?? { symbol: "TRX", decimals: 6 };
                         return {
                             id,
                             amount: 0,
-                            currency: options.tokens["native"]?.symbol ?? "TRX",
+                            currency: fallbackToken.symbol,
                             status: "failed",
                             metadata: {
                                 family: "tron",
                                 chain: options.chain.name,
                                 recipient: options.recipientAddress,
                                 reference: id,
-                                token: options.tokens["native"]!,
+                                token: fallbackToken,
                                 txHash: id,
                             },
                             raw: tx,
@@ -185,9 +187,30 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                     const confirmed = tx.ret?.[0]?.contractRet === "success";
 
                     const contractAddress = tx.raw_data?.contract?.[0]?.parameter?.value?.contract_address;
+                    const fallbackToken = options.tokens["native"] ?? Object.values(options.tokens)[0] ?? { symbol: "TRX", decimals: 6 };
                     const token = contractAddress
-                        ? Object.values(options.tokens).find(t => t.contractAddress === contractAddress) ?? options.tokens["native"]!
-                        : options.tokens["native"]!;
+                        ? Object.values(options.tokens).find(t => t.contractAddress === contractAddress) ?? fallbackToken
+                        : fallbackToken;
+
+                    // Extract actual on-chain recipient and amount for verification.
+                    let onchainRecipient: string | undefined;
+                    let onchainAmount: string | undefined;
+                    try {
+                        const paramValue = tx.raw_data?.contract?.[0]?.parameter?.value;
+                        if (paramValue?.contract_address && paramValue?.data) {
+                            // TRC20 transfer: data = selector(4) + to(32) + amount(32)
+                            const data = paramValue.data.replace(/^0x/, "");
+                            if (data.length >= 128) {
+                                const toHex = "41" + data.slice(8, 72).slice(-40);
+                                onchainRecipient = TronWeb.address.fromHex(toHex);
+                                onchainAmount = BigInt("0x" + data.slice(72, 136)).toString();
+                            }
+                        } else if (paramValue?.to && paramValue?.amount) {
+                            // Native TRX transfer
+                            onchainRecipient = TronWeb.address.fromHex(paramValue.to);
+                            onchainAmount = String(paramValue.amount);
+                        }
+                    } catch {}
 
                     return {
                         id,
@@ -201,6 +224,8 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                             reference: id,
                             token,
                             txHash: id,
+                            onchainRecipient,
+                            onchainAmount,
                         },
                         raw: tx,
                     };
@@ -276,17 +301,18 @@ export const tron = (options: TronProviderOptions): PaymentProvider => {
                     }
                 }
 
+                const fallbackToken2 = options.tokens["native"] ?? Object.values(options.tokens)[0] ?? { symbol: "TRX", decimals: 6 };
                 return {
                     id,
                     amount: 0,
-                    currency: options.tokens["native"]?.symbol ?? "TRX",
+                    currency: fallbackToken2.symbol,
                     status: "pending",
                     metadata: {
                         family: "tron",
                         chain: options.chain.name,
                         recipient: options.recipientAddress,
                         reference: id,
-                        token: options.tokens["native"]!,
+                        token: fallbackToken2,
                     },
                 };
             } catch (error: any) {

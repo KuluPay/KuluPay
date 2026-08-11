@@ -373,6 +373,36 @@ export const verifyIntent = createKuluPayEndpoint(
         try {
             const intent = await provider.getIntent(payment.txHash);
 
+            // Verify the on-chain transaction matches the expected payment.
+            // If the provider extracted onchainRecipient/onchainAmount from the
+            // actual tx, compare them to the values we stored at createIntent.
+            const paymentMeta = payment.metadata as any;
+            const expectedRecipient = paymentMeta?.raw?.to;
+            const expectedAmount = paymentMeta?.raw?.amount;
+            const intentMeta = intent.metadata as any;
+            const onchainRecipient = intentMeta?.onchainRecipient;
+            const onchainAmount = intentMeta?.onchainAmount;
+
+            if (intent.status === "succeeded" && onchainRecipient && onchainAmount) {
+                const recipientMatch = onchainRecipient.toLowerCase() === String(expectedRecipient).toLowerCase();
+                const amountMatch = onchainAmount === String(expectedAmount);
+
+                if (!recipientMatch || !amountMatch) {
+                    logger.debug(`verifyIntent VERIFICATION FAILED for ${intentId}: recipient=${recipientMatch} amount=${amountMatch} (expected ${expectedRecipient}/${expectedAmount}, got ${onchainRecipient}/${onchainAmount})`);
+                    const failedIntent = { ...intent, status: "failed" as const };
+                    await orm.payment.update({
+                        where: { id: intentId },
+                        data: { status: "failed", updatedAt: new Date() },
+                    });
+                    return {
+                        id: intentId,
+                        status: "failed",
+                        txHash: payment.txHash,
+                        error: "On-chain verification failed: recipient or amount mismatch",
+                    };
+                }
+            }
+
             if (intent.status !== payment.status) {
                 const now = new Date();
                 await orm.payment.update({

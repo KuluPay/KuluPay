@@ -34,7 +34,7 @@ function generateReference(): string {
 }
 
 function generateClientSecret(): string {
-    return `sec_${Date.now()}_${Math.random().toString(36).slice(2, 18)}`;
+    return `sec_${crypto.randomUUID()}`;
 }
 
 export const tron = (options: TronProviderOptions): PaymentProvider => {

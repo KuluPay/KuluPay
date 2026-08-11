@@ -495,12 +495,16 @@ export const onchainClient = (options: OnchainClientOptions): PayClientPlugin =>
                     // already on-chain — but it must be logged so an unconfirmed
                     // payment can be reconciled against the txHash.
                     try {
+                        const cs = intent.clientSecret;
+                        if (!cs) {
+                            throw new Error("Missing clientSecret on intent — cannot confirm");
+                        }
                         await fetcher("/confirm-intent", {
                             method: "POST",
                             body: {
                                 intentId: intent.id,
                                 txHash,
-                                clientSecret: intent.clientSecret || intent.id,
+                                clientSecret: cs,
                             },
                         });
                     } catch (err: any) {

@@ -126,6 +126,13 @@ export function useKuluPayCheckout(props: {
                 return;
             }
 
+            if (confirmedStatus !== "succeeded") {
+                setError("Transaction confirmation timed out. The payment may still be processing — check your wallet or block explorer.");
+                setStatus("ready");
+                props.onError?.(new Error("Transaction confirmation timed out"));
+                return;
+            }
+
             setStatus("success");
             props.onSuccess?.(result.txHash);
         } catch (e: any) {
