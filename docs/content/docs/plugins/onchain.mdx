@@ -285,17 +285,17 @@ This means AppKit is never initialized with wrong chains — it always matches t
 
 ## Checkout Component
 
-Use the `CheckoutPage` component for a complete payment UI:
+Use the `KuluPayCheckout` component for a complete payment UI:
 
 ```tsx
-import { CheckoutPage } from "@kulupay/kulupay/checkout/react";
+import { KuluPayCheckout } from "@kulupay/kulupay/checkout/react";
 
-<CheckoutPage
+<KuluPayCheckout
+  client={payClient}
   intentId={intentId}
   clientSecret={clientSecret}
-  client={payClient}
-  merchantName="Acme Inc"
-  theme="light"
+  onSuccess={(txHash) => console.log("Paid:", txHash)}
+  onError={(err) => console.error("Failed:", err)}
 />
 ```
 

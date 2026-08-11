@@ -5,6 +5,11 @@ export interface PayClientLike {
   checkoutIntent: (opts: { intentId: string; clientSecret: string }) => Promise<{ data: any; error: any }>;
   confirmIntent: (opts: { body: { intentId: string; txHash: string; clientSecret: string } }) => Promise<{ data: any; error: any }>;
   verifyIntent: (opts: { intentId: string; clientSecret: string }) => Promise<{ data: any; error: any }>;
+  onchain: {
+    connectWallet: () => Promise<void>;
+    disconnect: () => void;
+    sendPayment: (intent: CheckoutIntentData) => Promise<{ txHash: string }>;
+  };
 }
 
 export interface CheckoutIntentData {

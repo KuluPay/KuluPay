@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useKuluPayAppKitStatus } from "../../integrations/appkit-react";
-import type { CheckoutIntentData } from "../types";
+import type { CheckoutIntentData, PayClientLike } from "../types";
 
 export interface KuluPayCheckoutProps {
-    client: any;
+    client: PayClientLike;
     intentId: string;
     clientSecret: string;
     onSuccess?: (txHash: string) => void;
@@ -15,7 +15,7 @@ export interface KuluPayCheckoutProps {
 type Status = "loading" | "ready" | "connecting" | "sending" | "confirming" | "success" | "error" | "expired";
 
 export function useKuluPayCheckout(props: {
-    client: any;
+    client: PayClientLike;
     intentId: string;
     clientSecret: string;
     onSuccess?: (txHash: string) => void;

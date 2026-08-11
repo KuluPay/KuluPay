@@ -2,10 +2,10 @@
 
 import { useKuluPayCheckout } from "./useKuluPayCheckout";
 import { KuluPayConnectButton } from "../../integrations/appkit-react";
-import { shortenAddress } from "../types";
+import { shortenAddress, type PayClientLike } from "../types";
 
 export interface KuluPayCheckoutProps {
-    client: any;
+    client: PayClientLike;
     intentId: string;
     clientSecret: string;
     onSuccess?: (txHash: string) => void;

@@ -88,64 +88,43 @@ const intent = await pay.getIntent({
 });
 ```
 
-## Client-Side (React)
+## Client-Side (React / Vanilla)
 
-```tsx
-import { usePaymentProvider } from "@kulupay/kulupay/client";
+```ts
+import { createPayClient } from "@kulupay/kulupay/client";
 
-function Checkout() {
-  const pay = usePaymentProvider({
-    client: payClient,
-    provider: stripeProvider,
-    providerId: "stripe",
-  });
+export const payClient = createPayClient({
+  baseURL: "/api/pay",
+});
 
-  // Create intent
-  await pay.createIntent({
+const intent = await payClient.createIntent({
+  body: {
     amount: 2500,
     currency: "usd",
     providerId: "stripe",
     metadata: { productId: "prod_premium" },
-  });
-
-  // Confirm payment
-  await pay.confirmPayment({
-    elements: elementsRef.current,
-    redirectUrl: window.location.href,
-  });
-}
-```
-
-## Client-Side (Vanilla JS)
-
-```ts
-import { createKuluPayClient } from "@kulupay/kulupay/client";
-
-const client = createKuluPayClient({
-  baseURL: "/api/pay",
-  providerId: "stripe",
+  },
 });
 
-const intent = await client.createIntent({
-  amount: 2500,
-  currency: "usd",
-  providerId: "stripe",
-});
+// For onchain payments, use the checkout component or useKuluPayCheckout hook.
+// For Stripe, confirm via your Stripe Elements integration using the clientSecret.
 ```
+
+See the [Checkout UI guide](/docs/concepts/checkout) for onchain payment examples.
 
 ## Checkout UI
 
-KuluPay provides a ready-made checkout component that handles wallet connection, payment submission, and confirmation polling. It works with React, Vue, and vanilla JS:
+KuluPay provides a ready-made React checkout component that handles wallet connection, payment submission, and confirmation polling:
 
 ```tsx
-import { CheckoutPage } from "@kulupay/kulupay/checkout/react";
+import { KuluPayCheckout } from "@kulupay/kulupay/checkout/react";
 
-<CheckoutPage
+<KuluPayCheckout
+  client={payClient}
   intentId={intent.data.id}
   clientSecret={intent.data.clientSecret}
-  client={payClient}
-  merchantName="Acme Inc"
-  theme="light"
+  onSuccess={(txHash) => console.log("Paid:", txHash)}
+  onError={(err) => console.error("Failed:", err)}
 />
 ```
 

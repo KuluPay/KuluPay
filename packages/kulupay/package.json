@@ -107,13 +107,6 @@
                                       "require":  "./dist/checkout/react/index.js",
                                       "default":  "./dist/checkout/react/index.mjs"
                                   },
-                    "./checkout/vue":  {
-                                      "dev-source":  "./src/checkout/vue/index.ts",
-                                      "types":  "./dist/checkout/vue/index.d.ts",
-                                      "import":  "./dist/checkout/vue/index.mjs",
-                                      "require":  "./dist/checkout/vue/index.js",
-                                      "default":  "./dist/checkout/vue/index.mjs"
-                                  },
                     "./client/appkit":  {
                                          "dev-source":  "./src/client/appkit/index.ts",
                                          "types":  "./dist/client/appkit/index.d.ts",
@@ -195,9 +188,6 @@
                                     "checkout/react":  [
                                                      "./dist/checkout/react/index.d.ts"
                                                  ],
-                                    "checkout/vue":  [
-                                                     "./dist/checkout/vue/index.d.ts"
-                                                 ],
                                     "client/appkit":  [
                                                          "./dist/client/appkit/index.d.ts"
                                                      ],
@@ -245,7 +235,6 @@
                      },
     "peerDependencies":  {
                              "react":  "^18.0.0 || ^19.0.0",
-                             "vue":  "^3.0.0",
                              "@reown/appkit":  "^1.0.0",
                              "@reown/appkit-adapter-wagmi":  "^1.0.0",
                              "@reown/appkit-adapter-tron":  "^1.0.0",
@@ -264,9 +253,6 @@
                                  "react":  {
                                                "optional":  true
                                            },
-                                 "vue":  {
-                                             "optional":  true
-                                         },
                                  "@reown/appkit":  {
                                                        "optional":  true
                                                    },
@@ -310,6 +296,6 @@
     "devDependencies":  {
                             "tsup":  "^8.0.0",
                             "@types/react":  "^18.0.0 || ^19.0.0",
-                            "vue":  "^3.5.0"
+                            "@types/react-dom": "^18.0.0 || ^19.0.0"
                         }
 }
