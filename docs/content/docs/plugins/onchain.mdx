@@ -9,66 +9,80 @@ The onchain plugin bundles EVM (Ethereum, Base, Polygon, Arbitrum) and Tron paym
 
 ## Quick Start
 
-The fastest way to accept onchain payments is three files:
+Get onchain payments running in four steps:
 
-### 1. Server
+<Steps>
+  <Step title="Install">
+    ```bash
+    pnpm add @kulupay/kulupay @kulupay/onchain
+    pnpm add viem          # EVM chains
+    pnpm add tronweb       # Tron (optional)
+    ```
+  </Step>
 
-```ts title="lib/pay.ts"
-import { kuluPay } from "@kulupay/kulupay";
-import { onchain } from "@kulupay/kulupay/plugins/onchain";
+  <Step title="Server">
+    ```ts title="lib/pay.ts"
+    import { kuluPay } from "@kulupay/kulupay";
+    import { onchain } from "@kulupay/kulupay/plugins/onchain";
 
-export const pay = kuluPay({
-  database: yourDriver,
-  plugins: [
-    onchain({
-      ethereum: {
-        recipientAddress: process.env.EVM_RECIPIENT_ADDRESS!,
-        tokens: ["USDC"],
-      },
-    }),
-  ],
-});
-```
+    export const pay = kuluPay({
+      database: yourDriver,
+      plugins: [
+        onchain({
+          ethereum: {
+            recipientAddress: process.env.EVM_RECIPIENT_ADDRESS!,
+            tokens: ["USDC"],
+          },
+        }),
+      ],
+    });
+    ```
+  </Step>
 
-### 2. Client
+  <Step title="Client">
+    ```ts title="lib/pay-client.ts"
+    import { createPayClient } from "@kulupay/kulupay/client";
+    import { onchainClient } from "@kulupay/kulupay/plugins/onchain/client";
 
-```ts title="lib/pay-client.ts"
-import { createPayClient } from "@kulupay/kulupay/client";
-import { onchainClient } from "@kulupay/kulupay/plugins/onchain/client";
-
-export const payClient = createPayClient({
-  baseURL: process.env.NEXT_PUBLIC_KULUPAY_URL ?? "http://localhost:3000",
-  walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-  plugins: [
-    onchainClient({
+    export const payClient = createPayClient({
+      baseURL: process.env.NEXT_PUBLIC_KULUPAY_URL ?? "http://localhost:3000",
       walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-    }),
-  ],
-});
-```
+      plugins: [
+        onchainClient({
+          walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
+        }),
+      ],
+    });
+    ```
+  </Step>
 
-### 3. Checkout
+  <Step title="Checkout">
+    ```tsx title="app/page.tsx"
+    "use client";
+    import { KuluPayAppKitProvider } from "@kulupay/kulupay/appkit/react";
+    import { KuluPayCheckout } from "@kulupay/kulupay/checkout/react";
+    import { payClient } from "@/lib/pay-client";
 
-```tsx title="app/page.tsx"
-"use client";
-import { KuluPayAppKitProvider } from "@kulupay/kulupay/appkit/react";
-import { KuluPayCheckout } from "@kulupay/kulupay/checkout/react";
-import { payClient } from "@/lib/pay-client";
+    export default function Page() {
+      return (
+        <KuluPayAppKitProvider client={payClient}>
+          <KuluPayCheckout
+            client={payClient}
+            intentId="ref_..."
+            clientSecret="sec_..."
+          />
+        </KuluPayAppKitProvider>
+      );
+    }
+    ```
+  </Step>
+</Steps>
 
-export default function Page() {
-  return (
-    <KuluPayAppKitProvider client={payClient}>
-      <KuluPayCheckout
-        client={payClient}
-        intentId={"ref_..."}
-        clientSecret={"sec_..."}
-      />
-    </KuluPayAppKitProvider>
-  );
-}
-```
+That’s the minimum setup. The sections below cover testnet, Tron, custom pricing, and the low-level API.
 
-That’s all you need for EVM stablecoin payments. The sections below cover multi-chain, testnet, React hooks, and the low-level API.
+<Callout type="info">
+  The onchain plugin is also re-exported from `@kulupay/kulupay/plugins/onchain`. You can import it from either package.
+</Callout>
 
 ## Installation
 
