@@ -383,6 +383,52 @@ The checkout component handles:
 - Confirmation polling
 - Error display with retry
 
+It also accepts an optional `className` prop for styling.
+
+### Customizing the Checkout
+
+For full control, use the headless `useKuluPayCheckout` hook:
+
+```tsx title="app/checkout/CustomCheckout.tsx"
+"use client";
+import { useKuluPayCheckout } from "@kulupay/kulupay/checkout/react";
+
+export function CustomCheckout({
+  client,
+  intentId,
+  clientSecret,
+}: {
+  client: any;
+  intentId: string;
+  clientSecret: string;
+}) {
+  const { intent, status, error, connected, address, connect, pay } = useKuluPayCheckout({
+    client,
+    intentId,
+    clientSecret,
+  });
+
+  if (status === "loading") return <div>Loading payment...</div>;
+  if (status === "error") return <div>{error}</div>;
+  if (status === "success") return <div>Payment complete!</div>;
+
+  return (
+    <div>
+      <h2>
+        Pay {intent?.amount} {intent?.currency}
+      </h2>
+      {connected ? (
+        <button onClick={pay}>Pay from {address}</button>
+      ) : (
+        <button onClick={connect}>Connect wallet</button>
+      )}
+    </div>
+  );
+}
+```
+
+The hook exposes `intent`, `status`, `error`, `connected`, `address`, `connect`, `pay`, `disconnect`, and `appKitLoading` so you can build any UI you want.
+
 ### EVM Transaction Flow
 
 1. Checkout calls `switchChainAsync` if the wallet is on the wrong chain
