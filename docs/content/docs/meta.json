@@ -11,6 +11,8 @@
     "integrations",
     "concepts",
     "cli",
-    "reference"
+    "reference",
+    "changelog",
+    "legal"
   ]
 }
