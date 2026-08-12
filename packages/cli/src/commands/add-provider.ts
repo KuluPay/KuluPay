@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -106,6 +107,19 @@ export const evmProvider = createEVMClientProvider();`,
         clientSnippet: `import { createTronClientProvider } from "${PKG.kulupay}/client/providers";
 
 export const tronProvider = createTronClientProvider();`,
+    },
+    onchain: {
+        id: "onchain",
+        name: "Onchain",
+        description: "Accept crypto payments across EVM and Tron chains",
+        npmPackages: ["viem", "tronweb"],
+        envVars: [
+            { key: "NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS", description: "Your EVM wallet address (0x...)", required: true, public: true },
+            { key: "NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS", description: "Your Tron wallet address (T...)", required: true, public: true },
+            { key: "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID", description: "Reown WalletConnect project ID", required: true, public: true },
+        ],
+        configSnippet: () =>
+            `onchain({\n      ethereum: {\n        recipientAddress: process.env.NEXT_PUBLIC_EVM_RECIPIENT_ADDRESS as \`0x\${string}\`,\n        tokens: ["native", "USDC", "USDT"],\n        testnet: true,\n      },\n      tron: {\n        recipientAddress: process.env.NEXT_PUBLIC_TRON_RECIPIENT_ADDRESS!,\n        tokens: ["native", "USDT"],\n        testnet: true,\n      },\n    })`,
     },
 };
 
@@ -256,8 +270,15 @@ export async function addProviderAction(opts: any) {
         console.log();
     }
     if (provider.npmPackages.length > 0) {
-        console.log(chalk.gray("  Install required packages:"));
-        console.log(`    ${chalk.cyan(`pnpm add ${provider.npmPackages.join(" ")}`)}`);
+        const packages = provider.npmPackages.join(" ");
+        console.log(chalk.gray(`  Installing ${packages}...`));
+        try {
+            execSync(`pnpm add ${packages}`, { cwd, stdio: "inherit" });
+            console.log(`    ${chalk.cyan("✓")} Installed ${chalk.white(packages)}`);
+        } catch {
+            console.log(chalk.yellow(`  ⚠ Could not auto-install. Run:`));
+            console.log(`    ${chalk.cyan(`pnpm add ${packages}`)}`);
+        }
         console.log();
     }
     console.log(chalk.gray("  Next steps:"));
@@ -306,6 +327,9 @@ function updateConfigWithProvider(
 }
 
 function providerImportLine(providerId: string): string {
+    if (providerId === "onchain") {
+        return `import { onchain } from "${PKG.kulupay}/plugins/onchain";`;
+    }
     if (["ethereum", "base", "polygon", "arbitrum", "tron"].includes(providerId)) {
         return `import { evm, tron, CHAINS, TOKENS } from "${PKG.kulupay}/providers/onchain";`;
     }
@@ -323,7 +347,7 @@ function providerImportLine(providerId: string): string {
 
 export const addProvider = new Command("add-provider")
     .description("Add a payment provider to your KuluPay project (like shadcn add)")
-    .argument("[provider]", "provider id: stripe, chapa, paypal, ethereum, base, or tron")
+    .argument("[provider]", "provider id: stripe, chapa, paypal, ethereum, base, tron, or onchain")
     .option("-c, --cwd <cwd>", "the working directory", process.cwd())
     .option("--force", "reconfigure an existing provider", false)
     .action((provider: string | undefined, opts: any) => {
