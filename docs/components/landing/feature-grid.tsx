@@ -61,22 +61,22 @@ const features = [
 
 export function FeatureGrid() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-foreground/[0.06] border border-foreground/[0.06] rounded-md overflow-hidden">
       {features.map((feature, i) => (
         <motion.div
           key={feature.title}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: i * 0.05 }}
-          className="rounded-md border border-[#E1E1E1] bg-white p-5 hover:border-[#DD7627]/30 transition-colors"
+          className="bg-background p-5 group hover:bg-foreground/[0.02] transition-colors"
         >
           <div className="flex items-start gap-3">
-            <div className="shrink-0 w-9 h-9 rounded-md border border-[#E1E1E1] bg-[#F5F5F5] flex items-center justify-center text-[#DD7627]">
+            <div className="shrink-0 w-9 h-9 rounded-md border border-foreground/[0.08] flex items-center justify-center text-foreground/60 group-hover:text-foreground/90 transition-colors">
               {feature.icon}
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-[#171717]">{feature.title}</h3>
-              <p className="mt-1 text-[13px] text-[#171717]/60 leading-relaxed">
+              <h3 className="text-sm font-medium text-foreground/90">{feature.title}</h3>
+              <p className="mt-1 text-[13px] text-foreground/50 leading-relaxed">
                 {feature.description}
               </p>
             </div>
