@@ -210,7 +210,7 @@ export const payClient = createPayClient({
 | Field | Type | Description |
 | --- | --- | --- |
 | `walletConnectProjectId` | `string` | Reown project ID (required) |
-| `chains` | `ProviderChainConfig[]` | Pre-configured chains (optional — normally resolved from intent) |
+| `chains` | `ProviderChainConfig[]` | Pre-configured chains (optional — only used when not using `KuluPayAppKitProvider`; otherwise AppKit is injected by the provider) |
 | `metadata` | `AppMetadata` | WalletConnect app metadata (name, description, url, icons) |
 | `themeOptions` | `AppKitThemeOptions` | Reown AppKit UI customization |
 
@@ -316,14 +316,15 @@ The checkout component handles:
 
 ### Tron Transaction Flow
 
-1. Checkout accesses `window.tron.tronWeb` (injected by TronLink)
-2. For **native TRX**: `transactionBuilder.sendTrx` → `trx.sign` → `trx.sendRawTransaction`
-3. For **TRC-20 tokens**: `contract.transfer(recipient, amount).send()` (TronLink handles signing + broadcasting)
-4. Transaction hash is submitted to the server via `confirmIntent`
-5. Checkout polls `verifyIntent` until the payment is confirmed
+1. Checkout opens the AppKit modal and waits for a Tron wallet (TronLink, OKX, Bybit, Trust, TokenPocket, BitKeep)
+2. `onchainClient` builds the unsigned Tron transaction locally using the `chainConfig.rpcUrl`
+3. For **native TRX**: `TronWeb.transactionBuilder.sendTrx()` → `signTronTx()` with the connected wallet → `TronWeb.trx.sendRawTransaction()`
+4. For **TRC-20 tokens**: `triggerSmartContract(...)` with the `transfer(address,uint256)` ABI → `signTronTx()` → `sendRawTransaction()`
+5. Transaction hash is submitted to the server via `confirmIntent`
+6. Checkout polls `verifyIntent` until the payment is confirmed
 
-<Callout type="warn" title="TronLink required for Tron payments">
-  Tron payments require the [TronLink](https://www.tronlink.org/) browser extension. The checkout will show an error if TronLink is not installed.
+<Callout type="warn" title="Tron wallet required for Tron payments">
+  Tron payments require a Tron wallet such as [TronLink](https://www.tronlink.org/), OKX, Bybit, Trust, TokenPocket, or BitKeep. The checkout will show an error if no Tron wallet is installed.
 </Callout>
 
 ## How It Works
@@ -417,11 +418,18 @@ try {
 | --- | --- | --- |
 | `WALLET_NOT_FOUND` | No wallet extension detected | Install MetaMask or TronLink |
 | `WALLET_NOT_CONNECTED` | Wallet not connected | Connect your wallet |
+| `TRANSACTION_REJECTED` | User rejected the signature request | Click Confirm and approve in wallet |
+| `INSUFFICIENT_FUNDS` | Not enough balance to cover value + gas | Use a faucet (testnet) or fund wallet (mainnet) |
 | `WRONG_CHAIN` | Wallet on wrong network | Switch to the correct network |
-| `INSUFFICIENT_FUNDS` | Not enough balance | Use a faucet (testnet) or fund wallet (mainnet) |
-| `TRANSACTION_REJECTED` | User rejected transaction | Approve in wallet |
-| `TRANSACTION_FAILED` | Transaction reverted | Check on block explorer |
-| `MISSING_PAYMENT_DATA` | No intent data available | Call createIntent first |
+| `CHAIN_NOT_ADDED` | The target chain is not added to the wallet | Add the network in your wallet settings |
+| `INVALID_RECIPIENT` | Recipient address is zero or malformed | Check `EVM_RECIPIENT_ADDRESS` / `TRON_RECIPIENT_ADDRESS` |
+| `TRANSACTION_FAILED` | Transaction was submitted but reverted or failed on-chain | Check the transaction hash on a block explorer |
+| `RPC_ERROR` | Failed to communicate with the onchain RPC node | Check your internet connection and try again |
+| `MISSING_PAYMENT_DATA` | No intent data available | Create a payment intent first |
+| `INVALID_CONTRACT` | Token contract not found on this network | Verify the token contract address matches the network |
+| `CHAIN_MISMATCH` | Wallet is on the wrong chain and switching failed | Switch to the correct chain in your wallet and try again |
+| `INSUFFICIENT_GAS` | Not enough native token for gas | Fund your wallet with native tokens for gas |
+| `USER_REJECTED` | User cancelled the wallet connection or signing request | Try again and approve the request in your wallet |
 
 ## Low-Level API
 
@@ -488,11 +496,21 @@ The plugin exposes nanostore atoms for reactive state:
 ```ts
 import { useStore } from "@nanostores/react";
 
-const { $onchainConnected, $onchainAddress, $onchainBalance } = payClient.$atoms;
+const {
+  $onchainConnected,
+  $onchainAddress,
+  $onchainChainId,
+  $onchainBalance,
+  $onchainIsConnecting,
+  $onchainIsSending,
+} = payClient.$atoms;
 
 const connected = useStore($onchainConnected);
 const address = useStore($onchainAddress);
+const chainId = useStore($onchainChainId);
 const balance = useStore($onchainBalance);
+const isConnecting = useStore($onchainIsConnecting);
+const isSending = useStore($onchainIsSending);
 ```
 
 ## Environment Variables
