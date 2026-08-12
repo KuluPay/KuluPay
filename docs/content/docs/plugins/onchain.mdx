@@ -7,6 +7,69 @@ description: Accept crypto payments across EVM and Tron chains with AppKit walle
 
 The onchain plugin bundles EVM (Ethereum, Base, Polygon, Arbitrum) and Tron payment providers into a single KuluPay plugin. It handles server-side transaction building, client-side wallet signing via Reown AppKit, and on-chain verification — all from one config.
 
+## Quick Start
+
+The fastest way to accept onchain payments is three files:
+
+### 1. Server
+
+```ts title="lib/pay.ts"
+import { kuluPay } from "@kulupay/kulupay";
+import { onchain } from "@kulupay/kulupay/plugins/onchain";
+
+export const pay = kuluPay({
+  database: yourDriver,
+  plugins: [
+    onchain({
+      ethereum: {
+        recipientAddress: process.env.EVM_RECIPIENT_ADDRESS!,
+        tokens: ["USDC"],
+      },
+    }),
+  ],
+});
+```
+
+### 2. Client
+
+```ts title="lib/pay-client.ts"
+import { createPayClient } from "@kulupay/kulupay/client";
+import { onchainClient } from "@kulupay/kulupay/plugins/onchain/client";
+
+export const payClient = createPayClient({
+  baseURL: process.env.NEXT_PUBLIC_KULUPAY_URL ?? "http://localhost:3000",
+  walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
+  plugins: [
+    onchainClient({
+      walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
+    }),
+  ],
+});
+```
+
+### 3. Checkout
+
+```tsx title="app/page.tsx"
+"use client";
+import { KuluPayAppKitProvider } from "@kulupay/kulupay/appkit/react";
+import { KuluPayCheckout } from "@kulupay/kulupay/checkout/react";
+import { payClient } from "@/lib/pay-client";
+
+export default function Page() {
+  return (
+    <KuluPayAppKitProvider client={payClient}>
+      <KuluPayCheckout
+        client={payClient}
+        intentId={"ref_..."}
+        clientSecret={"sec_..."}
+      />
+    </KuluPayAppKitProvider>
+  );
+}
+```
+
+That’s all you need for EVM stablecoin payments. The sections below cover multi-chain, testnet, React hooks, and the low-level API.
+
 ## Installation
 
 ```bash
