@@ -3,11 +3,17 @@ import { HeroTitle } from '@/components/landing/hero-title';
 import { InstallBlock } from '@/components/landing/install-block';
 import { FeatureGrid } from '@/components/landing/feature-grid';
 import { Footer } from '@/components/landing/footer';
+import { Header } from '@/components/landing/header';
+import { StarsBackground } from '@/components/landing/stars-background';
+import { ProviderLogos } from '@/components/landing/provider-logos';
 import { appName } from '@/lib/shared';
 
 export default function HomePage() {
   return (
-    <div id="hero" className="relative pt-[45px] lg:pt-0">
+    <>
+      <StarsBackground />
+      <Header />
+      <div id="hero" className="relative pt-14">
       <div className="relative text-foreground">
         <div className="flex flex-col lg:flex-row">
           {/* Left side — Hero title */}
@@ -51,6 +57,9 @@ export const pay = kuluPay({
                 </div>
               </div>
 
+              {/* Supported providers */}
+              <ProviderLogos />
+
               {/* Features */}
               <div className="mb-10">
                 <div className="flex items-center gap-4 mb-4">
@@ -89,5 +98,6 @@ export const pay = kuluPay({
         </div>
       </div>
     </div>
-  );
+  </>
+);
 }

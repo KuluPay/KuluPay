@@ -6,6 +6,8 @@ const footerLinks = [
   { label: 'Installation', href: '/docs/installation' },
   { label: 'Providers', href: '/docs/providers/stripe' },
   { label: 'CLI', href: '/docs/cli/init' },
+  { label: 'Changelog', href: '/docs/changelog' },
+  { label: 'Legal', href: '/docs/legal' },
 ];
 
 export function Footer() {
