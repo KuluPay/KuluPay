@@ -1,23 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTheme } from 'next-themes';
 import { Moon, Sun } from 'lucide-react';
 
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    setDark(document.documentElement.classList.contains('dark'));
   }, []);
-
-  const toggle = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle('dark', next);
-    localStorage.theme = next ? 'dark' : 'light';
-  };
 
   if (!mounted) {
     return (
@@ -30,13 +23,16 @@ export function ThemeToggle() {
     );
   }
 
+  const isDark = resolvedTheme === 'dark';
+  const toggle = () => setTheme(isDark ? 'light' : 'dark');
+
   return (
     <button
       onClick={toggle}
       aria-label="Toggle theme"
       className="p-2 rounded-md text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
     >
-      {dark ? <Moon size={16} /> : <Sun size={16} />}
+      {isDark ? <Moon size={16} /> : <Sun size={16} />}
     </button>
   );
 }
