@@ -127,7 +127,7 @@ export interface KuluPayOptions {
      * Drizzle, MongoDB, and other supported databases.
      */
     database: any;
-    providers?: OnchainConfig;
+    providers?: PaymentProvider[];
     /**
      * Base URL for the KuluPay server. This is typically the root URL where
      * your application server is hosted (e.g. `https://myapp.com`).

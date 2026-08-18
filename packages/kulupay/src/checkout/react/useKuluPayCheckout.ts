@@ -82,11 +82,18 @@ export function useKuluPayCheckout(props: {
         };
     }, [appKit, connected]);
 
+    const requireOnchain = () => {
+        if (!props.client.onchain) {
+            throw new Error("Onchain provider is not configured on this client.");
+        }
+        return props.client.onchain;
+    };
+
     const connect = useCallback(async () => {
         setStatus("connecting");
         setError(null);
         try {
-            await props.client.onchain.connectWallet();
+            await requireOnchain().connectWallet();
         } catch (e: any) {
             setError(e?.message ?? "Failed to connect wallet");
         } finally {
@@ -99,7 +106,8 @@ export function useKuluPayCheckout(props: {
         setStatus("sending");
         setError(null);
         try {
-            const result = await props.client.onchain.sendPayment(intent);
+            const onchain = requireOnchain();
+            const result = await onchain.sendPayment(intent);
             setTxHash(result.txHash);
             setStatus("confirming");
 
@@ -152,7 +160,7 @@ export function useKuluPayCheckout(props: {
     }, [props.client, intent, props.onSuccess, props.onError]);
 
     const disconnect = useCallback(() => {
-        try { props.client.onchain.disconnect(); } catch {}
+        try { props.client.onchain?.disconnect(); } catch {}
     }, [props.client]);
 
     return {

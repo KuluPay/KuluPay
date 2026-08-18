@@ -29,7 +29,15 @@ export const createKuluPayContext = async (
 ): Promise<KuluPayContext> => {
     const providers = new Map<string, PaymentProvider>();
     if (options.providers) {
-        const resolvedProviders = onchain(options.providers);
+        const isProviderArray = Array.isArray(options.providers) ||
+            (typeof options.providers === "object" &&
+                options.providers !== null &&
+                typeof (options.providers as any).length === "number" &&
+                !(options.providers as any).ethereum);
+
+        const resolvedProviders: PaymentProvider[] = isProviderArray
+            ? (options.providers as PaymentProvider[])
+            : onchain(options.providers as any);
         for (const provider of resolvedProviders) {
             providers.set(provider.id, provider);
         }

@@ -1,6 +1,7 @@
 import { kuluPay } from "@kulupay/kulupay";
 import { drizzleAdapter } from "@kulupay/adapter-drizzle";
 import { onchain } from "@kulupay/onchain";
+import { stripe, paypal } from "@kulupay/kulupay/providers";
 import { db } from "./db";
 
 export const pay = kuluPay({
@@ -32,6 +33,21 @@ export const pay = kuluPay({
         tokens: ["USDT"],
         testnet: true,
       },
+    }),
+  ],
+  providers: [
+    stripe({
+      apiKey: process.env.STRIPE_API_KEY!,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      redirects: {
+        success: `${process.env.KULUPAY_URL ?? "http://localhost:3000"}/checkout?success=1`,
+        cancel: `${process.env.KULUPAY_URL ?? "http://localhost:3000"}/checkout?canceled=1`,
+      },
+    }),
+    paypal({
+      clientId: process.env.PAYPAL_CLIENT_ID!,
+      clientSecret: process.env.PAYPAL_CLIENT_SECRET!,
+      mode: process.env.PAYPAL_MODE === "live" ? "live" : "sandbox",
     }),
   ],
   baseURL: process.env.KULUPAY_URL ?? "http://localhost:3000",

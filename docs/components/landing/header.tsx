@@ -17,9 +17,12 @@ export function Header() {
         <div className="flex items-center gap-6">
           <Link
             href="/"
-            className="text-sm font-semibold tracking-tight text-foreground hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground hover:opacity-80 transition-opacity"
           >
             {appName}
+            <span className="rounded-md border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold tracking-[0.18em] text-violet-500 dark:text-violet-300">
+              BETA
+            </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-4">
             {nav.map((item) => (

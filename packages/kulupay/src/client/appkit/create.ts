@@ -91,6 +91,7 @@ function patchTronAdapterBalance(
 
         for (const rpcUrl of rpcUrls) {
             try {
+                // @ts-ignore — tronweb is an optional peer dependency and may not be installed
                 const TronWeb = (await import("tronweb")).default as any;
                 const tw = new TronWeb({ fullHost: rpcUrl });
                 const balanceInSun = await tw.trx.getBalance(address);

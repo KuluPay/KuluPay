@@ -22,6 +22,12 @@ export interface StripeOptions {
         success: string;
         cancel: string;
     };
+    /**
+     * Stripe integration mode.
+     * - "checkout_session": redirect-based Stripe Checkout (default when redirects are provided)
+     * - "payment_intent": client-side Stripe Elements
+     */
+    mode?: "checkout_session" | "payment_intent";
 }
 
 // Cached Stripe client instance (per apiKey)
@@ -93,7 +99,44 @@ export const stripe = (options: StripeOptions) => {
         createIntent: async (data: CreateIntentData): Promise<PaymentIntent> => {
             try {
                 const stripeClient = await getStripeClient(options.apiKey);
-                
+                const useCheckout = options.mode === "checkout_session" ||
+                    (!options.mode && options.redirects);
+
+                if (useCheckout) {
+                    const session = await stripeClient.checkout.sessions.create({
+                        mode: "payment",
+                        success_url: options.redirects?.success || `${data.metadata?.origin ?? ""}/success`,
+                        cancel_url: options.redirects?.cancel || `${data.metadata?.origin ?? ""}/cancel`,
+                        line_items: [
+                            {
+                                price_data: {
+                                    currency: data.currency,
+                                    unit_amount: data.amount,
+                                    product_data: {
+                                        name: data.description || "Payment",
+                                    },
+                                },
+                                quantity: 1,
+                            },
+                        ],
+                        customer: data.customerId,
+                        metadata: data.metadata,
+                    });
+
+                    return {
+                        id: session.id,
+                        amount: data.amount,
+                        currency: data.currency,
+                        status: mapStatus(session.status),
+                        clientSecret: session.url,
+                        redirects: options.redirects,
+                        raw: session,
+                        type: data.type || "one_time",
+                        description: data.description,
+                        providerPaymentId: session.id,
+                    };
+                }
+
                 const paymentIntent = await stripeClient.paymentIntents.create({
                     amount: data.amount,
                     currency: data.currency,
@@ -125,7 +168,20 @@ export const stripe = (options: StripeOptions) => {
         getIntent: async (id: string): Promise<PaymentIntent> => {
             try {
                 const stripeClient = await getStripeClient(options.apiKey);
-                
+
+                if (id.startsWith("cs_")) {
+                    const session = await stripeClient.checkout.sessions.retrieve(id);
+                    return {
+                        id: session.id,
+                        amount: session.amount_total ?? 0,
+                        currency: session.currency || "usd",
+                        status: mapStatus(session.status),
+                        clientSecret: session.url,
+                        raw: session,
+                        providerPaymentId: session.id,
+                    };
+                }
+
                 const paymentIntent = await stripeClient.paymentIntents.retrieve(id);
 
                 return {

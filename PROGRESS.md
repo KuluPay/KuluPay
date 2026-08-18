@@ -177,6 +177,52 @@ Phase 4: Tests passing (147), typecheck clean, docs scaffolded, demo app needs v
 
 ---
 
+## Phase 5: Compliance & AML Plugin (Future)
+
+A pluggable compliance layer for blockchain payments. KYC is the developer's responsibility; KuluPay only handles address/transaction risk screening.
+
+### 5.1 Core API
+- [ ] `ComplianceChecker` interface:
+  - `screenAddress(address, chain) -> ScreeningResult`
+  - `screenTransaction(txHash, chain) -> ScreeningResult`
+- [ ] `RiskLevel` type: `"low" | "medium" | "high" | "severe"`
+- [ ] `ScreeningResult` with `riskLevel`, `reason`, `source`, `raw`
+
+### 5.2 Built-in Checkers
+- [ ] `ofac.ts` — free OFAC/sanctions address list matcher (default)
+- [ ] `chainalysis.ts` — Chainalysis API integration
+- [ ] `elliptic.ts` — Elliptic API integration
+- [ ] Custom checker support via `ComplianceChecker` interface
+
+### 5.3 Integration
+- [ ] Config: `compliance: { enabled, checker, blockThreshold }` in `KuluPayOptions`
+- [ ] Hook into `createIntent`: screen payer address before creating intent
+- [ ] Hook into `getIntent`: screen transaction hash after confirmation
+- [ ] Block payments when risk >= `blockThreshold`
+- [ ] Log all screenings for audit trail
+
+### 5.4 Files
+- `packages/core/src/compliance/types.ts`
+- `packages/core/src/compliance/ofac.ts`
+- `packages/core/src/compliance/chainalysis.ts`
+- `packages/core/src/compliance/elliptic.ts`
+- `packages/core/src/compliance/index.ts`
+
+### 5.5 Continuous Monitoring & Intelligence
+- [ ] Track transaction velocity and patterns per user/address over time
+- [ ] Detect anomalous behavior (sudden volume, cross-border/off-ramp spikes, new devices)
+- [ ] Support stablecoin off-ramp and cross-border corridor screening
+- [ ] Shared data layer across KYC, AML, payment, and fraud signals
+- [ ] Webhook-driven real-time monitoring after onboarding
+- [ ] Device / session signals integration point (pluggable)
+- [ ] Cumulative risk scoring per account (not just point-in-time checks)
+
+### 5.6 Build vs Buy Note
+- KuluPay does not build KYC; it integrates with the developer's KYC provider.
+- KuluPay provides the payment + transaction monitoring hooks; specialized providers (Sumsub, Chainalysis, Elliptic, TRM) handle sanctions, fraud, and identity.
+
+---
+
 ## Key Architecture Decisions
 
 1. **Server providers are framework-agnostic** — use standard Request/Response, no Next.js/Express imports
