@@ -1,13 +1,31 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { KuluPayAppKitProvider } from "@kulupay/kulupay/appkit/react";
+import dynamic from "next/dynamic";
 import { payClient } from "@/lib/pay-client";
+
+const KuluPayAppKitProvider = dynamic(
+  () => import("@kulupay/kulupay/appkit/react").then((m) => m.KuluPayAppKitProvider),
+  { ssr: false }
+);
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const queryClient = useMemo(() => new QueryClient(), []);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    return (
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>

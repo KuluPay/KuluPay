@@ -6,7 +6,6 @@ import { payClient } from "@/lib/pay-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertCircle,
   Loader2,
@@ -21,7 +20,11 @@ import {
   XCircle,
 } from "lucide-react";
 import Image from "next/image";
-import { CheckoutPanel } from "@/components/checkout-panel";
+import dynamic from "next/dynamic";
+const CheckoutPanel = dynamic(
+  () => import("@/components/checkout-panel").then((m) => m.CheckoutPanel),
+  { ssr: false }
+);
 import {
   PayPalIcon,
   EthereumIcon,
@@ -277,41 +280,51 @@ export default function Home() {
               <div className="flex flex-col p-5 md:p-6">
                 <h2 className="mb-4 text-lg font-semibold">Payment Method</h2>
 
-                <Tabs
-                  value={method}
-                  onValueChange={(v) => {
-                    console.log("[tabs] onValueChange:", v);
-                    if (v) setMethod(v as typeof method);
-                  }}
-                  className="flex flex-1 flex-col"
-                >
-                  <TabsList className="mb-4 grid w-full grid-cols-3 bg-muted p-1">
-                    <TabsTrigger value="card" className="data-active:bg-accent data-active:text-accent-foreground">
-                      <CreditCard className="mr-1.5 size-4" /> Card
-                    </TabsTrigger>
-                    <TabsTrigger value="paypal" className="data-active:bg-accent data-active:text-accent-foreground">
-                      <PayPalIcon className="mr-1.5 size-4" /> PayPal
-                    </TabsTrigger>
-                    <TabsTrigger value="crypto" className="data-active:bg-accent data-active:text-accent-foreground">
-                      <Wallet className="mr-1.5 size-4" /> Crypto
-                    </TabsTrigger>
-                  </TabsList>
+                <div className="mb-4 grid w-full grid-cols-3 gap-1 rounded-lg bg-muted p-1">
+                  {([
+                    { key: "card", label: "Card", icon: CreditCard },
+                    { key: "paypal", label: "PayPal", icon: PayPalIcon },
+                    { key: "crypto", label: "Crypto", icon: Wallet },
+                  ] as const).map((tab) => {
+                    const Icon = tab.icon;
+                    const active = method === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setMethod(tab.key)}
+                        className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-all ${
+                          active
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Icon className="size-4" /> {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                  <TabsContent value="card" className="flex flex-col items-center gap-3 py-4 text-center">
+                {method === "card" && (
+                  <div className="flex flex-col items-center gap-3 py-4 text-center">
                     <CreditCard className="size-10 text-muted-foreground/50" />
                     <p className="text-sm text-muted-foreground">
                       You&apos;ll be redirected to Stripe Checkout to enter your card details.
                     </p>
-                  </TabsContent>
+                  </div>
+                )}
 
-                  <TabsContent value="paypal" className="flex flex-col items-center gap-3 py-4 text-center">
+                {method === "paypal" && (
+                  <div className="flex flex-col items-center gap-3 py-4 text-center">
                     <PayPalIcon className="size-10 text-[#003087]" />
                     <p className="text-sm text-muted-foreground">
                       You&apos;ll be redirected to PayPal to approve this payment.
                     </p>
-                  </TabsContent>
+                  </div>
+                )}
 
-                  <TabsContent value="crypto" className="flex flex-col gap-3">
+                {method === "crypto" && (
+                  <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap gap-2">
                       {cryptoProviders.map((p) => {
                         const PIcon = p.icon;
@@ -337,8 +350,8 @@ export default function Home() {
                     <p className="text-xs text-muted-foreground">
                       You&apos;ll connect a wallet and sign the transfer on the next step.
                     </p>
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                )}
 
                 <div className="mt-4 space-y-3">
                   {error && (
