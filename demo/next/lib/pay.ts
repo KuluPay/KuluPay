@@ -40,8 +40,8 @@ export const pay = kuluPay({
       apiKey: process.env.STRIPE_API_KEY!,
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
       redirects: {
-        success: `${process.env.KULUPAY_URL ?? "http://localhost:3000"}/checkout?success=1`,
-        cancel: `${process.env.KULUPAY_URL ?? "http://localhost:3000"}/checkout?canceled=1`,
+        success: `http://localhost:3000/?success=1`,
+        cancel: `http://localhost:3000/?canceled=1`,
       },
     }),
     paypal({

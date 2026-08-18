@@ -17,6 +17,8 @@ import {
   Star,
   Sun,
   Moon,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import Image from "next/image";
 import { CheckoutPanel } from "@/components/checkout-panel";
@@ -73,8 +75,14 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [intentId, setIntentId] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<"success" | "canceled" | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("success")) setPaymentStatus("success");
+    if (params.get("canceled")) setPaymentStatus("canceled");
+  }, []);
 
   const resetCheckout = () => {
     setIntentId(null);
@@ -122,7 +130,9 @@ export default function Home() {
 
       if (result?.error) {
         console.error("[client] ✗ Error from server:", result.error);
-        setError(result.error.message || "Failed to create payment");
+        const errMsg = result.error.message || "Failed to create payment";
+        const errCode = result.error.code ? ` [${result.error.code}]` : "";
+        setError(`${errMsg}${errCode}`);
         return;
       }
 
@@ -159,6 +169,35 @@ export default function Home() {
   return (
     <div className="flex min-h-svh items-center justify-center bg-background p-4 text-foreground md:p-8">
       <div className="w-full max-w-5xl">
+        {paymentStatus && (
+          <div
+            className={`mb-3 flex items-center gap-2 rounded-xl border p-3 text-sm ${
+              paymentStatus === "success"
+                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400"
+            }`}
+          >
+            {paymentStatus === "success" ? (
+              <CheckCircle2 className="size-4 shrink-0" />
+            ) : (
+              <XCircle className="size-4 shrink-0" />
+            )}
+            <span>
+              {paymentStatus === "success"
+                ? "Payment successful! Your Claude Code subscription is active."
+                : "Payment was canceled. No charge was made."}
+            </span>
+            <button
+              onClick={() => {
+                setPaymentStatus(null);
+                window.history.replaceState({}, "", "/");
+              }}
+              className="ml-auto text-xs underline opacity-70 hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         <div className="mb-3 flex justify-end">
           {mounted && (
             <button
@@ -240,7 +279,10 @@ export default function Home() {
 
                 <Tabs
                   value={method}
-                  onValueChange={(v) => setMethod(v as typeof method)}
+                  onValueChange={(v) => {
+                    console.log("[tabs] onValueChange:", v);
+                    if (v) setMethod(v as typeof method);
+                  }}
                   className="flex flex-1 flex-col"
                 >
                   <TabsList className="mb-4 grid w-full grid-cols-3 bg-muted p-1">

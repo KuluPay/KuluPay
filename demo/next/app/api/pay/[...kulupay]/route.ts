@@ -11,6 +11,11 @@ const logHandler = (method: string) => async (request: Request) => {
   try {
     const res = await handler[method as keyof typeof handler](request);
     console.log(`[kulupay] ${method} ${url.pathname} → ${res.status}`);
+    if (res.status >= 400) {
+      const cloned = res.clone();
+      const body = await cloned.text();
+      console.error(`[kulupay] ${method} ${url.pathname} → BODY:`, body);
+    }
     return res;
   } catch (err) {
     console.error(`[kulupay] ${method} ${url.pathname} → ERROR:`, err);

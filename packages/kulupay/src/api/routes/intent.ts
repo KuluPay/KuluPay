@@ -43,24 +43,39 @@ export const createIntent = createKuluPayEndpoint(
                 logger.debug(`Found existing customer: ${customerId}`);
             } else {
                 logger.debug(`Creating new customer for user: ${session.user.id}`);
-                const customer = await provider.createCustomer({
-                    userId: session.user.id,
-                    providerId,
-                    email: (session.user as any).email,
-                    name: (session.user as any).name,
-                });
-                await orm.customer.create({
-                    data: {
-                        id: customer.id,
+                try {
+                    const customer = await provider.createCustomer({
                         userId: session.user.id,
                         providerId,
-                        providerCustomerId: customer.providerCustomerId,
-                        createdAt: customer.createdAt || new Date(),
-                        updatedAt: customer.updatedAt || new Date(),
-                    },
-                });
-                customerId = customer.providerCustomerId;
-                logger.debug(`Created new customer: ${customerId}`);
+                        email: (session.user as any).email,
+                        name: (session.user as any).name,
+                    });
+                    await orm.customer.create({
+                        data: {
+                            id: customer.id,
+                            userId: session.user.id,
+                            providerId,
+                            providerCustomerId: customer.providerCustomerId,
+                            createdAt: customer.createdAt || new Date(),
+                            updatedAt: customer.updatedAt || new Date(),
+                        },
+                    });
+                    customerId = customer.providerCustomerId;
+                    logger.debug(`Created new customer: ${customerId}`);
+                } catch (err: any) {
+                    if (err?.code === "UNIQUE_CONSTRAINT_VIOLATION" || err?.cause?.code === "23505") {
+                        logger.debug(`Customer already exists (unique constraint), fetching by userId`);
+                        const fallback = await orm.customer.findFirst({
+                            where: { userId: session.user.id },
+                        });
+                        if (fallback) {
+                            customerId = fallback.providerCustomerId;
+                            logger.debug(`Using existing customer: ${customerId}`);
+                        }
+                    } else {
+                        throw err;
+                    }
+                }
             }
         }
 

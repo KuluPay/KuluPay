@@ -121,6 +121,11 @@ export const stripe = (options: StripeOptions) => {
                         ],
                         customer: data.customerId,
                         metadata: data.metadata,
+                        submit_type: "pay",
+                        payment_intent_data: {
+                            description: data.description,
+                            statement_descriptor: "KULUPAY",
+                        },
                     });
 
                     return {
